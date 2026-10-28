@@ -47,14 +47,17 @@ jobs:
           cache: true
       - run: flutter pub get
       - run: dart run build_runner build --delete-conflicting-outputs
-      - run: flutter build apk --release
-      - run: cp build/app/outputs/flutter-apk/app-release.apk kipu-docente.apk
+      - run: flutter build apk --release --split-per-abi
       - name: Publicar APK en la versión "ultima"
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release delete ultima --yes --cleanup-tag || true
-          gh release create ultima kipu-docente.apk \
+          cd build/app/outputs/flutter-apk
+          cp app-arm64-v8a-release.apk kipu-docente.apk
+          cp app-armeabi-v7a-release.apk kipu-docente-celulares-antiguos.apk
+          gh release view ultima >/dev/null 2>&1 || gh release create ultima \
             --prerelease \
             --title "Kipu Docente (última versión de prueba)" \
-            --notes "APK de prueba generado automáticamente desde ${GITHUB_SHA::7}."
+            --notes "APK de prueba. Descarga kipu-docente.apk; si tu celular es muy antiguo y no instala, usa kipu-docente-celulares-antiguos.apk."
+          gh release upload ultima kipu-docente.apk kipu-docente-celulares-antiguos.apk --clobber
+          gh release edit ultima --notes "APK de prueba (versión ${GITHUB_SHA::7}). Descarga kipu-docente.apk; si tu celular es muy antiguo y no instala, usa kipu-docente-celulares-antiguos.apk."
