@@ -27,6 +27,14 @@ enum KipuIcono {
   ayuda,
   salir,
   ajustes,
+  cerrar,
+  check,
+  abajo,
+  flecha,
+  agregar,
+  borrar,
+  ordenar,
+  aviso,
 }
 
 // R = relleno suave, T = trazo. Ambos se reemplazan por el color al dibujar.
@@ -132,6 +140,25 @@ const _svg = <KipuIcono, String>{
 <path d="M4 8h9M17 8h3M4 16h3M11 16h9" stroke="T"/>
 <circle cx="15" cy="8" r="2" stroke="T"/>
 <circle cx="9" cy="16" r="2" stroke="T"/>''',
+  // Íconos de línea para controles (cerrar, elegir, desplegar, ir).
+  KipuIcono.cerrar: '''
+<path d="M6.5 6.5l11 11M17.5 6.5l-11 11" stroke="T"/>''',
+  KipuIcono.check: '''
+<path d="m5 12.5 4.5 4.5L19 7.5" stroke="T"/>''',
+  KipuIcono.abajo: '''
+<path d="m7 10 5 5 5-5" stroke="T"/>''',
+  KipuIcono.flecha: '''
+<path d="M5 12h14M13 6l6 6-6 6" stroke="T"/>''',
+  KipuIcono.agregar: '''
+<path d="M12 5v14M5 12h14" stroke="T"/>''',
+  KipuIcono.borrar: '''
+<path d="M6 7h12l-1 12.5a2 2 0 0 1-2 1.5H9a2 2 0 0 1-2-1.5L6 7Z" fill="R"/>
+<path d="M4 7h16M9.5 7V4.5h5V7M6 7l1 12.5a2 2 0 0 0 2 1.5h6a2 2 0 0 0 2-1.5L18 7M10 11v6M14 11v6" stroke="T"/>''',
+  KipuIcono.ordenar: '''
+<path d="M8 19V5M4.5 8.5 8 5l3.5 3.5M16 5v14M12.5 15.5 16 19l3.5-3.5" stroke="T"/>''',
+  KipuIcono.aviso: '''
+<path d="M10.3 4.2a2 2 0 0 1 3.4 0l7.5 13a2 2 0 0 1-1.7 3H4.5a2 2 0 0 1-1.7-3l7.5-13Z" fill="R"/>
+<path d="M10.3 4.2a2 2 0 0 1 3.4 0l7.5 13a2 2 0 0 1-1.7 3H4.5a2 2 0 0 1-1.7-3l7.5-13ZM12 9.5v4M12 16.8v.1" stroke="T"/>''',
 };
 
 String _hex(Color c) =>

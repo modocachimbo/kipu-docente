@@ -20,7 +20,8 @@ const grados = {
   'Secundaria': ['1.° año', '2.° año', '3.° año', '4.° año', '5.° año'],
 };
 
-const secciones = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'Única'];
+/// "Otro" deja escribir la sección (hay colegios con muchas secciones).
+const secciones = ['Única', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'Otro'];
 
 /// Áreas curriculares del Currículo Nacional (CNEB) por nivel. "Otro" permite
 /// escribir un área propia (otro país o un área del colegio).
@@ -311,14 +312,11 @@ class _BotonFlotante extends StatelessWidget {
         FloatingActionButton.extended(
           onPressed: onPrincipal,
           backgroundColor: editando ? const Color(0xFF16A37F) : null,
-          icon: AnimatedRotation(
-            turns: abierto ? .125 : 0,
-            duration: const Duration(milliseconds: 200),
-            child: Icon(
-              editando
-                  ? Icons.check
-                  : (abierto ? Icons.add : Icons.edit_outlined),
-            ),
+          icon: KipuIcon(
+            editando
+                ? KipuIcono.check
+                : (abierto ? KipuIcono.cerrar : KipuIcono.editar),
+            color: Colors.white,
           ),
           label: Text(editando ? 'Listo' : (abierto ? 'Cerrar' : 'Editar')),
         ),
@@ -420,7 +418,7 @@ class _AvisoEdicion extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.edit_outlined, color: KipuColores.moradoOscuro, size: 20),
+          KipuIcon(KipuIcono.editar, color: KipuColores.moradoOscuro, size: 20),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -453,8 +451,8 @@ class _Vacio extends StatelessWidget {
                 color: KipuColores.moradoClaro,
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                Icons.account_balance,
+              child: KipuIcon(
+                KipuIcono.colegio,
                 size: 40,
                 color: KipuColores.morado,
               ),
@@ -473,7 +471,7 @@ class _Vacio extends StatelessWidget {
             const SizedBox(height: 20),
             FilledButton.icon(
               onPressed: onCrear,
-              icon: const Icon(Icons.add),
+              icon: const KipuIcon(KipuIcono.agregar, color: Colors.white),
               label: const Text('Crear colegio'),
             ),
           ],
@@ -558,7 +556,11 @@ class _PestanasColegios extends StatelessWidget {
                     ),
                   ),
                   onPressed: () => crearColegio(context),
-                  icon: const Icon(Icons.add, size: 18),
+                  icon: KipuIcon(
+                    KipuIcono.agregar,
+                    size: 18,
+                    color: KipuColores.morado,
+                  ),
                   label: const Text('Colegio'),
                 ),
               ),
@@ -697,7 +699,11 @@ class _BotonOrdenar extends StatelessWidget {
                   ),
                 ),
                 if (e.key == orden)
-                  Icon(Icons.check, size: 18, color: KipuColores.morado),
+                  KipuIcon(
+                    KipuIcono.check,
+                    size: 18,
+                    color: KipuColores.morado,
+                  ),
               ],
             ),
           ),
@@ -712,7 +718,11 @@ class _BotonOrdenar extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.swap_vert, size: 18, color: KipuColores.moradoOscuro),
+            KipuIcon(
+              KipuIcono.ordenar,
+              size: 18,
+              color: KipuColores.moradoOscuro,
+            ),
             const SizedBox(width: 4),
             Text(
               corto
@@ -792,10 +802,7 @@ class _BannerColegio extends StatelessWidget {
                         ),
                       ),
                       if (onCambiar != null)
-                        const Icon(
-                          Icons.keyboard_arrow_down,
-                          color: Colors.white,
-                        ),
+                        const KipuIcon(KipuIcono.abajo, color: Colors.white),
                     ],
                   ),
                 ),
@@ -833,12 +840,12 @@ class _BannerColegio extends StatelessWidget {
               }
             },
             itemBuilder: (_) => [
-              _item('editar', Icons.edit_outlined, 'Editar nombre'),
-              _item('curso', Icons.add, 'Agregar curso'),
+              _item('editar', KipuIcono.editar, 'Editar nombre'),
+              _item('curso', KipuIcono.agregar, 'Agregar curso'),
               const PopupMenuDivider(),
               _item(
                 'borrar',
-                Icons.delete_outline,
+                KipuIcono.borrar,
                 'Eliminar colegio',
                 color: const Color(0xFFE5566B),
               ),
@@ -851,14 +858,14 @@ class _BannerColegio extends StatelessWidget {
 
   PopupMenuItem<String> _item(
     String valor,
-    IconData icono,
+    KipuIcono icono,
     String texto, {
     Color? color,
   }) => PopupMenuItem(
     value: valor,
     child: Row(
       children: [
-        Icon(icono, size: 20, color: color ?? KipuColores.morado),
+        KipuIcon(icono, size: 20, color: color ?? KipuColores.morado),
         const SizedBox(width: 12),
         Text(texto, style: TextStyle(color: color)),
       ],
@@ -910,7 +917,7 @@ Future<bool> _confirmarBorrarColegio(
       builder: (ctx, setState) {
         final listo = texto.text.trim().toUpperCase() == 'BORRAR';
         return AlertDialog(
-          icon: const Icon(Icons.warning_amber_rounded, color: rojo, size: 40),
+          icon: const KipuIcon(KipuIcono.aviso, color: rojo, size: 40),
           title: Text('¿Eliminar ${colegio.nombre}?'),
           content: SizedBox(
             width: 380,
@@ -1153,7 +1160,7 @@ class _SinCursos extends StatelessWidget {
       ),
       TextButton.icon(
         onPressed: onAgregar,
-        icon: const Icon(Icons.add, size: 18),
+        icon: KipuIcon(KipuIcono.agregar, size: 18, color: KipuColores.morado),
         label: const Text('Agregar curso'),
       ),
     ],
@@ -1194,7 +1201,11 @@ class _AgregarCurso extends StatelessWidget {
                     color: KipuColores.morado,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.add, color: Colors.white, size: 20),
+                  child: const KipuIcon(
+                    KipuIcono.agregar,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -1309,8 +1320,8 @@ class TarjetaCurso extends StatelessWidget {
                       color: tono,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(
-                      Icons.arrow_forward,
+                    child: const KipuIcon(
+                      KipuIcono.flecha,
                       color: Colors.white,
                       size: 18,
                     ),
@@ -1378,7 +1389,11 @@ class TarjetaCurso extends StatelessWidget {
               },
               child: const Padding(
                 padding: EdgeInsets.all(5),
-                child: Icon(Icons.close, color: Colors.white, size: 16),
+                child: KipuIcon(
+                  KipuIcono.cerrar,
+                  color: Colors.white,
+                  size: 16,
+                ),
               ),
             ),
           ),
@@ -1527,7 +1542,11 @@ class _Ventana extends StatelessWidget {
                         color: Colors.white.withValues(alpha: .6),
                       ),
                     ),
-                    icon: const Icon(Icons.close, color: Colors.white),
+                    icon: const KipuIcon(
+                      KipuIcono.cerrar,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
                 ],
               ),
@@ -1544,6 +1563,12 @@ class _Ventana extends StatelessWidget {
     );
   }
 }
+
+const _flechaLista = KipuIcon(
+  KipuIcono.abajo,
+  size: 20,
+  color: KipuColores.gris,
+);
 
 /// Etiqueta encima del campo, como en la maqueta.
 class _Campo extends StatelessWidget {
@@ -1663,7 +1688,10 @@ Future<void> _formColegio(BuildContext context, {Colegio? colegio}) async {
                               ),
                             ),
                             child: c == color
-                                ? const Icon(Icons.check, color: Colors.white)
+                                ? const KipuIcon(
+                                    KipuIcono.check,
+                                    color: Colors.white,
+                                  )
                                 : null,
                           ),
                         ),
@@ -1736,6 +1764,7 @@ class _FormCursoState extends State<_FormCurso> {
   String? _seccion;
   String? _area;
   final _otraArea = TextEditingController();
+  final _otraSeccion = TextEditingController();
   final _nombre = TextEditingController();
 
   bool get _esOtra => _area == areaOtra;
@@ -1743,13 +1772,16 @@ class _FormCursoState extends State<_FormCurso> {
   Future<void> _guardar() async {
     if (!_form.currentState!.validate()) return;
     final area = _esOtra ? _otraArea.text.trim() : _area!;
+    final seccion = _seccion == 'Otro'
+        ? _otraSeccion.text.trim().toUpperCase()
+        : _seccion!;
     final nombre = _nombre.text.trim().isEmpty ? area : _nombre.text.trim();
     await db.crearCurso(
       CursosCompanion.insert(
         colegioId: _colegio,
         nivel: _nivel!,
         grado: _grado!,
-        seccion: _seccion!,
+        seccion: seccion,
         nombre: nombre,
         area: Value(area),
       ),
@@ -1776,6 +1808,7 @@ class _FormCursoState extends State<_FormCurso> {
                 DropdownButtonFormField<int>(
                   initialValue: _colegio,
                   isExpanded: true,
+                  icon: _flechaLista,
                   items: [
                     for (final c in widget.colegios)
                       DropdownMenuItem(value: c.id, child: Text(c.nombre)),
@@ -1792,6 +1825,7 @@ class _FormCursoState extends State<_FormCurso> {
                     DropdownButtonFormField<String>(
                       initialValue: _nivel,
                       isExpanded: true,
+                      icon: _flechaLista,
                       hint: const Text('Selecciona'),
                       items: [
                         for (final n in grados.keys)
@@ -1818,6 +1852,7 @@ class _FormCursoState extends State<_FormCurso> {
                       key: ValueKey(_nivel),
                       initialValue: _grado,
                       isExpanded: true,
+                      icon: _flechaLista,
                       hint: const Text('Selecciona'),
                       items: [
                         for (final g in grados[_nivel] ?? const <String>[])
@@ -1867,12 +1902,25 @@ class _FormCursoState extends State<_FormCurso> {
                 ),
               ),
             ),
+            if (_seccion == 'Otro')
+              _Campo(
+                'Escribe la sección',
+                TextFormField(
+                  controller: _otraSeccion,
+                  autofocus: true,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: const InputDecoration(hintText: 'Ej. H, M, 12'),
+                  validator: (v) =>
+                      (v ?? '').trim().isEmpty ? 'Escribe la sección' : null,
+                ),
+              ),
             _Campo(
               'Área curricular',
               DropdownButtonFormField<String>(
                 key: ValueKey('area-$_nivel'),
                 initialValue: _area,
                 isExpanded: true,
+                icon: _flechaLista,
                 hint: Text(
                   _nivel == null ? 'Primero elige el nivel' : 'Selecciona',
                 ),
