@@ -20,20 +20,27 @@ class Proximamente extends StatelessWidget {
             children: [
               Container(
                 padding: const EdgeInsets.all(22),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: KipuColores.moradoClaro,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.construction,
-                    size: 40, color: KipuColores.morado),
+                child: Icon(
+                  Icons.construction,
+                  size: 40,
+                  color: KipuColores.morado,
+                ),
               ),
               const SizedBox(height: 18),
-              const Text('En construcción',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+              const Text(
+                'En construcción',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              ),
               const SizedBox(height: 6),
-              Text(descripcion,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: KipuColores.gris)),
+              Text(
+                descripcion,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: KipuColores.gris),
+              ),
             ],
           ),
         ),

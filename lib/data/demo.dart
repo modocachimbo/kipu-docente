@@ -24,19 +24,67 @@ Future<void> cargarDatosDeEjemplo(KipuDb db) async {
     ('Elite School', 'Secundaria', '5.° año', 'B', 'Química'),
     ('I.E. Nikola Tesla', 'Secundaria', '5.° año', 'A', 'Biología'),
     ('I.E. Nikola Tesla', 'Secundaria', '3.° año', 'B', 'Química'),
-    ('I.E. José Carlos Mariátegui', 'Primaria', '5.° grado', 'C', 'Ciencia y Tecnología'),
+    (
+      'I.E. José Carlos Mariátegui',
+      'Primaria',
+      '5.° grado',
+      'C',
+      'Ciencia y Tecnología',
+    ),
   ];
   const apellidos = [
-    'QUISPE', 'MAMANI', 'FLORES', 'RODRÍGUEZ', 'SÁNCHEZ', 'GARCÍA', 'ROJAS',
-    'HUAMÁN', 'CHÁVEZ', 'RAMOS', 'TORRES', 'DÍAZ', 'MENDOZA', 'CASTILLO',
-    'VARGAS', 'ESPINOZA', 'RIVERA', 'FERNÁNDEZ', 'TREBEJO', 'HUSUPOMA',
-    'DE LA CRUZ', 'PAREDES', 'CÓRDOVA', 'SALAZAR', 'VILLANUEVA', 'PALOMINO',
+    'QUISPE',
+    'MAMANI',
+    'FLORES',
+    'RODRÍGUEZ',
+    'SÁNCHEZ',
+    'GARCÍA',
+    'ROJAS',
+    'HUAMÁN',
+    'CHÁVEZ',
+    'RAMOS',
+    'TORRES',
+    'DÍAZ',
+    'MENDOZA',
+    'CASTILLO',
+    'VARGAS',
+    'ESPINOZA',
+    'RIVERA',
+    'FERNÁNDEZ',
+    'TREBEJO',
+    'HUSUPOMA',
+    'DE LA CRUZ',
+    'PAREDES',
+    'CÓRDOVA',
+    'SALAZAR',
+    'VILLANUEVA',
+    'PALOMINO',
   ];
   const nombres = [
-    'Luz Angélica', 'Luna', 'Fernanda', 'Mateo', 'Thiago', 'Valentina',
-    'Camila', 'Sebastián', 'Adrián', 'Lucía', 'Ximena', 'Diego', 'Gael',
-    'Mía', 'Rodrigo', 'Alessandra', 'Joaquín', 'Daniela', 'Santiago', 'Ariana',
-    'Fabricio', 'Nicole', 'Leonardo', 'Brenda',
+    'Luz Angélica',
+    'Luna',
+    'Fernanda',
+    'Mateo',
+    'Thiago',
+    'Valentina',
+    'Camila',
+    'Sebastián',
+    'Adrián',
+    'Lucía',
+    'Ximena',
+    'Diego',
+    'Gael',
+    'Mía',
+    'Rodrigo',
+    'Alessandra',
+    'Joaquín',
+    'Daniela',
+    'Santiago',
+    'Ariana',
+    'Fabricio',
+    'Nicole',
+    'Leonardo',
+    'Brenda',
   ];
   const competencias = [
     'Indaga mediante métodos científicos',
@@ -60,11 +108,22 @@ Future<void> cargarDatosDeEjemplo(KipuDb db) async {
 
   // Horario semanal: (curso, día, inicio, fin)
   const bloques = [
-    (0, 1, '07:50', '09:20'), (1, 1, '09:35', '11:05'), (2, 1, '11:20', '12:50'),
-    (3, 2, '07:50', '09:20'), (4, 2, '09:35', '11:05'), (5, 2, '13:00', '14:30'),
-    (0, 3, '07:50', '09:20'), (2, 3, '09:35', '11:05'), (1, 3, '11:20', '12:50'), (3, 3, '13:00', '14:30'),
-    (4, 4, '07:50', '09:20'), (5, 4, '09:35', '11:05'), (0, 4, '11:20', '12:50'),
-    (1, 5, '07:50', '09:20'), (2, 5, '09:35', '11:05'), (3, 5, '11:20', '12:50'),
+    (0, 1, '07:50', '09:20'),
+    (1, 1, '09:35', '11:05'),
+    (2, 1, '11:20', '12:50'),
+    (3, 2, '07:50', '09:20'),
+    (4, 2, '09:35', '11:05'),
+    (5, 2, '13:00', '14:30'),
+    (0, 3, '07:50', '09:20'),
+    (2, 3, '09:35', '11:05'),
+    (1, 3, '11:20', '12:50'),
+    (3, 3, '13:00', '14:30'),
+    (4, 4, '07:50', '09:20'),
+    (5, 4, '09:35', '11:05'),
+    (0, 4, '11:20', '12:50'),
+    (1, 5, '07:50', '09:20'),
+    (2, 5, '09:35', '11:05'),
+    (3, 5, '11:20', '12:50'),
   ];
   final idCursos = <int>[];
 
@@ -75,18 +134,22 @@ Future<void> cargarDatosDeEjemplo(KipuDb db) async {
       idColegio[c.key] = await db.crearColegio(c.key, c.value);
     }
     for (final c in cursos) {
-      final cursoId = await db.crearCurso(CursosCompanion.insert(
-        colegioId: idColegio[c.$1]!,
-        nivel: c.$2,
-        grado: c.$3,
-        seccion: c.$4,
-        nombre: c.$5,
-        area: const Value('Ciencia y Tecnología'),
-      ));
+      final cursoId = await db.crearCurso(
+        CursosCompanion.insert(
+          colegioId: idColegio[c.$1]!,
+          nivel: c.$2,
+          grado: c.$3,
+          seccion: c.$4,
+          nombre: c.$5,
+          area: const Value('Ciencia y Tecnología'),
+        ),
+      );
       idCursos.add(cursoId);
       final cantidad = 22 + azar.nextInt(10);
       for (var i = 0; i < cantidad; i++) {
-        final id = await db.into(db.estudiantes).insert(
+        final id = await db
+            .into(db.estudiantes)
+            .insert(
               EstudiantesCompanion.insert(
                 cursoId: cursoId,
                 apellidos: '${elegir(apellidos)} ${elegir(apellidos)}',
@@ -102,10 +165,11 @@ Future<void> cargarDatosDeEjemplo(KipuDb db) async {
               b.insert(
                 db.notas,
                 NotasCompanion.insert(
-                    estudianteId: id,
-                    periodo: p,
-                    competencia: comp,
-                    nota: nota(nivel)),
+                  estudianteId: id,
+                  periodo: p,
+                  competencia: comp,
+                  nota: nota(nivel),
+                ),
               );
             }
           }
@@ -116,7 +180,9 @@ Future<void> cargarDatosDeEjemplo(KipuDb db) async {
               AsistenciasCompanion.insert(
                 estudianteId: id,
                 fecha: fecha(d),
-                estado: r < 0.86 ? 'P' : (r < 0.93 ? 'T' : (r < 0.97 ? 'F' : 'J')),
+                estado: r < 0.86
+                    ? 'P'
+                    : (r < 0.93 ? 'T' : (r < 0.97 ? 'F' : 'J')),
               ),
             );
           }
@@ -124,53 +190,68 @@ Future<void> cargarDatosDeEjemplo(KipuDb db) async {
       }
     }
 
-    await db.batch((b) => b.insertAll(db.horarios, [
-          for (final (curso, dia, inicio, fin) in bloques)
-            HorariosCompanion.insert(
-                cursoId: idCursos[curso], dia: dia, inicio: inicio, fin: fin),
-        ]));
+    await db.batch(
+      (b) => b.insertAll(db.horarios, [
+        for (final (curso, dia, inicio, fin) in bloques)
+          HorariosCompanion.insert(
+            cursoId: idCursos[curso],
+            dia: dia,
+            inicio: inicio,
+            fin: fin,
+          ),
+      ]),
+    );
 
     final eventos = <EventosCompanion>[
       EventosCompanion.insert(
-          fecha: fecha(hoy),
-          hora: const Value('08:00'),
-          titulo: 'Entrega de libretas',
-          etiqueta: const Value('5.° B · Química')),
+        fecha: fecha(hoy),
+        hora: const Value('08:00'),
+        titulo: 'Entrega de libretas',
+        etiqueta: const Value('5.° B · Química'),
+      ),
       EventosCompanion.insert(
-          fecha: fecha(hoy),
-          hora: const Value('12:00'),
-          titulo: 'Entrega de carpeta pedagógica a dirección',
-          etiqueta: const Value('Elite School')),
+        fecha: fecha(hoy),
+        hora: const Value('12:00'),
+        titulo: 'Entrega de carpeta pedagógica a dirección',
+        etiqueta: const Value('Elite School'),
+      ),
       EventosCompanion.insert(
-          fecha: fecha(hoy),
-          hora: const Value('15:30'),
-          titulo: 'Simulacro de evaluación',
-          etiqueta: const Value('1.° a 5.° · Nikola Tesla')),
+        fecha: fecha(hoy),
+        hora: const Value('15:30'),
+        titulo: 'Simulacro de evaluación',
+        etiqueta: const Value('1.° a 5.° · Nikola Tesla'),
+      ),
       EventosCompanion.insert(
-          fecha: fecha(hoy.add(const Duration(days: 1))),
-          hora: const Value('18:00'),
-          titulo: 'Reunión con padres de familia',
-          etiqueta: const Value('4.° C · Física')),
+        fecha: fecha(hoy.add(const Duration(days: 1))),
+        hora: const Value('18:00'),
+        titulo: 'Reunión con padres de familia',
+        etiqueta: const Value('4.° C · Física'),
+      ),
       EventosCompanion.insert(
-          fecha: fecha(hoy.add(const Duration(days: 3))),
-          titulo: 'Feria de ciencias',
-          etiqueta: const Value('Elite School')),
+        fecha: fecha(hoy.add(const Duration(days: 3))),
+        titulo: 'Feria de ciencias',
+        etiqueta: const Value('Elite School'),
+      ),
       EventosCompanion.insert(
-          fecha: fecha(hoy.add(const Duration(days: 5))),
-          hora: const Value('10:00'),
-          titulo: 'Cierre de registro del bimestre'),
+        fecha: fecha(hoy.add(const Duration(days: 5))),
+        hora: const Value('10:00'),
+        titulo: 'Cierre de registro del bimestre',
+      ),
     ];
     // Cumpleaños de algunos estudiantes.
     final cumpleaneros = await (db.select(db.estudiantes)..limit(4)).get();
     for (var i = 0; i < cumpleaneros.length; i++) {
       final e = cumpleaneros[i];
       final c = cursos[0];
-      eventos.add(EventosCompanion.insert(
-        fecha: fecha(hoy.add(Duration(days: i < 2 ? 0 : i))),
-        titulo: '${e.apellidos.split(' ').first} ${e.nombres.split(' ').first}',
-        etiqueta: Value('${c.$3} ${c.$4} · ${c.$1}'),
-        tipo: const Value('cumple'),
-      ));
+      eventos.add(
+        EventosCompanion.insert(
+          fecha: fecha(hoy.add(Duration(days: i < 2 ? 0 : i))),
+          titulo:
+              '${e.apellidos.split(' ').first} ${e.nombres.split(' ').first}',
+          etiqueta: Value('${c.$3} ${c.$4} · ${c.$1}'),
+          tipo: const Value('cumple'),
+        ),
+      );
     }
     await db.batch((b) => b.insertAll(db.eventos, eventos));
   });

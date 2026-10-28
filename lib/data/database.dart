@@ -71,7 +71,8 @@ class Eventos extends Table {
   TextColumn get hora => text().nullable()(); // null = todo el día
   TextColumn get titulo => text()();
   TextColumn get etiqueta => text().nullable()();
-  TextColumn get tipo => text().withDefault(const Constant('tarea'))(); // tarea, cumple
+  TextColumn get tipo =>
+      text().withDefault(const Constant('tarea'))(); // tarea, cumple
 }
 
 /// Bloques del horario semanal: un curso en un día y rango de horas.
@@ -91,7 +92,18 @@ class CursoConColegio {
   CursoConColegio(this.curso, this.colegio, this.totalEstudiantes);
 }
 
-@DriftDatabase(tables: [Ajustes, Colegios, Cursos, Estudiantes, Asistencias, Notas, Eventos, Horarios])
+@DriftDatabase(
+  tables: [
+    Ajustes,
+    Colegios,
+    Cursos,
+    Estudiantes,
+    Asistencias,
+    Notas,
+    Eventos,
+    Horarios,
+  ],
+)
 class KipuDb extends _$KipuDb {
   KipuDb([QueryExecutor? executor]) : super(executor ?? _abrir());
 
@@ -100,42 +112,41 @@ class KipuDb extends _$KipuDb {
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onUpgrade: (m, from, to) async {
-          if (from < 2) await m.createTable(asistencias);
-          if (from < 3) {
-            await m.createTable(notas);
-            await m.createTable(eventos);
-          }
-          if (from < 4) await m.createTable(horarios);
-        },
-        beforeOpen: (details) async {
-          await customStatement('PRAGMA foreign_keys = ON');
-        },
-      );
+    onUpgrade: (m, from, to) async {
+      if (from < 2) await m.createTable(asistencias);
+      if (from < 3) {
+        await m.createTable(notas);
+        await m.createTable(eventos);
+      }
+      if (from < 4) await m.createTable(horarios);
+    },
+    beforeOpen: (details) async {
+      await customStatement('PRAGMA foreign_keys = ON');
+    },
+  );
 
   static QueryExecutor _abrir() => driftDatabase(
-        name: 'kipu',
-        web: DriftWebOptions(
-          sqlite3Wasm: Uri.parse('sqlite3.wasm'),
-          driftWorker: Uri.parse('drift_worker.js'),
-        ),
-      );
+    name: 'kipu',
+    web: DriftWebOptions(
+      sqlite3Wasm: Uri.parse('sqlite3.wasm'),
+      driftWorker: Uri.parse('drift_worker.js'),
+    ),
+  );
 
   // Ajustes
 
-  Stream<String?> verAjuste(String clave) => (select(ajustes)
-        ..where((a) => a.clave.equals(clave)))
-      .watchSingleOrNull()
-      .map((a) => a?.valor);
+  Stream<String?> verAjuste(String clave) =>
+      (select(ajustes)..where((a) => a.clave.equals(clave)))
+          .watchSingleOrNull()
+          .map((a) => a?.valor);
 
-  Future<String?> leerAjuste(String clave) async => (await (select(ajustes)
-            ..where((a) => a.clave.equals(clave)))
-          .getSingleOrNull())
-      ?.valor;
+  Future<String?> leerAjuste(String clave) async => (await (select(
+    ajustes,
+  )..where((a) => a.clave.equals(clave))).getSingleOrNull())?.valor;
 
-  Future<void> guardarAjuste(String clave, String valor) =>
-      into(ajustes).insertOnConflictUpdate(
-          AjustesCompanion.insert(clave: clave, valor: valor));
+  Future<void> guardarAjuste(String clave, String valor) => into(
+    ajustes,
+  ).insertOnConflictUpdate(AjustesCompanion.insert(clave: clave, valor: valor));
 
   // Colegios
 
@@ -145,6 +156,11 @@ class KipuDb extends _$KipuDb {
   Future<int> crearColegio(String nombre, String? lugar) => into(colegios)
       .insert(ColegiosCompanion.insert(nombre: nombre, lugar: Value(lugar)));
 
+  Future<void> editarColegio(int id, String nombre, String? lugar) =>
+      (update(colegios)..where((c) => c.id.equals(id))).write(
+        ColegiosCompanion(nombre: Value(nombre), lugar: Value(lugar)),
+      );
+
   Future<void> borrarColegio(int id) =>
       (delete(colegios)..where((c) => c.id.equals(id))).go();
 
@@ -152,22 +168,33 @@ class KipuDb extends _$KipuDb {
 
   Stream<List<CursoConColegio>> verCursos() {
     final total = estudiantes.id.count();
-    final q = select(cursos).join([
-      innerJoin(colegios, colegios.id.equalsExp(cursos.colegioId)),
-      leftOuterJoin(estudiantes, estudiantes.cursoId.equalsExp(cursos.id)),
-    ])
-      ..addColumns([total])
-      ..groupBy([cursos.id])
-      ..orderBy([
-        OrderingTerm.asc(colegios.nombre),
-        OrderingTerm.asc(cursos.nivel),
-        OrderingTerm.asc(cursos.grado),
-        OrderingTerm.asc(cursos.seccion),
-      ]);
-    return q.watch().map((filas) => filas
-        .map((f) => CursoConColegio(
-            f.readTable(cursos), f.readTable(colegios), f.read(total) ?? 0))
-        .toList());
+    final q =
+        select(cursos).join([
+            innerJoin(colegios, colegios.id.equalsExp(cursos.colegioId)),
+            leftOuterJoin(
+              estudiantes,
+              estudiantes.cursoId.equalsExp(cursos.id),
+            ),
+          ])
+          ..addColumns([total])
+          ..groupBy([cursos.id])
+          ..orderBy([
+            OrderingTerm.asc(colegios.nombre),
+            OrderingTerm.asc(cursos.nivel),
+            OrderingTerm.asc(cursos.grado),
+            OrderingTerm.asc(cursos.seccion),
+          ]);
+    return q.watch().map(
+      (filas) => filas
+          .map(
+            (f) => CursoConColegio(
+              f.readTable(cursos),
+              f.readTable(colegios),
+              f.read(total) ?? 0,
+            ),
+          )
+          .toList(),
+    );
   }
 
   Future<int> crearCurso(CursosCompanion c) => into(cursos).insert(c);
@@ -177,13 +204,14 @@ class KipuDb extends _$KipuDb {
 
   // Estudiantes
 
-  Stream<List<Estudiante>> verEstudiantes(int cursoId) => (select(estudiantes)
-        ..where((e) => e.cursoId.equals(cursoId))
-        ..orderBy([
-          (e) => OrderingTerm.asc(e.apellidos),
-          (e) => OrderingTerm.asc(e.nombres),
-        ]))
-      .watch();
+  Stream<List<Estudiante>> verEstudiantes(int cursoId) =>
+      (select(estudiantes)
+            ..where((e) => e.cursoId.equals(cursoId))
+            ..orderBy([
+              (e) => OrderingTerm.asc(e.apellidos),
+              (e) => OrderingTerm.asc(e.nombres),
+            ]))
+          .watch();
 
   Future<int> guardarEstudiante(EstudiantesCompanion e) =>
       into(estudiantes).insertOnConflictUpdate(e);
@@ -195,63 +223,95 @@ class KipuDb extends _$KipuDb {
 
   /// Estado de cada estudiante del curso en la fecha dada (null si no se marcó).
   Stream<Map<int, String>> verAsistencia(int cursoId, String fecha) {
-    final q = select(asistencias).join([
-      innerJoin(estudiantes, estudiantes.id.equalsExp(asistencias.estudianteId)),
-    ])
-      ..where(estudiantes.cursoId.equals(cursoId) &
-          asistencias.fecha.equals(fecha));
-    return q.watch().map((filas) => {
-          for (final f in filas)
-            f.readTable(asistencias).estudianteId: f.readTable(asistencias).estado
-        });
+    final q =
+        select(asistencias).join([
+          innerJoin(
+            estudiantes,
+            estudiantes.id.equalsExp(asistencias.estudianteId),
+          ),
+        ])..where(
+          estudiantes.cursoId.equals(cursoId) & asistencias.fecha.equals(fecha),
+        );
+    return q.watch().map(
+      (filas) => {
+        for (final f in filas)
+          f.readTable(asistencias).estudianteId: f
+              .readTable(asistencias)
+              .estado,
+      },
+    );
   }
 
-  Future<void> marcarAsistencia(int estudianteId, String fecha, String? estado) {
+  Future<void> marcarAsistencia(
+    int estudianteId,
+    String fecha,
+    String? estado,
+  ) {
     if (estado == null) {
-      return (delete(asistencias)
-            ..where((a) =>
-                a.estudianteId.equals(estudianteId) & a.fecha.equals(fecha)))
+      return (delete(asistencias)..where(
+            (a) => a.estudianteId.equals(estudianteId) & a.fecha.equals(fecha),
+          ))
           .go();
     }
-    return into(asistencias).insertOnConflictUpdate(AsistenciasCompanion.insert(
-        estudianteId: estudianteId, fecha: fecha, estado: estado));
+    return into(asistencias).insertOnConflictUpdate(
+      AsistenciasCompanion.insert(
+        estudianteId: estudianteId,
+        fecha: fecha,
+        estado: estado,
+      ),
+    );
   }
 
-  Future<void> marcarTodos(List<int> estudianteIds, String fecha, String estado) =>
-      batch((b) => b.insertAllOnConflictUpdate(asistencias, [
-            for (final id in estudianteIds)
-              AsistenciasCompanion.insert(
-                  estudianteId: id, fecha: fecha, estado: estado),
-          ]));
+  Future<void> marcarTodos(
+    List<int> estudianteIds,
+    String fecha,
+    String estado,
+  ) => batch(
+    (b) => b.insertAllOnConflictUpdate(asistencias, [
+      for (final id in estudianteIds)
+        AsistenciasCompanion.insert(
+          estudianteId: id,
+          fecha: fecha,
+          estado: estado,
+        ),
+    ]),
+  );
 
   // Notas y estadística
 
   /// Cantidad de calificaciones por nivel de logro, opcionalmente de un curso.
   Stream<Map<String, int>> verNiveles({int? cursoId, int? periodo}) {
     final total = notas.id.count();
-    final q = selectOnly(notas).join([
-      innerJoin(estudiantes, estudiantes.id.equalsExp(notas.estudianteId)),
-    ])
-      ..addColumns([notas.nota, total])
-      ..groupBy([notas.nota]);
+    final q =
+        selectOnly(notas).join([
+            innerJoin(
+              estudiantes,
+              estudiantes.id.equalsExp(notas.estudianteId),
+            ),
+          ])
+          ..addColumns([notas.nota, total])
+          ..groupBy([notas.nota]);
     if (cursoId != null) q.where(estudiantes.cursoId.equals(cursoId));
     if (periodo != null) q.where(notas.periodo.equals(periodo));
-    return q.watch().map((filas) => {
-          for (final f in filas) f.read(notas.nota)!: f.read(total) ?? 0
-        });
+    return q.watch().map(
+      (filas) => {
+        for (final f in filas) f.read(notas.nota)!: f.read(total) ?? 0,
+      },
+    );
   }
 
   /// Estudiante con más AD (para "Destacado del periodo").
   Stream<(Estudiante, CursoConColegio?)?> verDestacado() {
     final ads = notas.id.count();
-    final q = select(estudiantes).join([
-      innerJoin(notas, notas.estudianteId.equalsExp(estudiantes.id)),
-    ])
-      ..where(notas.nota.equals('AD'))
-      ..addColumns([ads])
-      ..groupBy([estudiantes.id])
-      ..orderBy([OrderingTerm.desc(ads)])
-      ..limit(1);
+    final q =
+        select(estudiantes).join([
+            innerJoin(notas, notas.estudianteId.equalsExp(estudiantes.id)),
+          ])
+          ..where(notas.nota.equals('AD'))
+          ..addColumns([ads])
+          ..groupBy([estudiantes.id])
+          ..orderBy([OrderingTerm.desc(ads)])
+          ..limit(1);
     return q.watchSingleOrNull().asyncMap((f) async {
       if (f == null) return null;
       final e = f.readTable(estudiantes);
@@ -262,8 +322,10 @@ class KipuDb extends _$KipuDb {
   }
 
   /// Estudiantes con más calificaciones en C y más faltas.
-  Stream<List<({Estudiante estudiante, CursoConColegio? curso, int c, int faltas})>>
-      verNecesitanApoyo({int limite = 4}) {
+  Stream<
+    List<({Estudiante estudiante, CursoConColegio? curso, int c, int faltas})>
+  >
+  verNecesitanApoyo({int limite = 4}) {
     final q = customSelect(
       'SELECT e.id, '
       '(SELECT COUNT(*) FROM notas n WHERE n.estudiante_id = e.id AND n.nota = \'C\') AS c, '
@@ -275,13 +337,16 @@ class KipuDb extends _$KipuDb {
     );
     return q.watch().asyncMap((filas) async {
       final cursos = await verCursos().first;
-      final lista = <({Estudiante estudiante, CursoConColegio? curso, int c, int faltas})>[];
+      final lista =
+          <
+            ({Estudiante estudiante, CursoConColegio? curso, int c, int faltas})
+          >[];
       for (final f in filas) {
         final c = f.read<int>('c'), faltas = f.read<int>('f');
         if (c + faltas == 0) continue;
-        final e = await (select(estudiantes)
-              ..where((x) => x.id.equals(f.read<int>('id'))))
-            .getSingle();
+        final e = await (select(
+          estudiantes,
+        )..where((x) => x.id.equals(f.read<int>('id')))).getSingle();
         lista.add((
           estudiante: e,
           curso: cursos.where((x) => x.curso.id == e.cursoId).firstOrNull,
@@ -295,7 +360,9 @@ class KipuDb extends _$KipuDb {
 
   /// Conteo de estados de asistencia por fecha entre dos días.
   Stream<Map<String, Map<String, int>>> verAsistenciaRango(
-      String desde, String hasta) {
+    String desde,
+    String hasta,
+  ) {
     final total = asistencias.estudianteId.count();
     final q = selectOnly(asistencias)
       ..addColumns([asistencias.fecha, asistencias.estado, total])
@@ -320,20 +387,21 @@ class KipuDb extends _$KipuDb {
             ..orderBy([(h) => OrderingTerm.asc(h.inicio)]))
           .watch()
           .asyncMap((lista) async {
-        final cursos = await verCursos().first;
-        return [
-          for (final h in lista)
-            for (final c in cursos.where((c) => c.curso.id == h.cursoId))
-              (h, c)
-        ];
-      });
+            final cursos = await verCursos().first;
+            return [
+              for (final h in lista)
+                for (final c in cursos.where((c) => c.curso.id == h.cursoId))
+                  (h, c),
+            ];
+          });
 
   // Eventos
 
-  Stream<List<Evento>> verEventos(String fecha) => (select(eventos)
-        ..where((e) => e.fecha.equals(fecha))
-        ..orderBy([(e) => OrderingTerm.asc(e.hora)]))
-      .watch();
+  Stream<List<Evento>> verEventos(String fecha) =>
+      (select(eventos)
+            ..where((e) => e.fecha.equals(fecha))
+            ..orderBy([(e) => OrderingTerm.asc(e.hora)]))
+          .watch();
 
   Stream<Set<String>> verFechasConEventos(String desde, String hasta) =>
       (selectOnly(eventos, distinct: true)
@@ -345,30 +413,32 @@ class KipuDb extends _$KipuDb {
   // Búsqueda
 
   Future<List<(Estudiante, CursoConColegio?)>> buscarEstudiantes(
-      String texto) async {
+    String texto,
+  ) async {
     final t = '%${texto.trim()}%';
-    final lista = await (select(estudiantes)
-          ..where((e) => e.apellidos.like(t) | e.nombres.like(t))
-          ..orderBy([(e) => OrderingTerm.asc(e.apellidos)])
-          ..limit(30))
-        .get();
+    final lista =
+        await (select(estudiantes)
+              ..where((e) => e.apellidos.like(t) | e.nombres.like(t))
+              ..orderBy([(e) => OrderingTerm.asc(e.apellidos)])
+              ..limit(30))
+            .get();
     final cursos = await verCursos().first;
     return [
       for (final e in lista)
-        (e, cursos.where((c) => c.curso.id == e.cursoId).firstOrNull)
+        (e, cursos.where((c) => c.curso.id == e.cursoId).firstOrNull),
     ];
   }
 
   /// Borra todo (colegios, cursos, estudiantes, asistencia, notas, eventos).
   Future<void> borrarTodo() => transaction(() async {
-        await delete(eventos).go();
-        await delete(colegios).go();
-      });
+    await delete(eventos).go();
+    await delete(colegios).go();
+  });
 
   // Resumen para el inicio
 
   Stream<({int colegios, int cursos, int secciones, int estudiantes})>
-      verResumen() {
+  verResumen() {
     final query = customSelect(
       'SELECT '
       '(SELECT COUNT(*) FROM colegios) AS col, '
@@ -377,11 +447,13 @@ class KipuDb extends _$KipuDb {
       '(SELECT COUNT(*) FROM estudiantes) AS est',
       readsFrom: {colegios, cursos, estudiantes},
     );
-    return query.watchSingle().map((r) => (
-          colegios: r.read<int>('col'),
-          cursos: r.read<int>('cur'),
-          secciones: r.read<int>('sec'),
-          estudiantes: r.read<int>('est'),
-        ));
+    return query.watchSingle().map(
+      (r) => (
+        colegios: r.read<int>('col'),
+        cursos: r.read<int>('cur'),
+        secciones: r.read<int>('sec'),
+        estudiantes: r.read<int>('est'),
+      ),
+    );
   }
 }

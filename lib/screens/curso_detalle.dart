@@ -22,14 +22,20 @@ class CursoDetalle extends StatelessWidget {
             onSelected: (v) async {
               if (v == 'pegar') _pegarLista(context);
               if (v == 'borrar' &&
-                  await confirmar(context, '¿Eliminar este curso?',
-                      'Se borrarán también sus estudiantes.')) {
+                  await confirmar(
+                    context,
+                    '¿Eliminar este curso?',
+                    'Se borrarán también sus estudiantes.',
+                  )) {
                 await db.borrarCurso(cur.id);
                 if (context.mounted) Navigator.pop(context);
               }
             },
             itemBuilder: (_) => const [
-              PopupMenuItem(value: 'pegar', child: Text('Pegar lista de estudiantes')),
+              PopupMenuItem(
+                value: 'pegar',
+                child: Text('Pegar lista de estudiantes'),
+              ),
               PopupMenuItem(value: 'borrar', child: Text('Eliminar curso')),
             ],
           ),
@@ -56,26 +62,36 @@ class CursoDetalle extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('${cur.nivel} · ${datos.colegio.nombre}'.toUpperCase(),
-                        style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600)),
+                    Text(
+                      '${cur.nivel} · ${datos.colegio.nombre}'.toUpperCase(),
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     const SizedBox(height: 4),
-                    Text('${cur.grado} "${cur.seccion}"',
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w700)),
+                    Text(
+                      '${cur.grado} "${cur.seccion}"',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     if ((cur.area ?? '').isNotEmpty)
-                      Text(cur.area!,
-                          style: const TextStyle(color: Colors.white)),
+                      Text(
+                        cur.area!,
+                        style: const TextStyle(color: Colors.white),
+                      ),
                     const SizedBox(height: 10),
                     Row(
                       children: [
                         Expanded(
-                          child: Text('${lista.length} estudiantes',
-                              style: const TextStyle(color: Colors.white70)),
+                          child: Text(
+                            '${lista.length} estudiantes',
+                            style: const TextStyle(color: Colors.white70),
+                          ),
                         ),
                         if (lista.isNotEmpty)
                           FilledButton.tonalIcon(
@@ -84,7 +100,8 @@ class CursoDetalle extends StatelessWidget {
                               MaterialPageRoute(
                                 builder: (_) => Scaffold(
                                   appBar: AppBar(
-                                      title: Text('Asistencia · ${cur.nombre}')),
+                                    title: Text('Asistencia · ${cur.nombre}'),
+                                  ),
                                   body: PasarLista(datos: datos),
                                 ),
                               ),
@@ -112,13 +129,17 @@ class CursoDetalle extends StatelessWidget {
                         ListTile(
                           leading: CircleAvatar(
                             backgroundColor: KipuColores.moradoClaro,
-                            child: Text('${i + 1}',
-                                style: const TextStyle(
-                                    color: KipuColores.moradoOscuro,
-                                    fontWeight: FontWeight.w600)),
+                            child: Text(
+                              '${i + 1}',
+                              style: TextStyle(
+                                color: KipuColores.moradoOscuro,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
                           title: Text(
-                              '${lista[i].apellidos}, ${lista[i].nombres}'),
+                            '${lista[i].apellidos}, ${lista[i].nombres}',
+                          ),
                           subtitle: lista[i].dni == null
                               ? null
                               : Text('DNI ${lista[i].dni}'),
@@ -160,19 +181,23 @@ class CursoDetalle extends StatelessWidget {
                 maxLines: 10,
                 minLines: 6,
                 decoration: const InputDecoration(
-                    hintText: 'QUISPE MAMANI, Luz Angélica\n'
-                        'RIVERA DÍAZ, Luna'),
+                  hintText:
+                      'QUISPE MAMANI, Luz Angélica\n'
+                      'RIVERA DÍAZ, Luna',
+                ),
               ),
             ],
           ),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancelar')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Agregar')),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Agregar'),
+          ),
         ],
       ),
     );
@@ -181,13 +206,18 @@ class CursoDetalle extends StatelessWidget {
     for (final linea in texto.text.split('\n')) {
       final e = separarNombre(linea);
       if (e == null) continue;
-      await db.guardarEstudiante(EstudiantesCompanion.insert(
-          cursoId: datos.curso.id, apellidos: e.$1, nombres: e.$2));
+      await db.guardarEstudiante(
+        EstudiantesCompanion.insert(
+          cursoId: datos.curso.id,
+          apellidos: e.$1,
+          nombres: e.$2,
+        ),
+      );
       n++;
     }
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Se agregaron $n estudiantes')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Se agregaron $n estudiantes')));
     }
   }
 }
@@ -217,10 +247,12 @@ class _SinEstudiantes extends StatelessWidget {
         padding: const EdgeInsets.all(22),
         child: Column(
           children: [
-            const Icon(Icons.groups_outlined, size: 44, color: KipuColores.morado),
+            Icon(Icons.groups_outlined, size: 44, color: KipuColores.morado),
             const SizedBox(height: 10),
-            const Text('Agrega a tus estudiantes',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+            const Text(
+              'Agrega a tus estudiantes',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+            ),
             const SizedBox(height: 4),
             const Text(
               'Uno por uno, o pega la lista completa desde Excel.',
@@ -234,13 +266,15 @@ class _SinEstudiantes extends StatelessWidget {
               alignment: WrapAlignment.center,
               children: [
                 FilledButton.icon(
-                    onPressed: onAgregar,
-                    icon: const Icon(Icons.person_add_alt_1),
-                    label: const Text('Agregar')),
+                  onPressed: onAgregar,
+                  icon: const Icon(Icons.person_add_alt_1),
+                  label: const Text('Agregar'),
+                ),
                 OutlinedButton.icon(
-                    onPressed: onPegar,
-                    icon: const Icon(Icons.content_paste),
-                    label: const Text('Pegar lista')),
+                  onPressed: onPegar,
+                  icon: const Icon(Icons.content_paste),
+                  label: const Text('Pegar lista'),
+                ),
               ],
             ),
           ],
@@ -250,8 +284,11 @@ class _SinEstudiantes extends StatelessWidget {
   }
 }
 
-Future<void> _editarEstudiante(BuildContext context, int cursoId,
-    [Estudiante? e]) {
+Future<void> _editarEstudiante(
+  BuildContext context,
+  int cursoId, [
+  Estudiante? e,
+]) {
   final form = GlobalKey<FormState>();
   final apellidos = TextEditingController(text: e?.apellidos);
   final nombres = TextEditingController(text: e?.nombres);
@@ -269,7 +306,11 @@ Future<void> _editarEstudiante(BuildContext context, int cursoId,
     constraints: const BoxConstraints(maxWidth: 560),
     builder: (ctx) => Padding(
       padding: EdgeInsets.fromLTRB(
-          20, 0, 20, MediaQuery.viewInsetsOf(ctx).bottom + 20),
+        20,
+        0,
+        20,
+        MediaQuery.viewInsetsOf(ctx).bottom + 20,
+      ),
       child: SingleChildScrollView(
         child: Form(
           key: form,
@@ -277,10 +318,14 @@ Future<void> _editarEstudiante(BuildContext context, int cursoId,
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(e == null ? 'Nuevo estudiante' : 'Editar estudiante',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                      fontSize: 19, fontWeight: FontWeight.w700)),
+              Text(
+                e == null ? 'Nuevo estudiante' : 'Editar estudiante',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
               const SizedBox(height: 18),
               TextFormField(
                 controller: apellidos,
@@ -304,21 +349,25 @@ Future<void> _editarEstudiante(BuildContext context, int cursoId,
                 keyboardType: TextInputType.number,
                 maxLength: 8,
                 decoration: const InputDecoration(
-                    labelText: 'DNI (opcional)', counterText: ''),
+                  labelText: 'DNI (opcional)',
+                  counterText: '',
+                ),
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: apoderado,
                 textCapitalization: TextCapitalization.words,
-                decoration:
-                    const InputDecoration(labelText: 'Apoderado (opcional)'),
+                decoration: const InputDecoration(
+                  labelText: 'Apoderado (opcional)',
+                ),
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: telefono,
                 keyboardType: TextInputType.phone,
                 decoration: const InputDecoration(
-                    labelText: 'Celular del apoderado (opcional)'),
+                  labelText: 'Celular del apoderado (opcional)',
+                ),
               ),
               const SizedBox(height: 20),
               Row(
@@ -327,8 +376,11 @@ Future<void> _editarEstudiante(BuildContext context, int cursoId,
                     IconButton.outlined(
                       tooltip: 'Eliminar',
                       onPressed: () async {
-                        if (await confirmar(ctx, '¿Eliminar estudiante?',
-                            '${e.apellidos}, ${e.nombres}')) {
+                        if (await confirmar(
+                          ctx,
+                          '¿Eliminar estudiante?',
+                          '${e.apellidos}, ${e.nombres}',
+                        )) {
                           await db.borrarEstudiante(e.id);
                           if (ctx.mounted) Navigator.pop(ctx);
                         }
@@ -339,23 +391,28 @@ Future<void> _editarEstudiante(BuildContext context, int cursoId,
                   ],
                   Expanded(
                     child: OutlinedButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        child: const Text('Cancelar')),
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Cancelar'),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: FilledButton(
                       onPressed: () async {
                         if (!form.currentState!.validate()) return;
-                        await db.guardarEstudiante(EstudiantesCompanion(
-                          id: e == null ? const Value.absent() : Value(e.id),
-                          cursoId: Value(cursoId),
-                          apellidos: Value(apellidos.text.trim().toUpperCase()),
-                          nombres: Value(nombres.text.trim()),
-                          dni: Value(opcional(dni)),
-                          apoderado: Value(opcional(apoderado)),
-                          telefono: Value(opcional(telefono)),
-                        ));
+                        await db.guardarEstudiante(
+                          EstudiantesCompanion(
+                            id: e == null ? const Value.absent() : Value(e.id),
+                            cursoId: Value(cursoId),
+                            apellidos: Value(
+                              apellidos.text.trim().toUpperCase(),
+                            ),
+                            nombres: Value(nombres.text.trim()),
+                            dni: Value(opcional(dni)),
+                            apoderado: Value(opcional(apoderado)),
+                            telefono: Value(opcional(telefono)),
+                          ),
+                        );
                         if (ctx.mounted) Navigator.pop(ctx);
                       },
                       child: const Text('Guardar'),

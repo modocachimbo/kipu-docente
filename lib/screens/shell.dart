@@ -14,35 +14,78 @@ class _Seccion {
   final bool enBarra; // visible en la barra inferior del celular
   final Widget Function() pantalla;
 
-  const _Seccion(this.titulo, this.icono, this.pantalla, {this.enBarra = false});
+  const _Seccion(
+    this.titulo,
+    this.icono,
+    this.pantalla, {
+    this.enBarra = false,
+  });
 }
 
 final _secciones = <_Seccion>[
   _Seccion('Dashboard', KipuIcono.inicio, () => const Inicio(), enBarra: true),
-  _Seccion('Mis cursos', KipuIcono.cursos, () => const MisCursos(),
-      enBarra: true),
-  _Seccion('Asistencia', KipuIcono.asistencia, () => const Asistencia(),
-      enBarra: true),
-  _Seccion('Horario', KipuIcono.horario,
-      () => const Proximamente(
-          'Horario', 'Tus clases de la semana con recordatorios.')),
-  _Seccion('Reportes', KipuIcono.reportes,
-      () => const Proximamente('Reportes',
-          'Registro auxiliar, consolidado y libretas en PDF y Excel.')),
-  _Seccion('Mi diario', KipuIcono.diario,
-      () => const Proximamente(
-          'Mi diario', 'Anecdotario y observaciones por estudiante.')),
-  _Seccion('Planificación', KipuIcono.planificacion,
-      () => const Proximamente('Planificación',
-          'Planificación anual, unidades y sesiones de aprendizaje.')),
-  _Seccion('Evaluación', KipuIcono.notas,
-      () => const Proximamente('Evaluación',
-          'Calificación por competencias con la escala AD, A, B y C.'),
-      enBarra: true),
+  _Seccion(
+    'Mis cursos',
+    KipuIcono.cursos,
+    () => const MisCursos(),
+    enBarra: true,
+  ),
+  _Seccion(
+    'Asistencia',
+    KipuIcono.asistencia,
+    () => const Asistencia(),
+    enBarra: true,
+  ),
+  _Seccion(
+    'Horario',
+    KipuIcono.horario,
+    () => const Proximamente(
+      'Horario',
+      'Tus clases de la semana con recordatorios.',
+    ),
+  ),
+  _Seccion(
+    'Reportes',
+    KipuIcono.reportes,
+    () => const Proximamente(
+      'Reportes',
+      'Registro auxiliar, consolidado y libretas en PDF y Excel.',
+    ),
+  ),
+  _Seccion(
+    'Mi diario',
+    KipuIcono.diario,
+    () => const Proximamente(
+      'Mi diario',
+      'Anecdotario y observaciones por estudiante.',
+    ),
+  ),
+  _Seccion(
+    'Planificación',
+    KipuIcono.planificacion,
+    () => const Proximamente(
+      'Planificación',
+      'Planificación anual, unidades y sesiones de aprendizaje.',
+    ),
+  ),
+  _Seccion(
+    'Evaluación',
+    KipuIcono.notas,
+    () => const Proximamente(
+      'Evaluación',
+      'Calificación por competencias con la escala AD, A, B y C.',
+    ),
+    enBarra: true,
+  ),
   _Seccion('Configuración', KipuIcono.ajustes, () => const Configuracion()),
-  _Seccion('Sincronizar', KipuIcono.copia,
-      () => const Proximamente('Sincronizar',
-          'Guarda y recupera tus datos desde tu Google Drive.')),
+  _Seccion(
+    'Sincronizar',
+    KipuIcono.copia,
+    () => const Proximamente(
+      'Sincronizar',
+      'Guarda y recupera tus datos desde tu Google Drive.',
+    ),
+  ),
 ];
 
 class Shell extends StatefulWidget {
@@ -79,7 +122,7 @@ class _ShellState extends State<Shell> {
     // Celular: barra inferior con las secciones principales + "Más".
     final enBarra = [
       for (var i = 0; i < _secciones.length; i++)
-        if (_secciones[i].enBarra) i
+        if (_secciones[i].enBarra) i,
     ];
     final idxBarra = enBarra.indexOf(_actual);
     final elegido = idxBarra == -1 ? enBarra.length : idxBarra;
@@ -98,14 +141,17 @@ class _ShellState extends State<Shell> {
           for (final i in enBarra)
             NavigationDestination(
               icon: KipuIcon(_secciones[i].icono, color: KipuColores.tinta),
-              selectedIcon:
-                  KipuIcon(_secciones[i].icono, color: KipuColores.morado),
+              selectedIcon: KipuIcon(
+                _secciones[i].icono,
+                color: KipuColores.morado,
+              ),
               label: i == 0 ? 'Inicio' : _secciones[i].titulo,
             ),
-          const NavigationDestination(
-              icon: KipuIcon(KipuIcono.mas, color: KipuColores.tinta),
-              selectedIcon: KipuIcon(KipuIcono.mas, color: KipuColores.morado),
-              label: 'Más'),
+          NavigationDestination(
+            icon: KipuIcon(KipuIcono.mas, color: KipuColores.tinta),
+            selectedIcon: KipuIcon(KipuIcono.mas, color: KipuColores.morado),
+            label: 'Más',
+          ),
         ],
       ),
     );
@@ -124,8 +170,10 @@ class _ShellState extends State<Shell> {
             for (var i = 0; i < _secciones.length; i++)
               if (!_secciones[i].enBarra)
                 ListTile(
-                  leading: KipuIcon(_secciones[i].icono,
-                      color: KipuColores.morado),
+                  leading: KipuIcon(
+                    _secciones[i].icono,
+                    color: KipuColores.morado,
+                  ),
                   title: Text(_secciones[i].titulo),
                   onTap: () {
                     Navigator.pop(ctx);
@@ -158,9 +206,11 @@ class _MenuLateral extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
             child: Row(
               children: [
-                KipuIcon(icono,
-                    size: 24,
-                    color: activo ? Colors.white : KipuColores.tinta),
+                KipuIcon(
+                  icono,
+                  size: 24,
+                  color: activo ? Colors.white : KipuColores.tinta,
+                ),
                 const SizedBox(width: 14),
                 Text(
                   titulo,
@@ -195,18 +245,23 @@ class _MenuLateral extends StatelessWidget {
               Container(
                 width: 48,
                 height: 48,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: KipuColores.morado,
                   shape: BoxShape.circle,
                 ),
                 child: const Center(
-                  child: KipuIcon(KipuIcono.cursos,
-                      size: 26, color: Colors.white),
+                  child: KipuIcon(
+                    KipuIcono.cursos,
+                    size: 26,
+                    color: Colors.white,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
-              const Text('Kipu',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w500)),
+              const Text(
+                'Kipu',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w500),
+              ),
             ],
           ),
           const SizedBox(height: 30),
@@ -215,8 +270,12 @@ class _MenuLateral extends StatelessWidget {
               padding: EdgeInsets.zero,
               children: [
                 for (var i = 0; i < _secciones.length; i++)
-                  _item(_secciones[i].titulo, _secciones[i].icono, i == actual,
-                      () => onTap(i)),
+                  _item(
+                    _secciones[i].titulo,
+                    _secciones[i].icono,
+                    i == actual,
+                    () => onTap(i),
+                  ),
               ],
             ),
           ),
@@ -226,13 +285,15 @@ class _MenuLateral extends StatelessWidget {
               builder: (ctx) => AlertDialog(
                 title: const Text('Ayuda'),
                 content: const Text(
-                    'Kipu guarda todo en este dispositivo y funciona sin internet. '
-                    'Empieza en "Mis cursos" creando tu colegio, o carga datos de '
-                    'ejemplo desde "Configuración" para explorar.'),
+                  'Kipu guarda todo en este dispositivo y funciona sin internet. '
+                  'Empieza en "Mis cursos" creando tu colegio, o carga datos de '
+                  'ejemplo desde "Configuración" para explorar.',
+                ),
                 actions: [
                   TextButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      child: const Text('Entendido')),
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Entendido'),
+                  ),
                 ],
               ),
             );

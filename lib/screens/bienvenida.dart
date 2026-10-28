@@ -28,10 +28,14 @@ class _BienvenidaState extends State<Bienvenida> {
   Future<void> _explorar() async {
     await cargarDatosDeEjemplo(db);
     await db.guardarAjuste('genero', _genero);
-    await db.guardarAjuste('lugar',
-        _lugar.text.trim().isEmpty ? 'Huacho, Perú' : _lugar.text.trim());
-    await db.guardarAjuste('nombre',
-        _nombre.text.trim().isEmpty ? 'Javier Rojas' : _nombre.text.trim());
+    await db.guardarAjuste(
+      'lugar',
+      _lugar.text.trim().isEmpty ? 'Huacho, Perú' : _lugar.text.trim(),
+    );
+    await db.guardarAjuste(
+      'nombre',
+      _nombre.text.trim().isEmpty ? 'Javier Rojas' : _nombre.text.trim(),
+    );
   }
 
   @override
@@ -50,11 +54,11 @@ class _BienvenidaState extends State<Bienvenida> {
                   children: [
                     const _Logo(),
                     const SizedBox(height: 28),
-                    Text('Bienvenido a Kipu',
-                        style: Theme.of(context)
-                            .textTheme
-                            .headlineMedium
-                            ?.copyWith(fontWeight: FontWeight.w700)),
+                    Text(
+                      'Bienvenido a Kipu',
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
                     const SizedBox(height: 6),
                     const Text(
                       'Tu registro docente: notas, asistencia y estudiantes, '
@@ -62,8 +66,10 @@ class _BienvenidaState extends State<Bienvenida> {
                       style: TextStyle(color: KipuColores.gris),
                     ),
                     const SizedBox(height: 28),
-                    const Text('¿Cómo te presentamos?',
-                        style: TextStyle(fontWeight: FontWeight.w600)),
+                    const Text(
+                      '¿Cómo te presentamos?',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
                     const SizedBox(height: 12),
                     Row(
                       children: [
@@ -148,8 +154,10 @@ class _Logo extends StatelessWidget {
           child: const Icon(Icons.auto_stories, color: Colors.white),
         ),
         const SizedBox(width: 12),
-        const Text('Kipu',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+        const Text(
+          'Kipu',
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+        ),
       ],
     );
   }
@@ -189,11 +197,13 @@ class _OpcionGenero extends StatelessWidget {
             children: [
               SizedBox(height: 120, child: Image.asset(imagen)),
               const SizedBox(height: 8),
-              Text(texto,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: elegido ? KipuColores.moradoOscuro : KipuColores.tinta,
-                  )),
+              Text(
+                texto,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: elegido ? KipuColores.moradoOscuro : KipuColores.tinta,
+                ),
+              ),
             ],
           ),
         ),

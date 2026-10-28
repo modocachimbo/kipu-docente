@@ -17,7 +17,12 @@ const estadosAsistencia = [
   EstadoAsistencia('P', 'Presente', Color(0xFF2FBF8F), Icons.check),
   EstadoAsistencia('T', 'Tarde', Color(0xFFF2A93B), Icons.schedule),
   EstadoAsistencia('F', 'Falta', Color(0xFFE5566B), Icons.close),
-  EstadoAsistencia('J', 'Justificada', Color(0xFF4F7CF5), Icons.description_outlined),
+  EstadoAsistencia(
+    'J',
+    'Justificada',
+    Color(0xFF4F7CF5),
+    Icons.description_outlined,
+  ),
 ];
 
 String fechaClave(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
@@ -54,8 +59,10 @@ class _AsistenciaState extends State<Asistencia> {
             );
           }
           if (cursos.isEmpty) return const SizedBox.shrink();
-          final actual = cursos.firstWhere((c) => c.curso.id == _cursoId,
-              orElse: () => cursos.first);
+          final actual = cursos.firstWhere(
+            (c) => c.curso.id == _cursoId,
+            orElse: () => cursos.first,
+          );
           return Column(
             children: [
               SizedBox(
@@ -69,7 +76,8 @@ class _AsistenciaState extends State<Asistencia> {
                         padding: const EdgeInsets.only(right: 8),
                         child: ChoiceChip(
                           label: Text(
-                              '${c.curso.nombre} · ${c.curso.grado} ${c.curso.seccion}'),
+                            '${c.curso.nombre} · ${c.curso.grado} ${c.curso.seccion}',
+                          ),
                           selected: c.curso.id == actual.curso.id,
                           showCheckmark: false,
                           selectedColor: KipuColores.morado,
@@ -86,7 +94,10 @@ class _AsistenciaState extends State<Asistencia> {
                 ),
               ),
               Expanded(
-                child: PasarLista(key: ValueKey(actual.curso.id), datos: actual),
+                child: PasarLista(
+                  key: ValueKey(actual.curso.id),
+                  datos: actual,
+                ),
               ),
             ],
           );
@@ -141,8 +152,9 @@ class _PasarListaState extends State<PasarLista> {
                   child: Row(
                     children: [
                       IconButton(
-                          onPressed: () => _moverDia(-1),
-                          icon: const Icon(Icons.chevron_left)),
+                        onPressed: () => _moverDia(-1),
+                        icon: const Icon(Icons.chevron_left),
+                      ),
                       Expanded(
                         child: InkWell(
                           onTap: _elegirFecha,
@@ -152,14 +164,18 @@ class _PasarListaState extends State<PasarLista> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(Icons.calendar_today,
-                                    size: 18, color: KipuColores.morado),
+                                Icon(
+                                  Icons.calendar_today,
+                                  size: 18,
+                                  color: KipuColores.morado,
+                                ),
                                 const SizedBox(width: 8),
                                 Flexible(
                                   child: Text(
                                     texto[0].toUpperCase() + texto.substring(1),
                                     style: const TextStyle(
-                                        fontWeight: FontWeight.w600),
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -168,8 +184,9 @@ class _PasarListaState extends State<PasarLista> {
                         ),
                       ),
                       IconButton(
-                          onPressed: () => _moverDia(1),
-                          icon: const Icon(Icons.chevron_right)),
+                        onPressed: () => _moverDia(1),
+                        icon: const Icon(Icons.chevron_right),
+                      ),
                     ],
                   ),
                 ),
@@ -193,7 +210,10 @@ class _PasarListaState extends State<PasarLista> {
                   alignment: Alignment.centerRight,
                   child: TextButton.icon(
                     onPressed: () => db.marcarTodos(
-                        [for (final e in lista) e.id], clave, 'P'),
+                      [for (final e in lista) e.id],
+                      clave,
+                      'P',
+                    ),
                     icon: const Icon(Icons.done_all),
                     label: const Text('Todos presentes'),
                   ),
@@ -207,8 +227,8 @@ class _PasarListaState extends State<PasarLista> {
                           numero: i + 1,
                           estudiante: lista[i],
                           estado: marcas[lista[i].id],
-                          onMarcar: (estado) => db.marcarAsistencia(
-                              lista[i].id, clave, estado),
+                          onMarcar: (estado) =>
+                              db.marcarAsistencia(lista[i].id, clave, estado),
                         ),
                       ],
                     ],
@@ -243,14 +263,19 @@ class _Resumen extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  Text('${marcas.values.where((v) => v == e.codigo).length}',
-                      style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          color: e.color)),
+                  Text(
+                    '${marcas.values.where((v) => v == e.codigo).length}',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: e.color,
+                    ),
+                  ),
                   FittedBox(
-                    child: Text(e.nombre,
-                        style: TextStyle(fontSize: 11, color: e.color)),
+                    child: Text(
+                      e.nombre,
+                      style: TextStyle(fontSize: 11, color: e.color),
+                    ),
                   ),
                 ],
               ),
@@ -267,14 +292,19 @@ class _Resumen extends StatelessWidget {
             ),
             child: Column(
               children: [
-                Text('$sinMarcar',
-                    style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: KipuColores.gris)),
+                Text(
+                  '$sinMarcar',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: KipuColores.gris,
+                  ),
+                ),
                 const FittedBox(
-                  child: Text('Sin marcar',
-                      style: TextStyle(fontSize: 11, color: KipuColores.gris)),
+                  child: Text(
+                    'Sin marcar',
+                    style: TextStyle(fontSize: 11, color: KipuColores.gris),
+                  ),
                 ),
               ],
             ),
@@ -303,14 +333,18 @@ class _FilaEstudiante extends StatelessWidget {
     final nombre = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(estudiante.apellidos,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-        Text(estudiante.nombres,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 13, color: KipuColores.gris)),
+        Text(
+          estudiante.apellidos,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+        ),
+        Text(
+          estudiante.nombres,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 13, color: KipuColores.gris),
+        ),
       ],
     );
     final botones = Row(
@@ -334,15 +368,18 @@ class _FilaEstudiante extends StatelessWidget {
                     color: estado == e.codigo ? e.color : Colors.white,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                        color: estado == e.codigo
-                            ? e.color
-                            : e.color.withValues(alpha: .4)),
+                      color: estado == e.codigo
+                          ? e.color
+                          : e.color.withValues(alpha: .4),
+                    ),
                   ),
-                  child: Text(e.codigo,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: estado == e.codigo ? Colors.white : e.color,
-                      )),
+                  child: Text(
+                    e.codigo,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: estado == e.codigo ? Colors.white : e.color,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -355,9 +392,13 @@ class _FilaEstudiante extends StatelessWidget {
         children: [
           SizedBox(
             width: 26,
-            child: Text('$numero',
-                style: const TextStyle(
-                    color: KipuColores.morado, fontWeight: FontWeight.w600)),
+            child: Text(
+              '$numero',
+              style: TextStyle(
+                color: KipuColores.morado,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
           Expanded(child: nombre),
           botones,
