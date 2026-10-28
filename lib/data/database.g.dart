@@ -1493,6 +1493,280 @@ class EstudiantesCompanion extends UpdateCompanion<Estudiante> {
   }
 }
 
+class $AsistenciasTable extends Asistencias
+    with TableInfo<$AsistenciasTable, Asistencia> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AsistenciasTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _estudianteIdMeta = const VerificationMeta(
+    'estudianteId',
+  );
+  @override
+  late final GeneratedColumn<int> estudianteId = GeneratedColumn<int>(
+    'estudiante_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES estudiantes (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _fechaMeta = const VerificationMeta('fecha');
+  @override
+  late final GeneratedColumn<String> fecha = GeneratedColumn<String>(
+    'fecha',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _estadoMeta = const VerificationMeta('estado');
+  @override
+  late final GeneratedColumn<String> estado = GeneratedColumn<String>(
+    'estado',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(
+      minTextLength: 1,
+      maxTextLength: 1,
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [estudianteId, fecha, estado];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'asistencias';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Asistencia> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('estudiante_id')) {
+      context.handle(
+        _estudianteIdMeta,
+        estudianteId.isAcceptableOrUnknown(
+          data['estudiante_id']!,
+          _estudianteIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_estudianteIdMeta);
+    }
+    if (data.containsKey('fecha')) {
+      context.handle(
+        _fechaMeta,
+        fecha.isAcceptableOrUnknown(data['fecha']!, _fechaMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_fechaMeta);
+    }
+    if (data.containsKey('estado')) {
+      context.handle(
+        _estadoMeta,
+        estado.isAcceptableOrUnknown(data['estado']!, _estadoMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_estadoMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {estudianteId, fecha};
+  @override
+  Asistencia map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Asistencia(
+      estudianteId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}estudiante_id'],
+      )!,
+      fecha: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}fecha'],
+      )!,
+      estado: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}estado'],
+      )!,
+    );
+  }
+
+  @override
+  $AsistenciasTable createAlias(String alias) {
+    return $AsistenciasTable(attachedDatabase, alias);
+  }
+}
+
+class Asistencia extends DataClass implements Insertable<Asistencia> {
+  final int estudianteId;
+  final String fecha;
+  final String estado;
+  const Asistencia({
+    required this.estudianteId,
+    required this.fecha,
+    required this.estado,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['estudiante_id'] = Variable<int>(estudianteId);
+    map['fecha'] = Variable<String>(fecha);
+    map['estado'] = Variable<String>(estado);
+    return map;
+  }
+
+  AsistenciasCompanion toCompanion(bool nullToAbsent) {
+    return AsistenciasCompanion(
+      estudianteId: Value(estudianteId),
+      fecha: Value(fecha),
+      estado: Value(estado),
+    );
+  }
+
+  factory Asistencia.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Asistencia(
+      estudianteId: serializer.fromJson<int>(json['estudianteId']),
+      fecha: serializer.fromJson<String>(json['fecha']),
+      estado: serializer.fromJson<String>(json['estado']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'estudianteId': serializer.toJson<int>(estudianteId),
+      'fecha': serializer.toJson<String>(fecha),
+      'estado': serializer.toJson<String>(estado),
+    };
+  }
+
+  Asistencia copyWith({int? estudianteId, String? fecha, String? estado}) =>
+      Asistencia(
+        estudianteId: estudianteId ?? this.estudianteId,
+        fecha: fecha ?? this.fecha,
+        estado: estado ?? this.estado,
+      );
+  Asistencia copyWithCompanion(AsistenciasCompanion data) {
+    return Asistencia(
+      estudianteId: data.estudianteId.present
+          ? data.estudianteId.value
+          : this.estudianteId,
+      fecha: data.fecha.present ? data.fecha.value : this.fecha,
+      estado: data.estado.present ? data.estado.value : this.estado,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Asistencia(')
+          ..write('estudianteId: $estudianteId, ')
+          ..write('fecha: $fecha, ')
+          ..write('estado: $estado')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(estudianteId, fecha, estado);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Asistencia &&
+          other.estudianteId == this.estudianteId &&
+          other.fecha == this.fecha &&
+          other.estado == this.estado);
+}
+
+class AsistenciasCompanion extends UpdateCompanion<Asistencia> {
+  final Value<int> estudianteId;
+  final Value<String> fecha;
+  final Value<String> estado;
+  final Value<int> rowid;
+  const AsistenciasCompanion({
+    this.estudianteId = const Value.absent(),
+    this.fecha = const Value.absent(),
+    this.estado = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AsistenciasCompanion.insert({
+    required int estudianteId,
+    required String fecha,
+    required String estado,
+    this.rowid = const Value.absent(),
+  }) : estudianteId = Value(estudianteId),
+       fecha = Value(fecha),
+       estado = Value(estado);
+  static Insertable<Asistencia> custom({
+    Expression<int>? estudianteId,
+    Expression<String>? fecha,
+    Expression<String>? estado,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (estudianteId != null) 'estudiante_id': estudianteId,
+      if (fecha != null) 'fecha': fecha,
+      if (estado != null) 'estado': estado,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AsistenciasCompanion copyWith({
+    Value<int>? estudianteId,
+    Value<String>? fecha,
+    Value<String>? estado,
+    Value<int>? rowid,
+  }) {
+    return AsistenciasCompanion(
+      estudianteId: estudianteId ?? this.estudianteId,
+      fecha: fecha ?? this.fecha,
+      estado: estado ?? this.estado,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (estudianteId.present) {
+      map['estudiante_id'] = Variable<int>(estudianteId.value);
+    }
+    if (fecha.present) {
+      map['fecha'] = Variable<String>(fecha.value);
+    }
+    if (estado.present) {
+      map['estado'] = Variable<String>(estado.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AsistenciasCompanion(')
+          ..write('estudianteId: $estudianteId, ')
+          ..write('fecha: $fecha, ')
+          ..write('estado: $estado, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$KipuDb extends GeneratedDatabase {
   _$KipuDb(QueryExecutor e) : super(e);
   $KipuDbManager get managers => $KipuDbManager(this);
@@ -1500,6 +1774,7 @@ abstract class _$KipuDb extends GeneratedDatabase {
   late final $ColegiosTable colegios = $ColegiosTable(this);
   late final $CursosTable cursos = $CursosTable(this);
   late final $EstudiantesTable estudiantes = $EstudiantesTable(this);
+  late final $AsistenciasTable asistencias = $AsistenciasTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1509,6 +1784,7 @@ abstract class _$KipuDb extends GeneratedDatabase {
     colegios,
     cursos,
     estudiantes,
+    asistencias,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -1525,6 +1801,13 @@ abstract class _$KipuDb extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('estudiantes', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'estudiantes',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('asistencias', kind: UpdateKind.delete)],
     ),
   ]);
 }
@@ -2429,6 +2712,24 @@ final class $$EstudiantesTableReferences
       manager.$state.copyWith(prefetchedData: [item]),
     );
   }
+
+  static MultiTypedResultKey<$AsistenciasTable, List<Asistencia>>
+  _asistenciasRefsTable(_$KipuDb db) => MultiTypedResultKey.fromTable(
+    db.asistencias,
+    aliasName: 'estudiantes__id__asistencias__estudiante_id',
+  );
+
+  $$AsistenciasTableProcessedTableManager get asistenciasRefs {
+    final manager = $$AsistenciasTableTableManager(
+      $_db,
+      $_db.asistencias,
+    ).filter((f) => f.estudianteId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_asistenciasRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$EstudiantesTableFilterComposer
@@ -2496,6 +2797,31 @@ class $$EstudiantesTableFilterComposer
           ),
     );
     return composer;
+  }
+
+  Expression<bool> asistenciasRefs(
+    Expression<bool> Function($$AsistenciasTableFilterComposer f) f,
+  ) {
+    final $$AsistenciasTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.asistencias,
+      getReferencedColumn: (t) => t.estudianteId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AsistenciasTableFilterComposer(
+            $db: $db,
+            $table: $db.asistencias,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
   }
 }
 
@@ -2619,6 +2945,31 @@ class $$EstudiantesTableAnnotationComposer
     );
     return composer;
   }
+
+  Expression<T> asistenciasRefs<T extends Object>(
+    Expression<T> Function($$AsistenciasTableAnnotationComposer a) f,
+  ) {
+    final $$AsistenciasTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.asistencias,
+      getReferencedColumn: (t) => t.estudianteId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AsistenciasTableAnnotationComposer(
+            $db: $db,
+            $table: $db.asistencias,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$EstudiantesTableTableManager
@@ -2634,7 +2985,7 @@ class $$EstudiantesTableTableManager
           $$EstudiantesTableUpdateCompanionBuilder,
           (Estudiante, $$EstudiantesTableReferences),
           Estudiante,
-          PrefetchHooks Function({bool cursoId})
+          PrefetchHooks Function({bool cursoId, bool asistenciasRefs})
         > {
   $$EstudiantesTableTableManager(_$KipuDb db, $EstudiantesTable table)
     : super(
@@ -2695,10 +3046,10 @@ class $$EstudiantesTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({cursoId = false}) {
+          prefetchHooksCallback: ({cursoId = false, asistenciasRefs = false}) {
             return PrefetchHooks(
               db: db,
-              explicitlyWatchedTables: [],
+              explicitlyWatchedTables: [if (asistenciasRefs) db.asistencias],
               addJoins:
                   <
                     T extends TableManagerState<
@@ -2730,7 +3081,28 @@ class $$EstudiantesTableTableManager
                     return state;
                   },
               getPrefetchedDataCallback: (items) async {
-                return [];
+                return [
+                  if (asistenciasRefs)
+                    await $_getPrefetchedDataByColumns<
+                      Estudiante,
+                      $EstudiantesTable,
+                      Asistencia,
+                      $AsistenciasTable
+                    >(
+                      currentTable: table,
+                      referencedTable: $$EstudiantesTableReferences
+                          ._asistenciasRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$EstudiantesTableReferences(
+                            db,
+                            table,
+                            p0,
+                          ).asistenciasRefs,
+                      currentColumn: 'id',
+                      referencedColumn: 'estudiante_id',
+                      typedResults: items,
+                    ),
+                ];
               },
             );
           },
@@ -2750,7 +3122,284 @@ typedef $$EstudiantesTableProcessedTableManager =
       $$EstudiantesTableUpdateCompanionBuilder,
       (Estudiante, $$EstudiantesTableReferences),
       Estudiante,
-      PrefetchHooks Function({bool cursoId})
+      PrefetchHooks Function({bool cursoId, bool asistenciasRefs})
+    >;
+typedef $$AsistenciasTableCreateCompanionBuilder =
+    AsistenciasCompanion Function({
+      required int estudianteId,
+      required String fecha,
+      required String estado,
+      Value<int> rowid,
+    });
+typedef $$AsistenciasTableUpdateCompanionBuilder =
+    AsistenciasCompanion Function({
+      Value<int> estudianteId,
+      Value<String> fecha,
+      Value<String> estado,
+      Value<int> rowid,
+    });
+
+final class $$AsistenciasTableReferences
+    extends BaseReferences<_$KipuDb, $AsistenciasTable, Asistencia> {
+  $$AsistenciasTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $EstudiantesTable _estudianteIdTable(_$KipuDb db) =>
+      db.estudiantes.createAlias('asistencias__estudiante_id__estudiantes__id');
+
+  $$EstudiantesTableProcessedTableManager get estudianteId {
+    final $_column = $_itemColumn<int>('estudiante_id')!;
+
+    final manager = $$EstudiantesTableTableManager(
+      $_db,
+      $_db.estudiantes,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_estudianteIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$AsistenciasTableFilterComposer
+    extends Composer<_$KipuDb, $AsistenciasTable> {
+  $$AsistenciasTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get fecha => $composableBuilder(
+    column: $table.fecha,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get estado => $composableBuilder(
+    column: $table.estado,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$EstudiantesTableFilterComposer get estudianteId {
+    final $$EstudiantesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.estudianteId,
+      referencedTable: $db.estudiantes,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$EstudiantesTableFilterComposer(
+            $db: $db,
+            $table: $db.estudiantes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$AsistenciasTableOrderingComposer
+    extends Composer<_$KipuDb, $AsistenciasTable> {
+  $$AsistenciasTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get fecha => $composableBuilder(
+    column: $table.fecha,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get estado => $composableBuilder(
+    column: $table.estado,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$EstudiantesTableOrderingComposer get estudianteId {
+    final $$EstudiantesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.estudianteId,
+      referencedTable: $db.estudiantes,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$EstudiantesTableOrderingComposer(
+            $db: $db,
+            $table: $db.estudiantes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$AsistenciasTableAnnotationComposer
+    extends Composer<_$KipuDb, $AsistenciasTable> {
+  $$AsistenciasTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get fecha =>
+      $composableBuilder(column: $table.fecha, builder: (column) => column);
+
+  GeneratedColumn<String> get estado =>
+      $composableBuilder(column: $table.estado, builder: (column) => column);
+
+  $$EstudiantesTableAnnotationComposer get estudianteId {
+    final $$EstudiantesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.estudianteId,
+      referencedTable: $db.estudiantes,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$EstudiantesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.estudiantes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$AsistenciasTableTableManager
+    extends
+        RootTableManager<
+          _$KipuDb,
+          $AsistenciasTable,
+          Asistencia,
+          $$AsistenciasTableFilterComposer,
+          $$AsistenciasTableOrderingComposer,
+          $$AsistenciasTableAnnotationComposer,
+          $$AsistenciasTableCreateCompanionBuilder,
+          $$AsistenciasTableUpdateCompanionBuilder,
+          (Asistencia, $$AsistenciasTableReferences),
+          Asistencia,
+          PrefetchHooks Function({bool estudianteId})
+        > {
+  $$AsistenciasTableTableManager(_$KipuDb db, $AsistenciasTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AsistenciasTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AsistenciasTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AsistenciasTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> estudianteId = const Value.absent(),
+                Value<String> fecha = const Value.absent(),
+                Value<String> estado = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AsistenciasCompanion(
+                estudianteId: estudianteId,
+                fecha: fecha,
+                estado: estado,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required int estudianteId,
+                required String fecha,
+                required String estado,
+                Value<int> rowid = const Value.absent(),
+              }) => AsistenciasCompanion.insert(
+                estudianteId: estudianteId,
+                fecha: fecha,
+                estado: estado,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$AsistenciasTable, Asistencia>(table),
+                  $$AsistenciasTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({estudianteId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (estudianteId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.estudianteId,
+                        referencedTable: $$AsistenciasTableReferences
+                            ._estudianteIdTable(db),
+                        referencedColumn: $$AsistenciasTableReferences
+                            ._estudianteIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$AsistenciasTableProcessedTableManager =
+    ProcessedTableManager<
+      _$KipuDb,
+      $AsistenciasTable,
+      Asistencia,
+      $$AsistenciasTableFilterComposer,
+      $$AsistenciasTableOrderingComposer,
+      $$AsistenciasTableAnnotationComposer,
+      $$AsistenciasTableCreateCompanionBuilder,
+      $$AsistenciasTableUpdateCompanionBuilder,
+      (Asistencia, $$AsistenciasTableReferences),
+      Asistencia,
+      PrefetchHooks Function({bool estudianteId})
     >;
 
 class $KipuDbManager {
@@ -2764,4 +3413,6 @@ class $KipuDbManager {
       $$CursosTableTableManager(_db, _db.cursos);
   $$EstudiantesTableTableManager get estudiantes =>
       $$EstudiantesTableTableManager(_db, _db.estudiantes);
+  $$AsistenciasTableTableManager get asistencias =>
+      $$AsistenciasTableTableManager(_db, _db.asistencias);
 }

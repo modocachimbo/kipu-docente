@@ -43,6 +43,17 @@ class Estudiantes extends Table {
   DateTimeColumn get creado => dateTime().withDefault(currentDateAndTime)();
 }
 
+/// Un registro por estudiante y día. Estado: P presente, T tarde, F falta, J justificada.
+class Asistencias extends Table {
+  IntColumn get estudianteId =>
+      integer().references(Estudiantes, #id, onDelete: KeyAction.cascade)();
+  TextColumn get fecha => text()(); // yyyy-MM-dd
+  TextColumn get estado => text().withLength(min: 1, max: 1)();
+
+  @override
+  Set<Column> get primaryKey => {estudianteId, fecha};
+}
+
 class CursoConColegio {
   final Curso curso;
   final Colegio colegio;
@@ -50,15 +61,18 @@ class CursoConColegio {
   CursoConColegio(this.curso, this.colegio, this.totalEstudiantes);
 }
 
-@DriftDatabase(tables: [Ajustes, Colegios, Cursos, Estudiantes])
+@DriftDatabase(tables: [Ajustes, Colegios, Cursos, Estudiantes, Asistencias])
 class KipuDb extends _$KipuDb {
   KipuDb([QueryExecutor? executor]) : super(executor ?? _abrir());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
+        onUpgrade: (m, from, to) async {
+          if (from < 2) await m.createTable(asistencias);
+        },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
         },
@@ -141,6 +155,39 @@ class KipuDb extends _$KipuDb {
 
   Future<void> borrarEstudiante(int id) =>
       (delete(estudiantes)..where((e) => e.id.equals(id))).go();
+
+  // Asistencia
+
+  /// Estado de cada estudiante del curso en la fecha dada (null si no se marcó).
+  Stream<Map<int, String>> verAsistencia(int cursoId, String fecha) {
+    final q = select(asistencias).join([
+      innerJoin(estudiantes, estudiantes.id.equalsExp(asistencias.estudianteId)),
+    ])
+      ..where(estudiantes.cursoId.equals(cursoId) &
+          asistencias.fecha.equals(fecha));
+    return q.watch().map((filas) => {
+          for (final f in filas)
+            f.readTable(asistencias).estudianteId: f.readTable(asistencias).estado
+        });
+  }
+
+  Future<void> marcarAsistencia(int estudianteId, String fecha, String? estado) {
+    if (estado == null) {
+      return (delete(asistencias)
+            ..where((a) =>
+                a.estudianteId.equals(estudianteId) & a.fecha.equals(fecha)))
+          .go();
+    }
+    return into(asistencias).insertOnConflictUpdate(AsistenciasCompanion.insert(
+        estudianteId: estudianteId, fecha: fecha, estado: estado));
+  }
+
+  Future<void> marcarTodos(List<int> estudianteIds, String fecha, String estado) =>
+      batch((b) => b.insertAllOnConflictUpdate(asistencias, [
+            for (final id in estudianteIds)
+              AsistenciasCompanion.insert(
+                  estudianteId: id, fecha: fecha, estado: estado),
+          ]));
 
   // Resumen para el inicio
 

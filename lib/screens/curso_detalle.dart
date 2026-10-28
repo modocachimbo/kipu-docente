@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../data/database.dart';
 import '../main.dart';
 import '../theme.dart';
+import 'asistencia.dart';
 import 'cursos.dart' show confirmar;
 
 class CursoDetalle extends StatelessWidget {
@@ -70,8 +71,29 @@ class CursoDetalle extends StatelessWidget {
                       Text(cur.area!,
                           style: const TextStyle(color: Colors.white)),
                     const SizedBox(height: 10),
-                    Text('${lista.length} estudiantes',
-                        style: const TextStyle(color: Colors.white70)),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text('${lista.length} estudiantes',
+                              style: const TextStyle(color: Colors.white70)),
+                        ),
+                        if (lista.isNotEmpty)
+                          FilledButton.tonalIcon(
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => Scaffold(
+                                  appBar: AppBar(
+                                      title: Text('Asistencia · ${cur.nombre}')),
+                                  body: PasarLista(datos: datos),
+                                ),
+                              ),
+                            ),
+                            icon: const Icon(Icons.fact_check),
+                            label: const Text('Pasar lista'),
+                          ),
+                      ],
+                    ),
                   ],
                 ),
               ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
+import 'asistencia.dart';
 import 'cursos.dart';
 import 'inicio.dart';
 import 'proximamente.dart';
@@ -24,8 +25,7 @@ final _secciones = <_Seccion>[
       () => const MisCursos(),
       enBarra: true),
   _Seccion('Asistencia', Icons.fact_check_outlined, Icons.fact_check,
-      () => const Proximamente('Asistencia',
-          'Pasa lista con un toque: presente, tarde, falta o justificada.'),
+      () => const Asistencia(),
       enBarra: true),
   _Seccion('Notas', Icons.grading_outlined, Icons.grading,
       () => const Proximamente('Registro de notas',
