@@ -22,20 +22,50 @@ const grados = {
 
 const secciones = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'Única'];
 
-const areas = [
-  'Ciencia y Tecnología',
-  'Matemática',
-  'Comunicación',
-  'Personal Social',
-  'Ciencias Sociales',
-  'Desarrollo Personal, Ciudadanía y Cívica',
-  'Educación para el Trabajo',
-  'Inglés',
-  'Arte y Cultura',
-  'Educación Física',
-  'Educación Religiosa',
-  'Tutoría',
-];
+/// Áreas curriculares del Currículo Nacional (CNEB) por nivel. "Otro" permite
+/// escribir un área propia (otro país o un área del colegio).
+const areaOtra = 'Otro';
+
+const areasPorNivel = {
+  'Inicial': [
+    'Personal Social',
+    'Psicomotriz',
+    'Comunicación',
+    'Castellano como segunda lengua',
+    'Matemática',
+    'Ciencia y Tecnología',
+    'Tutoría',
+    areaOtra,
+  ],
+  'Primaria': [
+    'Personal Social',
+    'Educación Física',
+    'Comunicación',
+    'Arte y Cultura',
+    'Castellano como segunda lengua',
+    'Inglés como lengua extranjera',
+    'Matemática',
+    'Ciencia y Tecnología',
+    'Educación Religiosa',
+    'Tutoría',
+    areaOtra,
+  ],
+  'Secundaria': [
+    'Desarrollo Personal, Ciudadanía y Cívica',
+    'Ciencias Sociales',
+    'Educación Física',
+    'Comunicación',
+    'Arte y Cultura',
+    'Castellano como segunda lengua',
+    'Inglés como lengua extranjera',
+    'Matemática',
+    'Ciencia y Tecnología',
+    'Educación para el Trabajo',
+    'Educación Religiosa',
+    'Tutoría',
+    areaOtra,
+  ],
+};
 
 class MisCursos extends StatefulWidget {
   const MisCursos({super.key});
@@ -1408,42 +1438,150 @@ Future<bool> confirmar(
   return r ?? false;
 }
 
-Future<void> _hoja(BuildContext context, String titulo, Widget contenido) {
-  return showModalBottomSheet(
+/// Ventana centrada con cabecera en el color general de la app.
+Future<void> _ventana(BuildContext context, Widget contenido) {
+  return showDialog(
     context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
-    backgroundColor: KipuColores.fondo,
-    constraints: const BoxConstraints(maxWidth: 560),
-    builder: (ctx) => Padding(
-      padding: EdgeInsets.fromLTRB(
-        20,
-        0,
-        20,
-        MediaQuery.viewInsetsOf(ctx).bottom + 20,
-      ),
-      child: SingleChildScrollView(
+    barrierColor: KipuColores.tinta.withValues(alpha: .45),
+    builder: (ctx) => contenido,
+  );
+}
+
+class _Ventana extends StatelessWidget {
+  final KipuIcono icono;
+  final String titulo;
+  final String subtitulo;
+  final Widget contenido;
+
+  const _Ventana({
+    required this.icono,
+    required this.titulo,
+    required this.subtitulo,
+    required this.contenido,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.white,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              titulo,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 18, 14, 18),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [KipuColores.morado, KipuColores.moradoOscuro],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 46,
+                    height: 46,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: .18),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: KipuIcon(icono, color: Colors.white, size: 26),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          titulo,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        Text(
+                          subtitulo,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: .85),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Cerrar',
+                    onPressed: () => Navigator.pop(context),
+                    style: IconButton.styleFrom(
+                      side: BorderSide(
+                        color: Colors.white.withValues(alpha: .6),
+                      ),
+                    ),
+                    icon: const Icon(Icons.close, color: Colors.white),
+                  ),
+                ],
+              ),
             ),
-            const Text(
-              'Por favor, completa el formulario',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: KipuColores.gris),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(22, 20, 22, 22),
+                child: contenido,
+              ),
             ),
-            const SizedBox(height: 18),
-            contenido,
           ],
         ),
       ),
-    ),
-  );
+    );
+  }
+}
+
+/// Etiqueta encima del campo, como en la maqueta.
+class _Campo extends StatelessWidget {
+  final String etiqueta;
+  final bool opcional;
+  final Widget child;
+
+  const _Campo(this.etiqueta, this.child, {this.opcional = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text.rich(
+            TextSpan(
+              text: etiqueta,
+              children: [
+                if (opcional)
+                  const TextSpan(
+                    text: ' (opcional)',
+                    style: TextStyle(
+                      color: KipuColores.gris,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+              ],
+            ),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 6),
+          child,
+        ],
+      ),
+    );
+  }
 }
 
 Future<void> crearColegio(BuildContext context) => _formColegio(context);
@@ -1465,98 +1603,102 @@ Future<void> _formColegio(BuildContext context, {Colegio? colegio}) async {
           orElse: () => coloresColegio.first,
         );
   if (!context.mounted) return;
-  return _hoja(
+  return _ventana(
     context,
-    colegio == null ? 'Crear colegio' : 'Editar colegio',
-    Builder(
-      builder: (ctx) => Form(
-        key: form,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextFormField(
-              controller: nombre,
-              autofocus: true,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                labelText: 'Nombre del colegio',
-                hintText: 'Ej. Elite School',
+    _Ventana(
+      icono: KipuIcono.colegio,
+      titulo: colegio == null ? 'Nuevo colegio' : 'Editar colegio',
+      subtitulo: 'Elige el color que identificará al colegio',
+      contenido: Builder(
+        builder: (ctx) => Form(
+          key: form,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _Campo(
+                'Nombre del colegio',
+                TextFormField(
+                  controller: nombre,
+                  autofocus: colegio == null,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(
+                    hintText: 'Ej. Elite School',
+                  ),
+                  validator: (v) =>
+                      (v ?? '').trim().isEmpty ? 'Escribe el nombre' : null,
+                ),
               ),
-              validator: (v) =>
-                  (v ?? '').trim().isEmpty ? 'Escribe el nombre' : null,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: lugar,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                labelText: 'Distrito o ciudad (opcional)',
-                hintText: 'Ej. Huacho',
+              _Campo(
+                'Distrito o ciudad',
+                opcional: true,
+                TextFormField(
+                  controller: lugar,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(hintText: 'Ej. Huacho'),
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Color del colegio',
-              style: TextStyle(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 10),
-            StatefulBuilder(
-              builder: (ctx, setState) => Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  for (final c in coloresColegio)
-                    InkWell(
-                      customBorder: const CircleBorder(),
-                      onTap: () => setState(() => color = c),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 150),
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: c,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: c == color
-                                ? KipuColores.tinta
-                                : Colors.transparent,
-                            width: 3,
+              _Campo(
+                'Color',
+                StatefulBuilder(
+                  builder: (ctx, setState) => Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      for (final c in coloresColegio)
+                        InkWell(
+                          customBorder: const CircleBorder(),
+                          onTap: () => setState(() => color = c),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: c,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: c == color
+                                    ? KipuColores.tinta
+                                    : Colors.transparent,
+                                width: 3,
+                              ),
+                            ),
+                            child: c == color
+                                ? const Icon(Icons.check, color: Colors.white)
+                                : null,
                           ),
                         ),
-                        child: c == color
-                            ? const Icon(Icons.check, color: Colors.white)
-                            : null,
-                      ),
-                    ),
-                ],
+                    ],
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(height: 20),
-            _Botones(
-              onGuardar: () async {
-                if (!form.currentState!.validate()) return;
-                final ciudad = lugar.text.trim().isEmpty
-                    ? null
-                    : lugar.text.trim();
-                if (colegio == null) {
-                  final id = await db.crearColegio(
-                    nombre.text.trim(),
-                    ciudad,
-                    color: color.toARGB32(),
-                  );
-                  await db.guardarAjuste('colegio_activo', id.toString());
-                } else {
-                  await db.editarColegio(
-                    colegio.id,
-                    nombre.text.trim(),
-                    ciudad,
-                    color: color.toARGB32(),
-                  );
-                }
-                if (ctx.mounted) Navigator.pop(ctx);
-              },
-            ),
-          ],
+              const SizedBox(height: 6),
+              _Botones(
+                texto: colegio == null ? 'Crear colegio' : 'Guardar cambios',
+                onGuardar: () async {
+                  if (!form.currentState!.validate()) return;
+                  final ciudad = lugar.text.trim().isEmpty
+                      ? null
+                      : lugar.text.trim();
+                  if (colegio == null) {
+                    final id = await db.crearColegio(
+                      nombre.text.trim(),
+                      ciudad,
+                      color: color.toARGB32(),
+                    );
+                    await db.guardarAjuste('colegio_activo', id.toString());
+                  } else {
+                    await db.editarColegio(
+                      colegio.id,
+                      nombre.text.trim(),
+                      ciudad,
+                      color: color.toARGB32(),
+                    );
+                  }
+                  if (ctx.mounted) Navigator.pop(ctx);
+                },
+              ),
+            ],
+          ),
         ),
       ),
     ),
@@ -1571,9 +1713,8 @@ Future<void> crearCurso(BuildContext context, {int? colegioId}) async {
         .showSnackBar(const SnackBar(content: Text('Primero crea un colegio')));
     return crearColegio(context);
   }
-  return _hoja(
+  return _ventana(
     context,
-    'Agregar un nuevo curso',
     _FormCurso(colegios: colegios, colegioId: colegioId ?? colegios.first.id),
   );
 }
@@ -1594,11 +1735,15 @@ class _FormCursoState extends State<_FormCurso> {
   String? _grado;
   String? _seccion;
   String? _area;
+  final _otraArea = TextEditingController();
   final _nombre = TextEditingController();
+
+  bool get _esOtra => _area == areaOtra;
 
   Future<void> _guardar() async {
     if (!_form.currentState!.validate()) return;
-    final nombre = _nombre.text.trim().isEmpty ? _area! : _nombre.text.trim();
+    final area = _esOtra ? _otraArea.text.trim() : _area!;
+    final nombre = _nombre.text.trim().isEmpty ? area : _nombre.text.trim();
     await db.crearCurso(
       CursosCompanion.insert(
         colegioId: _colegio,
@@ -1606,7 +1751,7 @@ class _FormCursoState extends State<_FormCurso> {
         grado: _grado!,
         seccion: _seccion!,
         nombre: nombre,
-        area: Value(_area),
+        area: Value(area),
       ),
     );
     if (mounted) Navigator.pop(context);
@@ -1615,100 +1760,210 @@ class _FormCursoState extends State<_FormCurso> {
   @override
   Widget build(BuildContext context) {
     String? requerido(String? v) => v == null ? 'Selecciona' : null;
-    return Form(
-      key: _form,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (widget.colegios.length > 1) ...[
-            DropdownButtonFormField<int>(
-              initialValue: _colegio,
-              decoration: const InputDecoration(labelText: 'Colegio'),
-              items: [
-                for (final c in widget.colegios)
-                  DropdownMenuItem(value: c.id, child: Text(c.nombre)),
+    final colegio = widget.colegios.firstWhere((c) => c.id == _colegio);
+    return _Ventana(
+      icono: KipuIcono.cursos,
+      titulo: 'Nuevo curso',
+      subtitulo: [colegio.nombre, colegio.lugar].nonNulls.join(' · '),
+      contenido: Form(
+        key: _form,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (widget.colegios.length > 1)
+              _Campo(
+                'Colegio',
+                DropdownButtonFormField<int>(
+                  initialValue: _colegio,
+                  isExpanded: true,
+                  items: [
+                    for (final c in widget.colegios)
+                      DropdownMenuItem(value: c.id, child: Text(c.nombre)),
+                  ],
+                  onChanged: (v) => setState(() => _colegio = v!),
+                ),
+              ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _Campo(
+                    'Nivel',
+                    DropdownButtonFormField<String>(
+                      initialValue: _nivel,
+                      isExpanded: true,
+                      hint: const Text('Selecciona'),
+                      items: [
+                        for (final n in grados.keys)
+                          DropdownMenuItem(value: n, child: Text(n)),
+                      ],
+                      validator: requerido,
+                      onChanged: (v) => setState(() {
+                        _nivel = v;
+                        _grado = null;
+                        // Si el área no existe en el nuevo nivel, se limpia.
+                        if (_area != null &&
+                            !(areasPorNivel[v] ?? []).contains(_area)) {
+                          _area = null;
+                        }
+                      }),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _Campo(
+                    'Grado',
+                    DropdownButtonFormField<String>(
+                      key: ValueKey(_nivel),
+                      initialValue: _grado,
+                      isExpanded: true,
+                      hint: const Text('Selecciona'),
+                      items: [
+                        for (final g in grados[_nivel] ?? const <String>[])
+                          DropdownMenuItem(value: g, child: Text(g)),
+                      ],
+                      validator: requerido,
+                      onChanged: (v) => setState(() => _grado = v),
+                    ),
+                  ),
+                ),
               ],
-              onChanged: (v) => setState(() => _colegio = v!),
             ),
-            const SizedBox(height: 12),
+            _Campo(
+              'Sección',
+              FormField<String>(
+                validator: (_) => _seccion == null ? 'Elige la sección' : null,
+                builder: (campo) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final s in secciones)
+                          _BotonSeccion(
+                            s,
+                            elegido: s == _seccion,
+                            onTap: () {
+                              setState(() => _seccion = s);
+                              campo.didChange(s);
+                            },
+                          ),
+                      ],
+                    ),
+                    if (campo.hasError)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6, left: 4),
+                        child: Text(
+                          campo.errorText!,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            _Campo(
+              'Área curricular',
+              DropdownButtonFormField<String>(
+                key: ValueKey('area-$_nivel'),
+                initialValue: _area,
+                isExpanded: true,
+                hint: Text(
+                  _nivel == null ? 'Primero elige el nivel' : 'Selecciona',
+                ),
+                items: [
+                  for (final a in areasPorNivel[_nivel] ?? const <String>[])
+                    DropdownMenuItem(value: a, child: Text(a)),
+                ],
+                validator: requerido,
+                onChanged: (v) => setState(() => _area = v),
+              ),
+            ),
+            if (_esOtra)
+              _Campo(
+                'Escribe el área',
+                TextFormField(
+                  controller: _otraArea,
+                  autofocus: true,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(
+                    hintText: 'Ej. Robótica, Ajedrez',
+                  ),
+                  validator: (v) =>
+                      (v ?? '').trim().isEmpty ? 'Escribe el área' : null,
+                ),
+              ),
+            _Campo(
+              'Nombre del curso',
+              opcional: true,
+              TextFormField(
+                controller: _nombre,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(
+                  hintText: 'Ej. Química, Física',
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            _Botones(texto: 'Guardar curso', onGuardar: _guardar),
           ],
-          Row(
-            children: [
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  initialValue: _nivel,
-                  isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Nivel'),
-                  items: [
-                    for (final n in grados.keys)
-                      DropdownMenuItem(value: n, child: Text(n)),
-                  ],
-                  validator: requerido,
-                  onChanged: (v) => setState(() {
-                    _nivel = v;
-                    _grado = null;
-                  }),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  key: ValueKey(_nivel),
-                  initialValue: _grado,
-                  isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Grado'),
-                  items: [
-                    for (final g in grados[_nivel] ?? const <String>[])
-                      DropdownMenuItem(value: g, child: Text(g)),
-                  ],
-                  validator: requerido,
-                  onChanged: (v) => setState(() => _grado = v),
-                ),
-              ),
-            ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BotonSeccion extends StatelessWidget {
+  final String texto;
+  final bool elegido;
+  final VoidCallback onTap;
+
+  const _BotonSeccion(this.texto, {required this.elegido, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        constraints: const BoxConstraints(minWidth: 40),
+        height: 40,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: elegido ? KipuColores.morado : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: elegido
+                ? KipuColores.morado
+                : KipuColores.morado.withValues(alpha: .3),
           ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            initialValue: _seccion,
-            decoration: const InputDecoration(labelText: 'Sección'),
-            items: [
-              for (final s in secciones)
-                DropdownMenuItem(value: s, child: Text(s)),
-            ],
-            validator: requerido,
-            onChanged: (v) => setState(() => _seccion = v),
-          ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            initialValue: _area,
-            isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Área curricular'),
-            items: [
-              for (final a in areas) DropdownMenuItem(value: a, child: Text(a)),
-            ],
-            validator: requerido,
-            onChanged: (v) => setState(() => _area = v),
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: _nombre,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(
-              labelText: 'Nombre del curso (opcional)',
-              hintText: 'Ej. Química, Física, Biología',
+        ),
+        // Center con widthFactor: el botón mide lo que su texto, no todo el ancho.
+        child: Center(
+          widthFactor: 1,
+          child: Text(
+            texto,
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: elegido ? Colors.white : KipuColores.tinta,
             ),
           ),
-          const SizedBox(height: 20),
-          _Botones(onGuardar: _guardar),
-        ],
+        ),
       ),
     );
   }
 }
 
 class _Botones extends StatelessWidget {
+  final String texto;
   final VoidCallback onGuardar;
-  const _Botones({required this.onGuardar});
+  const _Botones({required this.texto, required this.onGuardar});
 
   @override
   Widget build(BuildContext context) {
@@ -1722,10 +1977,7 @@ class _Botones extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: FilledButton(
-            onPressed: onGuardar,
-            child: const Text('Guardar'),
-          ),
+          child: FilledButton(onPressed: onGuardar, child: Text(texto)),
         ),
       ],
     );
