@@ -1,17 +1,18 @@
-# kipu
+# Kipu Docente
 
-A new Flutter project.
+Registro digital del docente: colegios, cursos, estudiantes, asistencia y notas con la escala AD/A/B/C del MINEDU. Funciona sin internet: todo se guarda en el dispositivo (SQLite).
 
-## Getting Started
+- **Probar en el navegador:** https://modocachimbo.github.io/kipu-docente/
+- **Descargar el APK de prueba (Android):** [última versión](https://github.com/modocachimbo/kipu-docente/releases/tag/ultima)
 
-This project is a starting point for a Flutter application.
+## Desarrollo
 
-A few resources to get you started if this is your first Flutter project:
+Hecho con Flutter.
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+```bash
+flutter pub get
+dart run build_runner build   # genera lib/data/database.g.dart
+flutter run
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Para la versión web, `web/sqlite3.wasm` y `web/drift_worker.js` deben estar en la carpeta `web/`.
