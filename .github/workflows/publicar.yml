@@ -27,6 +27,14 @@ jobs:
       - run: dart run build_runner build --delete-conflicting-outputs
       - run: flutter test
       - run: flutter build web --release --no-web-resources-cdn --base-href /${{ github.event.repository.name }}/
+      # Evita que el navegador muestre una versión vieja: cada publicación usa nombres con ?v=
+      - name: Forzar versión nueva en el navegador
+        run: |
+          V=${GITHUB_SHA::7}
+          sed -i "s#\"mainJsPath\":\"main.dart.js\"#\"mainJsPath\":\"main.dart.js?v=$V\"#" build/web/flutter_bootstrap.js
+          sed -i "s#src=\"flutter_bootstrap.js\"#src=\"flutter_bootstrap.js?v=$V\"#" build/web/index.html
+          grep -o 'main.dart.js?v=[a-z0-9]*' build/web/flutter_bootstrap.js
+          grep -o 'flutter_bootstrap.js?v=[a-z0-9]*' build/web/index.html
       - uses: actions/upload-pages-artifact@v3
         with:
           path: build/web
