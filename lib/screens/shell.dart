@@ -1,50 +1,47 @@
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
+import '../widgets/kipu_icono.dart';
 import 'asistencia.dart';
+import 'configuracion.dart';
 import 'cursos.dart';
 import 'inicio.dart';
 import 'proximamente.dart';
 
 class _Seccion {
   final String titulo;
-  final IconData icono;
-  final IconData iconoActivo;
+  final KipuIcono icono;
   final bool enBarra; // visible en la barra inferior del celular
   final Widget Function() pantalla;
 
-  const _Seccion(this.titulo, this.icono, this.iconoActivo, this.pantalla,
-      {this.enBarra = false});
+  const _Seccion(this.titulo, this.icono, this.pantalla, {this.enBarra = false});
 }
 
 final _secciones = <_Seccion>[
-  _Seccion('Inicio', Icons.dashboard_outlined, Icons.dashboard,
-      () => const Inicio(),
+  _Seccion('Dashboard', KipuIcono.inicio, () => const Inicio(), enBarra: true),
+  _Seccion('Mis cursos', KipuIcono.cursos, () => const MisCursos(),
       enBarra: true),
-  _Seccion('Mis cursos', Icons.menu_book_outlined, Icons.menu_book,
-      () => const MisCursos(),
+  _Seccion('Asistencia', KipuIcono.asistencia, () => const Asistencia(),
       enBarra: true),
-  _Seccion('Asistencia', Icons.fact_check_outlined, Icons.fact_check,
-      () => const Asistencia(),
-      enBarra: true),
-  _Seccion('Notas', Icons.grading_outlined, Icons.grading,
-      () => const Proximamente('Registro de notas',
-          'Calificación por competencias con la escala AD, A, B y C.'),
-      enBarra: true),
-  _Seccion('Horario', Icons.schedule_outlined, Icons.schedule,
+  _Seccion('Horario', KipuIcono.horario,
       () => const Proximamente(
           'Horario', 'Tus clases de la semana con recordatorios.')),
-  _Seccion('Reportes', Icons.pie_chart_outline, Icons.pie_chart,
+  _Seccion('Reportes', KipuIcono.reportes,
       () => const Proximamente('Reportes',
           'Registro auxiliar, consolidado y libretas en PDF y Excel.')),
-  _Seccion('Mi diario', Icons.contact_page_outlined, Icons.contact_page,
+  _Seccion('Mi diario', KipuIcono.diario,
       () => const Proximamente(
           'Mi diario', 'Anecdotario y observaciones por estudiante.')),
-  _Seccion('Planificación', Icons.assignment_outlined, Icons.assignment,
+  _Seccion('Planificación', KipuIcono.planificacion,
       () => const Proximamente('Planificación',
           'Planificación anual, unidades y sesiones de aprendizaje.')),
-  _Seccion('Copia de seguridad', Icons.cloud_sync_outlined, Icons.cloud_sync,
-      () => const Proximamente('Copia de seguridad',
+  _Seccion('Evaluación', KipuIcono.notas,
+      () => const Proximamente('Evaluación',
+          'Calificación por competencias con la escala AD, A, B y C.'),
+      enBarra: true),
+  _Seccion('Configuración', KipuIcono.ajustes, () => const Configuracion()),
+  _Seccion('Sincronizar', KipuIcono.copia,
+      () => const Proximamente('Sincronizar',
           'Guarda y recupera tus datos desde tu Google Drive.')),
 ];
 
@@ -85,10 +82,11 @@ class _ShellState extends State<Shell> {
         if (_secciones[i].enBarra) i
     ];
     final idxBarra = enBarra.indexOf(_actual);
+    final elegido = idxBarra == -1 ? enBarra.length : idxBarra;
     return Scaffold(
       body: pantalla,
       bottomNavigationBar: NavigationBar(
-        selectedIndex: idxBarra == -1 ? enBarra.length : idxBarra,
+        selectedIndex: elegido,
         onDestinationSelected: (i) {
           if (i < enBarra.length) {
             _ir(enBarra[i]);
@@ -99,12 +97,15 @@ class _ShellState extends State<Shell> {
         destinations: [
           for (final i in enBarra)
             NavigationDestination(
-              icon: Icon(_secciones[i].icono),
-              selectedIcon: Icon(_secciones[i].iconoActivo),
-              label: _secciones[i].titulo,
+              icon: KipuIcon(_secciones[i].icono, color: KipuColores.tinta),
+              selectedIcon:
+                  KipuIcon(_secciones[i].icono, color: KipuColores.morado),
+              label: i == 0 ? 'Inicio' : _secciones[i].titulo,
             ),
           const NavigationDestination(
-              icon: Icon(Icons.more_horiz), label: 'Más'),
+              icon: KipuIcon(KipuIcono.mas, color: KipuColores.tinta),
+              selectedIcon: KipuIcon(KipuIcono.mas, color: KipuColores.morado),
+              label: 'Más'),
         ],
       ),
     );
@@ -115,6 +116,7 @@ class _ShellState extends State<Shell> {
       context: context,
       showDragHandle: true,
       backgroundColor: Colors.white,
+      isScrollControlled: true,
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -122,7 +124,8 @@ class _ShellState extends State<Shell> {
             for (var i = 0; i < _secciones.length; i++)
               if (!_secciones[i].enBarra)
                 ListTile(
-                  leading: Icon(_secciones[i].icono, color: KipuColores.morado),
+                  leading: KipuIcon(_secciones[i].icono,
+                      color: KipuColores.morado),
                   title: Text(_secciones[i].titulo),
                   onTap: () {
                     Navigator.pop(ctx);
@@ -142,68 +145,98 @@ class _MenuLateral extends StatelessWidget {
 
   const _MenuLateral({required this.actual, required this.onTap});
 
+  Widget _item(String titulo, KipuIcono icono, bool activo, VoidCallback tap) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Material(
+        color: activo ? KipuColores.morado : Colors.transparent,
+        borderRadius: BorderRadius.circular(30),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(30),
+          onTap: tap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+            child: Row(
+              children: [
+                KipuIcon(icono,
+                    size: 24,
+                    color: activo ? Colors.white : KipuColores.tinta),
+                const SizedBox(width: 14),
+                Text(
+                  titulo,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: activo ? Colors.white : KipuColores.tinta,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
       width: 250,
-      color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(18, 28, 18, 18),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.horizontal(right: Radius.circular(28)),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 26, 20, 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
+                width: 48,
+                height: 48,
+                decoration: const BoxDecoration(
                   color: KipuColores.morado,
-                  borderRadius: BorderRadius.circular(14),
+                  shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.auto_stories, color: Colors.white),
+                child: const Center(
+                  child: KipuIcon(KipuIcono.cursos,
+                      size: 26, color: Colors.white),
+                ),
               ),
               const SizedBox(width: 12),
               const Text('Kipu',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w500)),
             ],
           ),
-          const SizedBox(height: 32),
-          for (var i = 0; i < _secciones.length; i++)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Material(
-                color: i == actual ? KipuColores.morado : Colors.transparent,
-                borderRadius: BorderRadius.circular(26),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(26),
-                  onTap: () => onTap(i),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
-                    child: Row(
-                      children: [
-                        Icon(
-                          i == actual
-                              ? _secciones[i].iconoActivo
-                              : _secciones[i].icono,
-                          color: i == actual ? Colors.white : KipuColores.tinta,
-                          size: 22,
-                        ),
-                        const SizedBox(width: 14),
-                        Text(
-                          _secciones[i].titulo,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w500,
-                            color:
-                                i == actual ? Colors.white : KipuColores.tinta,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+          const SizedBox(height: 30),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                for (var i = 0; i < _secciones.length; i++)
+                  _item(_secciones[i].titulo, _secciones[i].icono, i == actual,
+                      () => onTap(i)),
+              ],
             ),
+          ),
+          _item('Ayuda', KipuIcono.ayuda, false, () {
+            showDialog(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Text('Ayuda'),
+                content: const Text(
+                    'Kipu guarda todo en este dispositivo y funciona sin internet. '
+                    'Empieza en "Mis cursos" creando tu colegio, o carga datos de '
+                    'ejemplo desde "Configuración" para explorar.'),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Entendido')),
+                ],
+              ),
+            );
+          }),
         ],
       ),
     );

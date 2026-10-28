@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/demo.dart';
 import '../main.dart';
 import '../theme.dart';
 
@@ -22,6 +23,15 @@ class _BienvenidaState extends State<Bienvenida> {
     await db.guardarAjuste('genero', _genero);
     await db.guardarAjuste('lugar', _lugar.text.trim());
     await db.guardarAjuste('nombre', _nombre.text.trim());
+  }
+
+  Future<void> _explorar() async {
+    await cargarDatosDeEjemplo(db);
+    await db.guardarAjuste('genero', _genero);
+    await db.guardarAjuste('lugar',
+        _lugar.text.trim().isEmpty ? 'Huacho, Perú' : _lugar.text.trim());
+    await db.guardarAjuste('nombre',
+        _nombre.text.trim().isEmpty ? 'Javier Rojas' : _nombre.text.trim());
   }
 
   @override
@@ -97,6 +107,11 @@ class _BienvenidaState extends State<Bienvenida> {
                     FilledButton(
                       onPressed: _empezar,
                       child: const Text('Empezar'),
+                    ),
+                    const SizedBox(height: 10),
+                    OutlinedButton(
+                      onPressed: _explorar,
+                      child: const Text('Explorar con datos de ejemplo'),
                     ),
                     const SizedBox(height: 14),
                     const Text(

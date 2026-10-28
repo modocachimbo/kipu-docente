@@ -54,6 +54,26 @@ class Asistencias extends Table {
   Set<Column> get primaryKey => {estudianteId, fecha};
 }
 
+/// Calificación de una competencia en un periodo, con la escala del MINEDU.
+class Notas extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get estudianteId =>
+      integer().references(Estudiantes, #id, onDelete: KeyAction.cascade)();
+  IntColumn get periodo => integer()(); // 1..4 (bimestre) o 1..3 (trimestre)
+  TextColumn get competencia => text()();
+  TextColumn get nota => text()(); // AD, A, B, C
+}
+
+/// Fechas del calendario del docente (entregas, reuniones, cumpleaños...).
+class Eventos extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get fecha => text()(); // yyyy-MM-dd
+  TextColumn get hora => text().nullable()(); // null = todo el día
+  TextColumn get titulo => text()();
+  TextColumn get etiqueta => text().nullable()();
+  TextColumn get tipo => text().withDefault(const Constant('tarea'))(); // tarea, cumple
+}
+
 class CursoConColegio {
   final Curso curso;
   final Colegio colegio;
@@ -61,17 +81,21 @@ class CursoConColegio {
   CursoConColegio(this.curso, this.colegio, this.totalEstudiantes);
 }
 
-@DriftDatabase(tables: [Ajustes, Colegios, Cursos, Estudiantes, Asistencias])
+@DriftDatabase(tables: [Ajustes, Colegios, Cursos, Estudiantes, Asistencias, Notas, Eventos])
 class KipuDb extends _$KipuDb {
   KipuDb([QueryExecutor? executor]) : super(executor ?? _abrir());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onUpgrade: (m, from, to) async {
           if (from < 2) await m.createTable(asistencias);
+          if (from < 3) {
+            await m.createTable(notas);
+            await m.createTable(eventos);
+          }
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
@@ -188,6 +212,80 @@ class KipuDb extends _$KipuDb {
               AsistenciasCompanion.insert(
                   estudianteId: id, fecha: fecha, estado: estado),
           ]));
+
+  // Notas y estadística
+
+  /// Cantidad de calificaciones por nivel de logro, opcionalmente de un curso.
+  Stream<Map<String, int>> verNiveles({int? cursoId, int? periodo}) {
+    final total = notas.id.count();
+    final q = selectOnly(notas).join([
+      innerJoin(estudiantes, estudiantes.id.equalsExp(notas.estudianteId)),
+    ])
+      ..addColumns([notas.nota, total])
+      ..groupBy([notas.nota]);
+    if (cursoId != null) q.where(estudiantes.cursoId.equals(cursoId));
+    if (periodo != null) q.where(notas.periodo.equals(periodo));
+    return q.watch().map((filas) => {
+          for (final f in filas) f.read(notas.nota)!: f.read(total) ?? 0
+        });
+  }
+
+  /// Estudiante con más AD (para "Destacado del periodo").
+  Stream<(Estudiante, CursoConColegio?)?> verDestacado() {
+    final ads = notas.id.count();
+    final q = select(estudiantes).join([
+      innerJoin(notas, notas.estudianteId.equalsExp(estudiantes.id)),
+    ])
+      ..where(notas.nota.equals('AD'))
+      ..addColumns([ads])
+      ..groupBy([estudiantes.id])
+      ..orderBy([OrderingTerm.desc(ads)])
+      ..limit(1);
+    return q.watchSingleOrNull().asyncMap((f) async {
+      if (f == null) return null;
+      final e = f.readTable(estudiantes);
+      final cursos = await verCursos().first;
+      final c = cursos.where((c) => c.curso.id == e.cursoId).firstOrNull;
+      return (e, c);
+    });
+  }
+
+  // Eventos
+
+  Stream<List<Evento>> verEventos(String fecha) => (select(eventos)
+        ..where((e) => e.fecha.equals(fecha))
+        ..orderBy([(e) => OrderingTerm.asc(e.hora)]))
+      .watch();
+
+  Stream<Set<String>> verFechasConEventos(String desde, String hasta) =>
+      (selectOnly(eventos, distinct: true)
+            ..addColumns([eventos.fecha])
+            ..where(eventos.fecha.isBetweenValues(desde, hasta)))
+          .watch()
+          .map((f) => {for (final r in f) r.read(eventos.fecha)!});
+
+  // Búsqueda
+
+  Future<List<(Estudiante, CursoConColegio?)>> buscarEstudiantes(
+      String texto) async {
+    final t = '%${texto.trim()}%';
+    final lista = await (select(estudiantes)
+          ..where((e) => e.apellidos.like(t) | e.nombres.like(t))
+          ..orderBy([(e) => OrderingTerm.asc(e.apellidos)])
+          ..limit(30))
+        .get();
+    final cursos = await verCursos().first;
+    return [
+      for (final e in lista)
+        (e, cursos.where((c) => c.curso.id == e.cursoId).firstOrNull)
+    ];
+  }
+
+  /// Borra todo (colegios, cursos, estudiantes, asistencia, notas, eventos).
+  Future<void> borrarTodo() => transaction(() async {
+        await delete(eventos).go();
+        await delete(colegios).go();
+      });
 
   // Resumen para el inicio
 

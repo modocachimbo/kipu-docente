@@ -1,10 +1,31 @@
+import 'dart:async';
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../data/database.dart';
+import '../data/demo.dart';
 import '../main.dart';
 import '../theme.dart';
-import 'curso_detalle.dart';
+import '../widgets/kipu_icono.dart';
+import 'asistencia.dart' show fechaClave;
+import 'configuracion.dart' show editarPerfil;
+
+String _mayuscula(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+
+const _coloresNivel = {
+  'AD': [Color(0xFF7C6CF2), Color(0xFF9D90F7)],
+  'A': [Color(0xFF4F7CF5), Color(0xFF7FA3FA)],
+  'B': [Color(0xFF3FB8E8), Color(0xFF8AD8F5)],
+  'C': [Color(0xFF2FCB9C), Color(0xFF6FE3BE)],
+};
+const _nombresNivel = {
+  'AD': 'Logro destacado (AD)',
+  'A': 'Logro esperado (A)',
+  'B': 'En proceso (B)',
+  'C': 'En inicio (C)',
+};
 
 class Inicio extends StatelessWidget {
   const Inicio({super.key});
@@ -13,31 +34,267 @@ class Inicio extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-          children: [
-            const Text('Inicio',
-                style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700)),
-            const Text('Tu enseñanza, bien organizada',
-                style: TextStyle(color: KipuColores.morado, fontSize: 13)),
-            const SizedBox(height: 18),
+        child: LayoutBuilder(builder: (context, c) {
+          final ancho = c.maxWidth;
+          final conColumna = ancho >= 1080;
+          final principal = <Widget>[
+            _Encabezado(compacto: ancho < 640),
+            const SizedBox(height: 20),
             const _Saludo(),
             const SizedBox(height: 18),
-            const _Resumen(),
-            const SizedBox(height: 26),
-            const Text('Mis cursos',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 10),
-            const _CursosRecientes(),
-          ],
-        ),
+            const _Contadores(),
+            const SizedBox(height: 18),
+            _Estadisticas(enFila: ancho >= 760),
+            const SizedBox(height: 18),
+            const _Destacado(),
+          ];
+          final lateral = <Widget>[
+            const _MiPerfil(),
+            const SizedBox(height: 16),
+            const _MiCalendario(),
+          ];
+          final relleno = EdgeInsets.fromLTRB(
+              ancho < 640 ? 16 : 24, 20, ancho < 640 ? 16 : 24, 28);
+          if (!conColumna) {
+            return ListView(
+              padding: relleno,
+              children: [...principal, const SizedBox(height: 18), ...lateral],
+            );
+          }
+          return SingleChildScrollView(
+            padding: relleno,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: Column(children: principal)),
+                const SizedBox(width: 22),
+                SizedBox(width: 330, child: Column(children: lateral)),
+              ],
+            ),
+          );
+        }),
       ),
     );
   }
 }
 
-class _Saludo extends StatelessWidget {
+// ---------------------------------------------------------------- Encabezado
+
+class _Encabezado extends StatelessWidget {
+  final bool compacto;
+  const _Encabezado({required this.compacto});
+
+  @override
+  Widget build(BuildContext context) {
+    final titulo = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Dashboard',
+            style: TextStyle(
+                fontSize: compacto ? 24 : 28, fontWeight: FontWeight.w700)),
+        const Text('Tu enseñanza, bien organizada',
+            style: TextStyle(
+                color: KipuColores.morado,
+                fontSize: 13,
+                fontWeight: FontWeight.w500)),
+      ],
+    );
+    final acciones = Row(
+      children: [
+        const Expanded(child: _Buscador()),
+        const SizedBox(width: 12),
+        const _Campana(),
+      ],
+    );
+    if (compacto) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [titulo, const SizedBox(height: 14), acciones],
+      );
+    }
+    return Row(
+      children: [
+        titulo,
+        const SizedBox(width: 28),
+        Expanded(
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: acciones),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _Buscador extends StatelessWidget {
+  const _Buscador();
+
+  @override
+  Widget build(BuildContext context) {
+    return SearchAnchor(
+      viewHintText: 'Buscar alumno por nombre o apellido',
+      builder: (context, controller) => Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(30),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(30),
+          onTap: controller.openView,
+          child: Container(
+            height: 52,
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            child: const Row(
+              children: [
+                KipuIcon(KipuIcono.buscar, size: 22, color: KipuColores.morado),
+                SizedBox(width: 10),
+                Text('Buscar alumno',
+                    style: TextStyle(color: KipuColores.morado, fontSize: 15)),
+              ],
+            ),
+          ),
+        ),
+      ),
+      suggestionsBuilder: (context, controller) async {
+        if (controller.text.trim().length < 2) {
+          return const [
+            ListTile(
+              title: Text('Escribe al menos 2 letras',
+                  style: TextStyle(color: KipuColores.gris)),
+            )
+          ];
+        }
+        final r = await db.buscarEstudiantes(controller.text);
+        if (r.isEmpty) {
+          return const [ListTile(title: Text('Sin resultados'))];
+        }
+        return [
+          for (final (e, c) in r)
+            ListTile(
+              leading: const CircleAvatar(
+                backgroundColor: KipuColores.moradoClaro,
+                child: KipuIcon(KipuIcono.estudiantes,
+                    size: 20, color: KipuColores.morado),
+              ),
+              title: Text('${e.apellidos}, ${e.nombres}'),
+              subtitle: c == null
+                  ? null
+                  : Text(
+                      '${c.curso.grado} ${c.curso.seccion} · ${c.curso.nombre} · ${c.colegio.nombre}'),
+              onTap: () => controller.closeView(null),
+            ),
+        ];
+      },
+    );
+  }
+}
+
+class _Campana extends StatelessWidget {
+  const _Campana();
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<Evento>>(
+      stream: db.verEventos(fechaClave(DateTime.now())),
+      builder: (context, snap) {
+        final eventos = snap.data ?? [];
+        return Material(
+          color: Colors.white,
+          shape: const CircleBorder(),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: () => showModalBottomSheet(
+              context: context,
+              showDragHandle: true,
+              backgroundColor: Colors.white,
+              builder: (_) => SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Para hoy',
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 8),
+                      if (eventos.isEmpty)
+                        const Text('No tienes pendientes hoy.',
+                            style: TextStyle(color: KipuColores.gris)),
+                      for (final e in eventos) _FilaEvento(evento: e),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            child: SizedBox(
+              width: 52,
+              height: 52,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  const KipuIcon(KipuIcono.campana,
+                      size: 24, color: KipuColores.morado),
+                  if (eventos.isNotEmpty)
+                    Positioned(
+                      top: 8,
+                      right: 9,
+                      child: Container(
+                        width: 17,
+                        height: 17,
+                        alignment: Alignment.center,
+                        decoration: const BoxDecoration(
+                            color: Color(0xFFE5394B), shape: BoxShape.circle),
+                        child: Text('${eventos.length}',
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700)),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ---------------------------------------------------------------- Saludo
+
+class _Saludo extends StatefulWidget {
   const _Saludo();
+
+  @override
+  State<_Saludo> createState() => _SaludoState();
+}
+
+class _SaludoState extends State<_Saludo> {
+  late final Timer _reloj;
+  DateTime _ahora = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    _reloj = Timer.periodic(const Duration(seconds: 20),
+        (_) => setState(() => _ahora = DateTime.now()));
+  }
+
+  @override
+  void dispose() {
+    _reloj.cancel();
+    super.dispose();
+  }
+
+  String get _frase => switch (_ahora.weekday) {
+        DateTime.monday => '¡Que tengas un gran inicio de semana!',
+        DateTime.friday => '¡Último empujón de la semana!',
+        DateTime.saturday || DateTime.sunday => '¡Disfruta tu descanso, te lo ganaste!',
+        _ => '¡Que tengas un gran día de clases!',
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -48,81 +305,125 @@ class _Saludo extends StatelessWidget {
         builder: (context, nombre) {
           final esProfesora = genero.data == 'profesora';
           final primerNombre = (nombre.data ?? '').split(' ').first;
-          final hoy = DateFormat("EEEE d 'de' MMMM", 'es_PE')
-              .format(DateTime.now());
-          return Container(
-            height: 170,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
-              gradient: const LinearGradient(
-                colors: [KipuColores.morado, KipuColores.moradoOscuro],
+          return LayoutBuilder(builder: (context, c) {
+            final chico = c.maxWidth < 560;
+            final alto = chico ? 160.0 : 170.0;
+            final figura = chico ? 120.0 : 190.0;
+            return SizedBox(
+              height: alto + 36,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned.fill(
+                    top: 36,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(26),
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF7D6CF0), Color(0xFF6D5BE6)],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 52,
+                    right: 18,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF4B3CB5).withValues(alpha: .55),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const KipuIcon(KipuIcono.calendario,
+                              size: 15, color: Colors.white),
+                          const SizedBox(width: 6),
+                          Text(
+                            _mayuscula(DateFormat(
+                                    chico ? "d MMM" : "MMMM d, y", 'es_PE')
+                                .format(_ahora)),
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            DateFormat('h:mm a', 'en_US')
+                                .format(_ahora)
+                                .toLowerCase(),
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: chico ? 4 : 26,
+                    bottom: 0,
+                    child: Image.asset(
+                      esProfesora
+                          ? 'assets/img/profesora.png'
+                          : 'assets/img/profesor.png',
+                      height: alto + 36,
+                      width: figura,
+                      fit: BoxFit.fitHeight,
+                      alignment: Alignment.bottomCenter,
+                    ),
+                  ),
+                  Positioned(
+                    left: figura + (chico ? 6 : 40),
+                    right: 18,
+                    bottom: chico ? 22 : 34,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text.rich(
+                          TextSpan(children: [
+                            TextSpan(
+                                text:
+                                    '${esProfesora ? 'Bienvenida' : 'Bienvenido'}, '),
+                            TextSpan(
+                                text: 'Prof. $primerNombre',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w700)),
+                          ]),
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: chico ? 20 : 28,
+                            fontWeight: FontWeight.w500,
+                            height: 1.15,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(_frase,
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: chico ? 13 : 15)),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ),
-            clipBehavior: Clip.hardEdge,
-            child: Stack(
-              children: [
-                Positioned(
-                  left: 4,
-                  bottom: -70,
-                  child: Image.asset(
-                    esProfesora
-                        ? 'assets/img/profesora.png'
-                        : 'assets/img/profesor.png',
-                    height: 230,
-                  ),
-                ),
-                Positioned(
-                  left: 120,
-                  right: 18,
-                  top: 18,
-                  bottom: 18,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: .18),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          hoy[0].toUpperCase() + hoy.substring(1),
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 11),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        '${esProfesora ? 'Bienvenida' : 'Bienvenido'}, '
-                        'Prof. $primerNombre',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          height: 1.2,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        '¡Que tengas un gran día de clases!',
-                        style: TextStyle(color: Colors.white70, fontSize: 13),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
+            );
+          });
         },
       ),
     );
   }
 }
 
-class _Resumen extends StatelessWidget {
-  const _Resumen();
+// ---------------------------------------------------------------- Contadores
+
+class _Contadores extends StatelessWidget {
+  const _Contadores();
 
   @override
   Widget build(BuildContext context) {
@@ -131,22 +432,23 @@ class _Resumen extends StatelessWidget {
       builder: (context, snap) {
         final r = snap.data;
         final items = [
-          (Icons.account_balance, r?.colegios ?? 0, 'Colegios'),
-          (Icons.menu_book, r?.cursos ?? 0, 'Cursos'),
-          (Icons.groups, r?.secciones ?? 0, 'Secciones'),
-          (Icons.school, r?.estudiantes ?? 0, 'Estudiantes'),
+          (KipuIcono.colegio, r?.colegios ?? 0, 'Colegios'),
+          (KipuIcono.cursos, r?.cursos ?? 0, 'Cursos / asignaturas'),
+          (KipuIcono.reportes, r?.secciones ?? 0, 'Secciones'),
+          (KipuIcono.estudiantes, r?.estudiantes ?? 0, 'Estudiantes'),
         ];
         return LayoutBuilder(builder: (context, c) {
-          final columnas = c.maxWidth >= 640 ? 4 : 2;
-          final ancho = (c.maxWidth - 12 * (columnas - 1)) / columnas;
+          final columnas = c.maxWidth >= 600 ? 4 : 2;
+          final ancho = (c.maxWidth - 14 * (columnas - 1)) / columnas;
           return Wrap(
-            spacing: 12,
-            runSpacing: 12,
+            spacing: 14,
+            runSpacing: 14,
             children: [
               for (var i = 0; i < items.length; i++)
                 Container(
                   width: ancho,
-                  padding: const EdgeInsets.all(14),
+                  height: 92,
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(18),
                     gradient: LinearGradient(colors: KipuColores.tarjetas[i]),
@@ -155,23 +457,26 @@ class _Resumen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(6),
+                        padding: const EdgeInsets.all(5),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Icon(items[i].$1,
-                            size: 20, color: KipuColores.tarjetas[i][0]),
+                        child: KipuIcon(items[i].$1,
+                            size: 22, color: KipuColores.tarjetas[i][0]),
                       ),
-                      const SizedBox(height: 10),
+                      const Spacer(),
                       Text('${items[i].$2}',
                           style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 22,
+                              fontSize: 15,
+                              height: 1.1,
                               fontWeight: FontWeight.w700)),
                       Text(items[i].$3,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                              color: Colors.white, fontSize: 12)),
+                              color: Colors.white, fontSize: 11.5)),
                     ],
                   ),
                 ),
@@ -183,67 +488,809 @@ class _Resumen extends StatelessWidget {
   }
 }
 
-class _CursosRecientes extends StatelessWidget {
-  const _CursosRecientes();
+// ---------------------------------------------------------------- Estadísticas
+
+class _Tarjeta extends StatelessWidget {
+  final Widget child;
+  final EdgeInsets padding;
+  const _Tarjeta(
+      {required this.child, this.padding = const EdgeInsets.all(20)});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: padding,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+        ),
+        child: child,
+      );
+}
+
+class _Filtro<T> extends StatelessWidget {
+  final T valor;
+  final Map<T, String> opciones;
+  final ValueChanged<T> onCambio;
+  const _Filtro(
+      {required this.valor, required this.opciones, required this.onCambio});
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<T>(
+      initialValue: valor,
+      onSelected: onCambio,
+      itemBuilder: (_) => [
+        for (final o in opciones.entries)
+          PopupMenuItem(value: o.key, child: Text(o.value)),
+      ],
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 6, 8, 6),
+        decoration: BoxDecoration(
+          color: KipuColores.morado,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        constraints: const BoxConstraints(maxWidth: 150),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(opciones[valor] ?? '',
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.w600)),
+            ),
+            const Icon(Icons.arrow_drop_down, color: Colors.white),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Estadisticas extends StatelessWidget {
+  final bool enFila;
+  const _Estadisticas({required this.enFila});
+
+  @override
+  Widget build(BuildContext context) {
+    if (enFila) {
+      return const IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(child: _EstadisticaDona()),
+            SizedBox(width: 18),
+            Expanded(child: _EstadisticaBarras()),
+          ],
+        ),
+      );
+    }
+    return const Column(
+      children: [
+        _EstadisticaDona(),
+        SizedBox(height: 18),
+        _EstadisticaBarras(),
+      ],
+    );
+  }
+}
+
+class _SinNotas extends StatelessWidget {
+  const _SinNotas();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 18),
+      child: Column(
+        children: [
+          const Text('Aún no hay notas registradas.',
+              style: TextStyle(color: KipuColores.gris)),
+          const SizedBox(height: 10),
+          OutlinedButton(
+            onPressed: () => cargarDatosDeEjemplo(db),
+            child: const Text('Ver con datos de ejemplo'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EstadisticaDona extends StatefulWidget {
+  const _EstadisticaDona();
+
+  @override
+  State<_EstadisticaDona> createState() => _EstadisticaDonaState();
+}
+
+class _EstadisticaDonaState extends State<_EstadisticaDona> {
+  int _curso = 0; // 0 = todos
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<CursoConColegio>>(
       stream: db.verCursos(),
-      builder: (context, snap) {
-        final cursos = snap.data ?? [];
-        if (cursos.isEmpty) {
-          return Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
+      builder: (context, snapCursos) {
+        final opciones = <int, String>{
+          0: 'Total',
+          for (final c in snapCursos.data ?? <CursoConColegio>[])
+            c.curso.id: '${c.curso.nombre} ${c.curso.grado} ${c.curso.seccion}',
+        };
+        if (!opciones.containsKey(_curso)) _curso = 0;
+        return _Tarjeta(
+          child: StreamBuilder<Map<String, int>>(
+            stream: db.verNiveles(cursoId: _curso == 0 ? null : _curso),
+            builder: (context, snap) {
+              final n = snap.data ?? {};
+              final total = n.values.fold(0, (a, b) => a + b);
+              final aprobados = total - (n['C'] ?? 0);
+              final pct = total == 0 ? 0 : (aprobados * 100 / total).round();
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.lightbulb_outline,
-                      color: KipuColores.morado),
-                  const SizedBox(width: 12),
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text('ESTADÍSTICA ACADÉMICA',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 14)),
+                      ),
+                      _Filtro<int>(
+                        valor: _curso,
+                        opciones: opciones,
+                        onCambio: (v) => setState(() => _curso = v),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  if (total == 0)
+                    const _SinNotas()
+                  else
+                    Row(
+                      children: [
+                        SizedBox(
+                          width: 150,
+                          height: 150,
+                          child: CustomPaint(
+                            painter: _Dona(aprobados / total),
+                            child: Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text.rich(TextSpan(children: [
+                                    TextSpan(
+                                        text: '$pct',
+                                        style: const TextStyle(
+                                            fontSize: 34,
+                                            fontWeight: FontWeight.w500)),
+                                    const TextSpan(
+                                        text: '%',
+                                        style: TextStyle(fontSize: 14)),
+                                  ])),
+                                  const Text('APROBADOS',
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 22),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              for (final k in ['AD', 'A', 'B', 'C'])
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 6),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text('${n[k] ?? 0}',
+                                          style: const TextStyle(
+                                              fontSize: 22,
+                                              height: 1.1,
+                                              fontWeight: FontWeight.w700)),
+                                      Text(_nombresNivel[k]!,
+                                          style: const TextStyle(
+                                              fontSize: 11,
+                                              color: KipuColores.morado)),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _Dona extends CustomPainter {
+  final double valor;
+  _Dona(this.valor);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const grosor = 11.0;
+    final rect = Offset.zero & size;
+    final arco = rect.deflate(grosor / 2);
+    canvas.drawArc(
+        arco,
+        0,
+        2 * pi,
+        false,
+        Paint()
+          ..color = KipuColores.moradoClaro
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = grosor);
+    canvas.drawArc(
+        arco,
+        -pi / 2,
+        2 * pi * valor,
+        false,
+        Paint()
+          ..shader = const SweepGradient(
+            colors: [Color(0xFF6D5BE6), Color(0xFF8F7CF5), Color(0xFF6D5BE6)],
+          ).createShader(rect)
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..strokeWidth = grosor);
+  }
+
+  @override
+  bool shouldRepaint(_Dona old) => old.valor != valor;
+}
+
+class _EstadisticaBarras extends StatefulWidget {
+  const _EstadisticaBarras();
+
+  @override
+  State<_EstadisticaBarras> createState() => _EstadisticaBarrasState();
+}
+
+class _EstadisticaBarrasState extends State<_EstadisticaBarras> {
+  int _periodo = 0; // 0 = todos
+
+  @override
+  Widget build(BuildContext context) {
+    return _Tarjeta(
+      child: StreamBuilder<Map<String, int>>(
+        stream: db.verNiveles(periodo: _periodo == 0 ? null : _periodo),
+        builder: (context, snap) {
+          final n = snap.data ?? {};
+          final total = n.values.fold(0, (a, b) => a + b);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
                   const Expanded(
-                    child: Text(
-                        'Empieza creando tu colegio y tus cursos en la '
-                        'pestaña "Mis cursos".'),
+                    child: Text('NIVELES DE LOGRO',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 14)),
+                  ),
+                  _Filtro<int>(
+                    valor: _periodo,
+                    opciones: const {
+                      0: 'Total',
+                      1: 'I bimestre',
+                      2: 'II bimestre',
+                      3: 'III bimestre',
+                      4: 'IV bimestre',
+                    },
+                    onCambio: (v) => setState(() => _periodo = v),
                   ),
                 ],
               ),
-            ),
-          );
-        }
-        return Column(
-          children: [
-            for (final c in cursos.take(5))
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Card(
-                  child: ListTile(
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    leading: CircleAvatar(
-                      backgroundColor: KipuColores.moradoClaro,
-                      child: Text(c.curso.seccion,
-                          style: const TextStyle(
-                              color: KipuColores.moradoOscuro,
-                              fontWeight: FontWeight.w700)),
-                    ),
-                    title: Text(c.curso.nombre,
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: Text(
-                        '${c.curso.grado} ${c.curso.seccion} · ${c.colegio.nombre}'),
-                    trailing: Text('${c.totalEstudiantes} est.',
-                        style: const TextStyle(color: KipuColores.gris)),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => CursoDetalle(datos: c)),
+              const SizedBox(height: 14),
+              if (total == 0)
+                const _SinNotas()
+              else
+                for (final k in ['AD', 'A', 'B', 'C'])
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: _Barra(
+                      etiqueta: _nombresNivel[k]!,
+                      valor: (n[k] ?? 0) / total,
+                      colores: _coloresNivel[k]!,
                     ),
                   ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _Barra extends StatelessWidget {
+  final String etiqueta;
+  final double valor;
+  final List<Color> colores;
+  const _Barra(
+      {required this.etiqueta, required this.valor, required this.colores});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(etiqueta,
+                  style: const TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.w500)),
+            ),
+            Text('${(valor * 100).round()}%',
+                style: const TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w600)),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Stack(
+          children: [
+            Container(height: 1.4, color: KipuColores.tinta, margin: const EdgeInsets.only(top: 6)),
+            FractionallySizedBox(
+              widthFactor: valor.clamp(0.02, 1.0),
+              child: Container(
+                height: 8,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  gradient: LinearGradient(colors: colores),
                 ),
               ),
+            ),
           ],
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------- Destacado
+
+class _Destacado extends StatelessWidget {
+  const _Destacado();
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<(Estudiante, CursoConColegio?)?>(
+      stream: db.verDestacado(),
+      builder: (context, snap) {
+        final d = snap.data;
+        if (d == null) return const SizedBox.shrink();
+        final (e, c) = d;
+        final chip = c == null
+            ? null
+            : Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: KipuColores.morado,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                    '${c.curso.grado} ${c.curso.seccion} - ${c.colegio.nombre}',
+                    style: const TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.w600)),
+              );
+        return _Tarjeta(
+          padding: const EdgeInsets.fromLTRB(8, 8, 10, 8),
+          child: LayoutBuilder(builder: (context, cons) {
+            final chico = cons.maxWidth < 560;
+            final nombre = Text('${e.apellidos} ${e.nombres}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 16));
+            return Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: KipuColores.morado,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const KipuIcon(KipuIcono.estrella,
+                      size: 22, color: Colors.white),
+                ),
+                const SizedBox(width: 10),
+                const Text('PUESTO GLOBAL',
+                    style: TextStyle(fontWeight: FontWeight.w700)),
+                Container(
+                    width: 1.5,
+                    height: 26,
+                    color: KipuColores.tinta,
+                    margin: const EdgeInsets.symmetric(horizontal: 10)),
+                Expanded(
+                  child: chico
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            nombre,
+                            if (c != null)
+                              Text(
+                                  '${c.curso.grado} ${c.curso.seccion} · ${c.colegio.nombre}',
+                                  style: const TextStyle(
+                                      fontSize: 12, color: KipuColores.morado)),
+                          ],
+                        )
+                      : nombre,
+                ),
+                if (!chico && chip != null) chip,
+              ],
+            );
+          }),
         );
       },
+    );
+  }
+}
+
+// ---------------------------------------------------------------- Columna derecha
+
+class _Cabecera extends StatelessWidget {
+  final String titulo;
+  final Widget? accion;
+  const _Cabecera({required this.titulo, this.accion});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        height: 58,
+        padding: const EdgeInsets.fromLTRB(18, 0, 12, 0),
+        decoration: const BoxDecoration(
+          color: KipuColores.morado,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(titulo,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600)),
+            ),
+            ?accion,
+          ],
+        ),
+      );
+}
+
+class _MiPerfil extends StatelessWidget {
+  const _MiPerfil();
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<String?>(
+      stream: db.verAjuste('genero'),
+      builder: (context, genero) => StreamBuilder<String?>(
+        stream: db.verAjuste('nombre'),
+        builder: (context, nombre) => StreamBuilder<String?>(
+          stream: db.verAjuste('lugar'),
+          builder: (context, lugar) {
+            final esProfesora = genero.data == 'profesora';
+            return Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Column(
+                children: [
+                  _Cabecera(
+                    titulo: 'Mi perfil',
+                    accion: Material(
+                      color: Colors.white,
+                      shape: const CircleBorder(),
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: () => editarPerfil(context),
+                        child: const Padding(
+                          padding: EdgeInsets.all(7),
+                          child: KipuIcon(KipuIcono.editar,
+                              size: 18, color: KipuColores.morado),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 84,
+                          height: 84,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: KipuColores.moradoClaro,
+                            border: Border.all(
+                                color: KipuColores.morado, width: 1.5),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: Transform.scale(
+                            scale: 2.6,
+                            alignment: const Alignment(0, -0.82),
+                            child: Image.asset(
+                              esProfesora
+                                  ? 'assets/img/profesora.png'
+                                  : 'assets/img/profesor.png',
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(nombre.data ?? '',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600)),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(Icons.verified,
+                                      size: 15, color: KipuColores.morado),
+                                ],
+                              ),
+                              Text(esProfesora ? 'PROFESORA' : 'PROFESOR',
+                                  style: const TextStyle(
+                                      fontSize: 12,
+                                      color: KipuColores.gris,
+                                      letterSpacing: .5)),
+                              if ((lugar.data ?? '').isNotEmpty) ...[
+                                const SizedBox(height: 10),
+                                Row(
+                                  children: [
+                                    const KipuIcon(KipuIcono.ubicacion,
+                                        size: 16, color: KipuColores.morado),
+                                    const SizedBox(width: 6),
+                                    Flexible(
+                                      child: Text(lugar.data!,
+                                          style:
+                                              const TextStyle(fontSize: 13)),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _MiCalendario extends StatefulWidget {
+  const _MiCalendario();
+
+  @override
+  State<_MiCalendario> createState() => _MiCalendarioState();
+}
+
+class _MiCalendarioState extends State<_MiCalendario> {
+  DateTime _dia = DateUtils.dateOnly(DateTime.now());
+
+  DateTime get _domingo =>
+      _dia.subtract(Duration(days: _dia.weekday % 7));
+
+  void _cambiarMes(int mes) {
+    final ultimo = DateUtils.getDaysInMonth(_dia.year, mes);
+    setState(() => _dia = DateTime(_dia.year, mes, min(_dia.day, ultimo)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final semana = [for (var i = 0; i < 7; i++) _domingo.add(Duration(days: i))];
+    const letras = ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'];
+    final hoy = DateUtils.dateOnly(DateTime.now());
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _Cabecera(
+            titulo: 'Mi calendario',
+            accion: _Filtro<int>(
+              valor: _dia.month,
+              opciones: {
+                for (var m = 1; m <= 12; m++)
+                  m: _mayuscula(DateFormat('MMMM', 'es_PE')
+                      .format(DateTime(2000, m))),
+              },
+              onCambio: _cambiarMes,
+            ),
+          ),
+          Container(
+            color: const Color(0xFFE9E8F2),
+            padding: const EdgeInsets.fromLTRB(8, 10, 8, 12),
+            child: StreamBuilder<Set<String>>(
+              stream: db.verFechasConEventos(
+                  fechaClave(semana.first), fechaClave(semana.last)),
+              builder: (context, snap) {
+                final conEventos = snap.data ?? {};
+                return Row(
+                  children: [
+                    for (var i = 0; i < 7; i++)
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() => _dia = semana[i]),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 160),
+                            margin: const EdgeInsets.symmetric(horizontal: 2),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: semana[i] == _dia
+                                  ? KipuColores.morado
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Column(
+                              children: [
+                                Text(letras[i],
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                        color: semana[i] == _dia
+                                            ? Colors.white
+                                            : KipuColores.tinta)),
+                                const SizedBox(height: 6),
+                                Text('${semana[i].day}',
+                                    style: TextStyle(
+                                        fontSize: 18,
+                                        color: semana[i] == _dia
+                                            ? Colors.white
+                                            : (semana[i] == hoy
+                                                ? KipuColores.morado
+                                                : KipuColores.tinta))),
+                                const SizedBox(height: 4),
+                                Container(
+                                  width: 5,
+                                  height: 5,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: conEventos
+                                            .contains(fechaClave(semana[i]))
+                                        ? (semana[i] == _dia
+                                            ? Colors.white
+                                            : KipuColores.morado)
+                                        : Colors.transparent,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+            child: StreamBuilder<List<Evento>>(
+              stream: db.verEventos(fechaClave(_dia)),
+              builder: (context, snap) {
+                final eventos = snap.data ?? [];
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                        DateFormat("MMMM, d", 'es_PE')
+                            .format(_dia)
+                            .toUpperCase(),
+                        style: const TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 6),
+                    if (eventos.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 14),
+                        child: Text('Sin pendientes este día.',
+                            style: TextStyle(color: KipuColores.gris)),
+                      ),
+                    for (final e in eventos) _FilaEvento(evento: e),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FilaEvento extends StatelessWidget {
+  final Evento evento;
+  const _FilaEvento({required this.evento});
+
+  @override
+  Widget build(BuildContext context) {
+    final cumple = evento.tipo == 'cumple';
+    final hora = evento.hora == null
+        ? 'Todo el día'
+        : DateFormat('h:mm a', 'en_US')
+            .format(DateFormat('HH:mm').parse(evento.hora!))
+            .toLowerCase();
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Color(0xFF3A3650), width: .8)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 78,
+            child: Text(hora, style: const TextStyle(fontSize: 13)),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 2, right: 6),
+            child: cumple
+                ? const KipuIcon(KipuIcono.cumple,
+                    size: 15, color: KipuColores.morado)
+                : Container(
+                    margin: const EdgeInsets.only(top: 4, left: 4, right: 4),
+                    width: 7,
+                    height: 7,
+                    decoration: const BoxDecoration(
+                        color: KipuColores.morado, shape: BoxShape.circle),
+                  ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(evento.titulo,
+                    style: const TextStyle(fontSize: 13, height: 1.2)),
+                if (evento.etiqueta != null) ...[
+                  const SizedBox(height: 3),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: KipuColores.morado,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(evento.etiqueta!,
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600)),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

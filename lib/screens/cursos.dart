@@ -332,7 +332,8 @@ class TarjetaCurso extends StatelessWidget {
   }
 }
 
-Future<bool> confirmar(BuildContext context, String titulo, String texto) async {
+Future<bool> confirmar(BuildContext context, String titulo, String texto,
+    {String accion = 'Eliminar'}) async {
   final r = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
@@ -344,7 +345,7 @@ Future<bool> confirmar(BuildContext context, String titulo, String texto) async 
             child: const Text('Cancelar')),
         FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Eliminar')),
+            child: Text(accion)),
       ],
     ),
   );
