@@ -85,6 +85,38 @@ class Horarios extends Table {
   TextColumn get fin => text()(); // HH:mm
 }
 
+class IndicadoresCurso {
+  final int presentes;
+  final int registros;
+  final int enC;
+  final List<Horario> horario;
+  const IndicadoresCurso({
+    required this.presentes,
+    required this.registros,
+    required this.enC,
+    required this.horario,
+  });
+
+  int? get pctAsistencia =>
+      registros == 0 ? null : (presentes * 100 / registros).round();
+
+  /// Próxima clase a partir de [ahora] (hoy si aún no termina).
+  ({DateTime dia, Horario bloque})? proximaClase(DateTime ahora) {
+    if (horario.isEmpty) return null;
+    final hora =
+        '${ahora.hour.toString().padLeft(2, '0')}:${ahora.minute.toString().padLeft(2, '0')}';
+    for (var i = 0; i < 7; i++) {
+      final dia = ahora.add(Duration(days: i));
+      final delDia = horario.where((h) => h.dia == dia.weekday).toList()
+        ..sort((a, b) => a.inicio.compareTo(b.inicio));
+      for (final h in delDia) {
+        if (i > 0 || h.fin.compareTo(hora) > 0) return (dia: dia, bloque: h);
+      }
+    }
+    return null;
+  }
+}
+
 class CursoConColegio {
   final Curso curso;
   final Colegio colegio;
@@ -198,6 +230,38 @@ class KipuDb extends _$KipuDb {
   }
 
   Future<int> crearCurso(CursosCompanion c) => into(cursos).insert(c);
+
+  /// Datos rápidos de cada curso para sus tarjetas: % de asistencia,
+  /// alumnos con C en el último periodo y sus bloques de horario.
+  Stream<Map<int, IndicadoresCurso>> verIndicadoresCursos() {
+    final q = customSelect(
+      'SELECT c.id AS id, '
+      '(SELECT COUNT(*) FROM asistencias a JOIN estudiantes e ON e.id = a.estudiante_id '
+      " WHERE e.curso_id = c.id AND a.estado = 'P') AS p, "
+      '(SELECT COUNT(*) FROM asistencias a JOIN estudiantes e ON e.id = a.estudiante_id '
+      ' WHERE e.curso_id = c.id) AS tot, '
+      '(SELECT COUNT(DISTINCT n.estudiante_id) FROM notas n JOIN estudiantes e ON e.id = n.estudiante_id '
+      " WHERE e.curso_id = c.id AND n.nota = 'C' AND n.periodo = "
+      '  (SELECT MAX(n2.periodo) FROM notas n2 JOIN estudiantes e2 ON e2.id = n2.estudiante_id '
+      '   WHERE e2.curso_id = c.id)) AS enc '
+      'FROM cursos c',
+      readsFrom: {cursos, estudiantes, asistencias, notas},
+    ).watch();
+    return q.asyncMap((filas) async {
+      final bloques = await select(horarios).get();
+      return {
+        for (final f in filas)
+          f.read<int>('id'): IndicadoresCurso(
+            presentes: f.read<int>('p'),
+            registros: f.read<int>('tot'),
+            enC: f.read<int>('enc'),
+            horario: bloques
+                .where((h) => h.cursoId == f.read<int>('id'))
+                .toList(),
+          ),
+      };
+    });
+  }
 
   Future<void> borrarCurso(int id) =>
       (delete(cursos)..where((c) => c.id.equals(id))).go();

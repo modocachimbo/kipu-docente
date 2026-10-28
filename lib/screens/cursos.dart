@@ -53,7 +53,19 @@ class _MisCursosState extends State<MisCursos> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Mis cursos')),
+      appBar: AppBar(
+        title: const Text('Mis cursos'),
+        actions: [
+          if (MediaQuery.sizeOf(context).width < 700)
+            StreamBuilder<String?>(
+              stream: db.verAjuste('orden_cursos'),
+              builder: (context, snap) => Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: _BotonOrdenar(orden: snap.data ?? 'grado'),
+              ),
+            ),
+        ],
+      ),
       floatingActionButton: StreamBuilder<List<Colegio>>(
         stream: db.verColegios(),
         builder: (context, snap) {
@@ -87,45 +99,94 @@ class _MisCursosState extends State<MisCursos> {
         children: [
           StreamBuilder<List<Colegio>>(
             stream: db.verColegios(),
-            builder: (context, snapCol) => StreamBuilder<List<CursoConColegio>>(
-              stream: db.verCursos(),
-              builder: (context, snapCur) {
-                final colegios = snapCol.data ?? [];
-                final cursos = snapCur.data ?? [];
-                if (colegios.isEmpty) {
-                  return _Vacio(onCrear: () => crearColegio(context));
-                }
-                return ListView(
-                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 110),
-                  children: [
-                    AnimatedSize(
-                      duration: const Duration(milliseconds: 200),
-                      child: _editando
-                          ? _AvisoEdicion(
-                              onListo: () => setState(() => _editando = false),
-                            )
-                          : const SizedBox(width: double.infinity),
+            builder: (context, snapCol) => StreamBuilder<String?>(
+              stream: db.verAjuste('colegio_activo'),
+              builder: (context, snapAct) => StreamBuilder<String?>(
+                stream: db.verAjuste('orden_cursos'),
+                builder: (context, snapOrd) =>
+                    StreamBuilder<List<CursoConColegio>>(
+                      stream: db.verCursos(),
+                      builder: (context, snapCur) =>
+                          StreamBuilder<Map<int, IndicadoresCurso>>(
+                            stream: db.verIndicadoresCursos(),
+                            builder: (context, snapInd) {
+                              final colegios = snapCol.data ?? [];
+                              if (colegios.isEmpty) {
+                                return snapCol.hasData
+                                    ? _Vacio(
+                                        onCrear: () => crearColegio(context),
+                                      )
+                                    : const SizedBox.shrink();
+                              }
+                              final activo = colegioActivo(
+                                colegios,
+                                snapAct.data,
+                              );
+                              final cursos = (snapCur.data ?? [])
+                                  .where((c) => c.colegio.id == activo.id)
+                                  .toList();
+                              final orden = snapOrd.data ?? 'grado';
+                              final ancho =
+                                  MediaQuery.sizeOf(context).width >= 700;
+                              return ListView(
+                                padding: const EdgeInsets.fromLTRB(
+                                  20,
+                                  4,
+                                  20,
+                                  110,
+                                ),
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: _PestanasColegios(
+                                          colegios: colegios,
+                                          activo: activo,
+                                        ),
+                                      ),
+                                      if (ancho) ...[
+                                        const SizedBox(width: 12),
+                                        _BotonOrdenar(orden: orden),
+                                      ],
+                                    ],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  AnimatedSize(
+                                    duration: const Duration(milliseconds: 200),
+                                    child: _editando
+                                        ? _AvisoEdicion(
+                                            onListo: () => setState(
+                                              () => _editando = false,
+                                            ),
+                                          )
+                                        : const SizedBox(
+                                            width: double.infinity,
+                                          ),
+                                  ),
+                                  _BannerColegio(
+                                    colegio: activo,
+                                    color: colorColegio(colegios, activo.id),
+                                    cursos: cursos,
+                                    indicadores: snapInd.data ?? {},
+                                  ),
+                                  const SizedBox(height: 6),
+                                  _GrillaCursos(
+                                    cursos: cursos,
+                                    indicadores: snapInd.data ?? {},
+                                    orden: orden,
+                                    color: colorColegio(colegios, activo.id),
+                                    editando: _editando,
+                                    onAgregar: () => crearCurso(
+                                      context,
+                                      colegioId: activo.id,
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
                     ),
-                    for (final col in colegios) ...[
-                      _BannerColegio(
-                        colegio: col,
-                        cursos: cursos
-                            .where((c) => c.colegio.id == col.id)
-                            .toList(),
-                      ),
-                      const SizedBox(height: 12),
-                      _GrillaCursos(
-                        cursos: cursos
-                            .where((c) => c.colegio.id == col.id)
-                            .toList(),
-                        editando: _editando,
-                        onAgregar: () => crearCurso(context, colegioId: col.id),
-                      ),
-                      const SizedBox(height: 26),
-                    ],
-                  ],
-                );
-              },
+              ),
             ),
           ),
           // Velo oscuro detrás del menú flotante; al tocarlo se cierra.
@@ -354,34 +415,305 @@ class _Vacio extends StatelessWidget {
   }
 }
 
-class _BannerColegio extends StatelessWidget {
-  final Colegio colegio;
-  final List<CursoConColegio> cursos;
-  const _BannerColegio({required this.colegio, required this.cursos});
+/// Colores para distinguir colegios; el primero sigue al color de la app.
+List<Color> get coloresColegio => [
+  KipuColores.morado,
+  const Color(0xFF3D7BF0),
+  const Color(0xFF16A37F),
+  const Color(0xFFF07A2D),
+  const Color(0xFFE5508E),
+];
+
+/// Color fijo de un colegio según el orden en que se creó.
+Color colorColegio(List<Colegio> colegios, int id) {
+  final ids = colegios.map((c) => c.id).toList()..sort();
+  final i = ids.indexOf(id);
+  return coloresColegio[(i < 0 ? 0 : i) % coloresColegio.length];
+}
+
+/// Colegio elegido en Mis cursos; si no hay uno guardado, el primero.
+Colegio colegioActivo(List<Colegio> colegios, String? guardado) =>
+    colegios.firstWhere(
+      (c) => c.id.toString() == guardado,
+      orElse: () => colegios.first,
+    );
+
+class _PestanasColegios extends StatelessWidget {
+  final List<Colegio> colegios;
+  final Colegio activo;
+  const _PestanasColegios({required this.colegios, required this.activo});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 8, 12),
+    return SizedBox(
+      height: 44,
+      child: StreamBuilder<List<CursoConColegio>>(
+        stream: db.verCursos(),
+        builder: (context, snap) {
+          final cursos = snap.data ?? [];
+          return ListView(
+            scrollDirection: Axis.horizontal,
+            clipBehavior: Clip.none,
+            children: [
+              for (final c in colegios)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: _Pestana(
+                    texto: c.nombre,
+                    color: colorColegio(colegios, c.id),
+                    cantidad: cursos.where((x) => x.colegio.id == c.id).length,
+                    elegida: c.id == activo.id,
+                    onTap: () =>
+                        db.guardarAjuste('colegio_activo', c.id.toString()),
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    side: BorderSide(
+                      color: KipuColores.morado.withValues(alpha: .4),
+                      width: 1.5,
+                    ),
+                  ),
+                  onPressed: () => crearColegio(context),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Colegio'),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _Pestana extends StatelessWidget {
+  final String texto;
+  final Color color;
+  final int cantidad;
+  final bool elegida;
+  final VoidCallback onTap;
+  const _Pestana({
+    required this.texto,
+    required this.color,
+    required this.cantidad,
+    required this.elegida,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final tinta = elegida ? Colors.white : KipuColores.tinta;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
       decoration: BoxDecoration(
-        color: KipuColores.morado,
-        borderRadius: BorderRadius.circular(16),
+        color: elegida ? color : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: elegida
+            ? [
+                BoxShadow(
+                  color: color.withValues(alpha: .35),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ]
+            : null,
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: Row(
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: elegida ? Colors.white : color,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                texto,
+                style: TextStyle(
+                  color: tinta,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
+                decoration: BoxDecoration(
+                  color: elegida
+                      ? Colors.white.withValues(alpha: .25)
+                      : KipuColores.moradoClaro,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '$cantidad',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: elegida ? Colors.white : KipuColores.gris,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+const _ordenes = {
+  'grado': 'Grado y sección',
+  'nombre': 'Nombre del curso',
+  'horario': 'Según mi horario',
+};
+
+class _BotonOrdenar extends StatelessWidget {
+  final String orden;
+  const _BotonOrdenar({required this.orden});
+
+  @override
+  Widget build(BuildContext context) {
+    final corto = MediaQuery.sizeOf(context).width < 700;
+    return PopupMenuButton<String>(
+      tooltip: 'Ordenar cursos',
+      color: Colors.white,
+      position: PopupMenuPosition.under,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      onSelected: (v) => db.guardarAjuste('orden_cursos', v),
+      itemBuilder: (_) => [
+        const PopupMenuItem(
+          enabled: false,
+          height: 30,
+          child: Text(
+            'ORDENAR CURSOS POR',
+            style: TextStyle(fontSize: 11, color: KipuColores.gris),
+          ),
+        ),
+        for (final e in _ordenes.entries)
+          PopupMenuItem(
+            value: e.key,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    e.value,
+                    style: TextStyle(
+                      fontWeight: e.key == orden
+                          ? FontWeight.w600
+                          : FontWeight.w400,
+                      color: e.key == orden ? KipuColores.moradoOscuro : null,
+                    ),
+                  ),
+                ),
+                if (e.key == orden)
+                  Icon(Icons.check, size: 18, color: KipuColores.morado),
+              ],
+            ),
+          ),
+      ],
+      child: Container(
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: corto ? KipuColores.moradoClaro : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.swap_vert, size: 18, color: KipuColores.moradoOscuro),
+            const SizedBox(width: 4),
+            Text(
+              corto
+                  ? 'Ordenar'
+                  : 'Ordenar: ${_ordenes[orden]!.split(' ').first}',
+              style: TextStyle(
+                color: KipuColores.moradoOscuro,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BannerColegio extends StatelessWidget {
+  final Colegio colegio;
+  final Color color;
+  final List<CursoConColegio> cursos;
+  final Map<int, IndicadoresCurso> indicadores;
+  const _BannerColegio({
+    required this.colegio,
+    required this.color,
+    required this.cursos,
+    required this.indicadores,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final alumnos = cursos.fold(0, (a, c) => a + c.totalEstudiantes);
+    var presentes = 0, registros = 0;
+    for (final c in cursos) {
+      presentes += indicadores[c.curso.id]?.presentes ?? 0;
+      registros += indicadores[c.curso.id]?.registros ?? 0;
+    }
+    final niveles = cursos.map((c) => c.curso.nivel).toSet().join(' y ');
+    final ancho = MediaQuery.sizeOf(context).width >= 700;
+    final detalle = [
+      if ((colegio.lugar ?? '').isNotEmpty) colegio.lugar!,
+      if (ancho && niveles.isNotEmpty) niveles,
+      if (!ancho) '${cursos.length} ${cursos.length == 1 ? 'curso' : 'cursos'}',
+      if (!ancho) '$alumnos alumnos',
+    ].join(' · ');
+    return Container(
+      padding: EdgeInsets.fromLTRB(22, ancho ? 18 : 14, 6, ancho ? 18 : 14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [color, Color.lerp(color, Colors.black, .18)!],
+        ),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              [
-                colegio.nombre,
-                if ((colegio.lugar ?? '').isNotEmpty) colegio.lugar,
-              ].join(' - ').toUpperCase(),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  colegio.nombre,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (detalle.isNotEmpty)
+                  Text(
+                    detalle,
+                    style: const TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
+              ],
             ),
           ),
+          if (ancho) ...[
+            _Dato('${cursos.length}', 'cursos'),
+            _Dato('$alumnos', 'alumnos'),
+            if (registros > 0)
+              _Dato('${(presentes * 100 / registros).round()}%', 'asistencia'),
+          ],
           PopupMenuButton<String>(
             iconColor: Colors.white,
             tooltip: 'Opciones del colegio',
@@ -430,6 +762,35 @@ class _BannerColegio extends StatelessWidget {
         Icon(icono, size: 20, color: color ?? KipuColores.morado),
         const SizedBox(width: 12),
         Text(texto, style: TextStyle(color: color)),
+      ],
+    ),
+  );
+}
+
+class _Dato extends StatelessWidget {
+  final String valor;
+  final String texto;
+  const _Dato(this.valor, this.texto);
+
+  @override
+  Widget build(BuildContext context) => Container(
+    margin: const EdgeInsets.only(left: 10),
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: .16),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Column(
+      children: [
+        Text(
+          valor,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        Text(texto, style: const TextStyle(color: Colors.white, fontSize: 12)),
       ],
     ),
   );
@@ -510,43 +871,174 @@ Future<bool> _confirmarBorrarColegio(
 
 class _GrillaCursos extends StatelessWidget {
   final List<CursoConColegio> cursos;
+  final Map<int, IndicadoresCurso> indicadores;
+  final String orden;
+  final Color color;
   final bool editando;
   final VoidCallback onAgregar;
 
   const _GrillaCursos({
     required this.cursos,
+    required this.indicadores,
+    required this.orden,
+    required this.color,
     required this.editando,
     required this.onAgregar,
   });
 
+  /// Posición del grado dentro de su nivel (Inicial, Primaria, Secundaria).
+  static int _posGrado(Curso c) {
+    final niveles = grados.keys.toList();
+    final n = niveles.indexOf(c.nivel);
+    final g = grados[c.nivel]?.indexOf(c.grado) ?? -1;
+    return (n < 0 ? 9 : n) * 100 + (g < 0 ? 99 : g);
+  }
+
+  /// Agrupa y ordena los cursos según lo que eligió el docente.
+  List<(String?, List<CursoConColegio>)> _grupos(DateTime ahora) {
+    int porGrado(CursoConColegio a, CursoConColegio b) {
+      final g = _posGrado(a.curso).compareTo(_posGrado(b.curso));
+      return g != 0 ? g : a.curso.seccion.compareTo(b.curso.seccion);
+    }
+
+    final lista = [...cursos];
+    switch (orden) {
+      case 'nombre':
+        lista.sort((a, b) {
+          final n = a.curso.nombre.compareTo(b.curso.nombre);
+          return n != 0 ? n : porGrado(a, b);
+        });
+        return _agrupar(lista, (c) => c.curso.nombre.toUpperCase());
+      case 'horario':
+        DateTime clave(CursoConColegio c) {
+          final p = indicadores[c.curso.id]?.proximaClase(ahora);
+          if (p == null) return DateTime(9999);
+          final partes = p.bloque.inicio.split(':').map(int.parse).toList();
+          return DateTime(
+            p.dia.year,
+            p.dia.month,
+            p.dia.day,
+            partes[0],
+            partes[1],
+          );
+        }
+        lista.sort((a, b) => clave(a).compareTo(clave(b)));
+        return [(null, lista)];
+      default:
+        lista.sort(porGrado);
+        final variosNiveles =
+            cursos.map((c) => c.curso.nivel).toSet().length > 1;
+        return _agrupar(
+          lista,
+          (c) =>
+              (variosNiveles
+                      ? '${c.curso.nivel} · ${c.curso.grado}'
+                      : c.curso.grado)
+                  .toUpperCase(),
+        );
+    }
+  }
+
+  static List<(String?, List<CursoConColegio>)> _agrupar(
+    List<CursoConColegio> lista,
+    String Function(CursoConColegio) titulo,
+  ) {
+    final grupos = <(String?, List<CursoConColegio>)>[];
+    for (final c in lista) {
+      final t = titulo(c);
+      if (grupos.isNotEmpty && grupos.last.$1 == t) {
+        grupos.last.$2.add(c);
+      } else {
+        grupos.add((t, [c]));
+      }
+    }
+    return grupos;
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (cursos.isEmpty && !editando) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 10),
+        child: _SinCursos(onAgregar: onAgregar),
+      );
+    }
+    final ahora = DateTime.now();
+    final grupos = _grupos(ahora);
     return LayoutBuilder(
       builder: (context, c) {
         final columnas = c.maxWidth >= 900 ? 3 : (c.maxWidth >= 560 ? 2 : 1);
         final ancho = (c.maxWidth - 12 * (columnas - 1)) / columnas;
-        if (cursos.isEmpty && !editando) {
-          return _SinCursos(onAgregar: onAgregar);
-        }
-        return Wrap(
-          spacing: 12,
-          runSpacing: 12,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            for (final cc in cursos)
-              SizedBox(
-                width: ancho,
-                child: TarjetaCurso(datos: cc, editando: editando),
+            for (var g = 0; g < grupos.length; g++) ...[
+              if (grupos[g].$1 != null) _TituloGrupo(grupos[g].$1!),
+              if (grupos[g].$1 == null) const SizedBox(height: 14),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  for (final cc in grupos[g].$2)
+                    SizedBox(
+                      width: ancho,
+                      child: TarjetaCurso(
+                        datos: cc,
+                        color: color,
+                        indicadores: indicadores[cc.curso.id],
+                        mostrarGrado: orden != 'grado',
+                        editando: editando,
+                      ),
+                    ),
+                  if (editando && g == grupos.length - 1)
+                    SizedBox(
+                      width: ancho,
+                      child: _AgregarCurso(onTap: onAgregar),
+                    ),
+                ],
               ),
-            if (editando)
-              SizedBox(
-                width: ancho,
-                child: _AgregarCurso(onTap: onAgregar),
+            ],
+            if (editando && grupos.isEmpty) ...[
+              const SizedBox(height: 14),
+              Wrap(
+                children: [
+                  SizedBox(
+                    width: ancho,
+                    child: _AgregarCurso(onTap: onAgregar),
+                  ),
+                ],
               ),
+            ],
           ],
         );
       },
     );
   }
+}
+
+class _TituloGrupo extends StatelessWidget {
+  final String texto;
+  const _TituloGrupo(this.texto);
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(top: 18, bottom: 10),
+    child: Row(
+      children: [
+        Text(
+          texto,
+          style: const TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w700,
+            letterSpacing: .6,
+            color: KipuColores.gris,
+          ),
+        ),
+        const SizedBox(width: 10),
+        const Expanded(child: Divider(color: Color(0xFFDDD9EE), height: 1)),
+      ],
+    ),
+  );
 }
 
 class _SinCursos extends StatelessWidget {
@@ -624,12 +1116,32 @@ class _AgregarCurso extends StatelessWidget {
 
 class TarjetaCurso extends StatelessWidget {
   final CursoConColegio datos;
+  final Color? color;
+  final IndicadoresCurso? indicadores;
+  final bool mostrarGrado;
   final bool editando;
-  const TarjetaCurso({super.key, required this.datos, this.editando = false});
+  const TarjetaCurso({
+    super.key,
+    required this.datos,
+    this.color,
+    this.indicadores,
+    this.mostrarGrado = true,
+    this.editando = false,
+  });
+
+  static const _dias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
   @override
   Widget build(BuildContext context) {
     final cur = datos.curso;
+    final tono = color ?? KipuColores.morado;
+    final ahora = DateTime.now();
+    final proxima = indicadores?.proximaClase(ahora);
+    final pct = indicadores?.pctAsistencia;
+    final enC = indicadores?.enC ?? 0;
+    final subtitulo = mostrarGrado
+        ? '${cur.grado} · ${cur.nivel}'
+        : (cur.area ?? cur.nivel);
     final tarjeta = Card(
       clipBehavior: Clip.hardEdge,
       child: InkWell(
@@ -638,90 +1150,65 @@ class TarjetaCurso extends StatelessWidget {
           MaterialPageRoute(builder: (_) => CursoDetalle(datos: datos)),
         ),
         child: Container(
-          height: 104,
           decoration: BoxDecoration(
-            border: Border(
-              left: BorderSide(color: KipuColores.morado, width: 5),
-            ),
+            border: Border(left: BorderSide(color: tono, width: 5)),
           ),
-          padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
-          child: Row(
+          padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      cur.nivel.toUpperCase(),
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: KipuColores.morado,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          cur.grado.toUpperCase(),
-                          style: TextStyle(
-                            fontSize: 17,
-                            color: KipuColores.morado,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 7,
+                            horizontal: 8,
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: KipuColores.morado,
-                            borderRadius: BorderRadius.circular(5),
+                            color: tono,
+                            borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
                             'SECCIÓN ${cur.seccion.toUpperCase()}',
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 10,
+                              fontSize: 11,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
                         ),
+                        const SizedBox(height: 6),
+                        Text(
+                          cur.nombre,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        Text(
+                          subtitulo,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            color: KipuColores.gris,
+                          ),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    Text.rich(
-                      TextSpan(
-                        children: [
-                          TextSpan(text: cur.nombre.toUpperCase()),
-                          if ((cur.area ?? '').isNotEmpty &&
-                              cur.area != cur.nombre)
-                            TextSpan(
-                              text: ' (${cur.area!.toUpperCase()})',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                        ],
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
+                  ),
                   Container(
-                    padding: const EdgeInsets.all(4),
+                    padding: const EdgeInsets.all(5),
                     decoration: BoxDecoration(
-                      color: KipuColores.morado,
-                      borderRadius: BorderRadius.circular(6),
+                      color: tono,
+                      borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(
                       Icons.arrow_forward,
@@ -729,14 +1216,36 @@ class TarjetaCurso extends StatelessWidget {
                       size: 18,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '${datos.totalEstudiantes} est.',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: KipuColores.gris,
+                ],
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  if (proxima != null)
+                    _Ficha(
+                      '${DateUtils.isSameDay(proxima.dia, ahora) ? 'Hoy' : _dias[proxima.dia.weekday - 1]} ${proxima.bloque.inicio}',
+                      KipuColores.moradoClaro,
+                      KipuColores.moradoOscuro,
                     ),
+                  _Ficha(
+                    '${datos.totalEstudiantes} alumnos',
+                    const Color(0xFFF0EEF6),
+                    KipuColores.gris,
                   ),
+                  if (pct != null)
+                    _Ficha(
+                      '$pct% asist.',
+                      const Color(0xFFDDF6EE),
+                      const Color(0xFF12936F),
+                    ),
+                  if (enC > 0)
+                    _Ficha(
+                      '$enC en C',
+                      const Color(0xFFFFEBDD),
+                      const Color(0xFFD96D1F),
+                    ),
                 ],
               ),
             ],
@@ -778,6 +1287,30 @@ class TarjetaCurso extends StatelessWidget {
       ],
     );
   }
+}
+
+class _Ficha extends StatelessWidget {
+  final String texto;
+  final Color fondo;
+  final Color tinta;
+  const _Ficha(this.texto, this.fondo, this.tinta);
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+    decoration: BoxDecoration(
+      color: fondo,
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Text(
+      texto,
+      style: TextStyle(
+        fontSize: 11.5,
+        fontWeight: FontWeight.w600,
+        color: tinta,
+      ),
+    ),
+  );
 }
 
 Future<bool> confirmar(

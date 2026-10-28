@@ -41,65 +41,140 @@ class _AsistenciaState extends State<Asistencia> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Asistencia')),
-      body: StreamBuilder<List<CursoConColegio>>(
-        stream: db.verCursos(),
-        builder: (context, snap) {
-          final cursos = snap.data ?? [];
-          if (snap.hasData && cursos.isEmpty) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(32),
-                child: Text(
-                  'Primero crea un curso y agrega estudiantes en "Mis cursos".',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: KipuColores.gris),
+      appBar: AppBar(
+        title: const Text('Asistencia'),
+        actions: const [_SelectorColegio(), SizedBox(width: 12)],
+      ),
+      body: StreamBuilder<String?>(
+        stream: db.verAjuste('colegio_activo'),
+        builder: (context, snapAct) => StreamBuilder<List<CursoConColegio>>(
+          stream: db.verCursos(),
+          builder: (context, snap) {
+            final todos = snap.data ?? [];
+            // Solo los cursos del colegio activo (el elegido en Mis cursos).
+            final colegios = {for (final c in todos) c.colegio.id: c.colegio};
+            final activo =
+                colegios[int.tryParse(snapAct.data ?? '')] ??
+                (colegios.isEmpty ? null : colegios.values.first);
+            final cursos = todos
+                .where((c) => c.colegio.id == activo?.id)
+                .toList();
+            if (snap.hasData && cursos.isEmpty) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Text(
+                    'Primero crea un curso y agrega estudiantes en "Mis cursos".',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: KipuColores.gris),
+                  ),
                 ),
-              ),
+              );
+            }
+            if (cursos.isEmpty) return const SizedBox.shrink();
+            final actual = cursos.firstWhere(
+              (c) => c.curso.id == _cursoId,
+              orElse: () => cursos.first,
             );
-          }
-          if (cursos.isEmpty) return const SizedBox.shrink();
-          final actual = cursos.firstWhere(
-            (c) => c.curso.id == _cursoId,
-            orElse: () => cursos.first,
-          );
-          return Column(
-            children: [
-              SizedBox(
-                height: 48,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  children: [
-                    for (final c in cursos)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          label: Text(
-                            '${c.curso.nombre} · ${c.curso.grado} ${c.curso.seccion}',
+            return Column(
+              children: [
+                SizedBox(
+                  height: 48,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    children: [
+                      for (final c in cursos)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text(
+                              '${c.curso.nombre} · ${c.curso.grado} ${c.curso.seccion}',
+                            ),
+                            selected: c.curso.id == actual.curso.id,
+                            showCheckmark: false,
+                            selectedColor: KipuColores.morado,
+                            labelStyle: TextStyle(
+                              color: c.curso.id == actual.curso.id
+                                  ? Colors.white
+                                  : KipuColores.tinta,
+                            ),
+                            onSelected: (_) =>
+                                setState(() => _cursoId = c.curso.id),
                           ),
-                          selected: c.curso.id == actual.curso.id,
-                          showCheckmark: false,
-                          selectedColor: KipuColores.morado,
-                          labelStyle: TextStyle(
-                            color: c.curso.id == actual.curso.id
-                                ? Colors.white
-                                : KipuColores.tinta,
-                          ),
-                          onSelected: (_) =>
-                              setState(() => _cursoId = c.curso.id),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              Expanded(
-                child: PasarLista(
-                  key: ValueKey(actual.curso.id),
-                  datos: actual,
+                Expanded(
+                  child: PasarLista(
+                    key: ValueKey(actual.curso.id),
+                    datos: actual,
+                  ),
                 ),
-              ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+/// Muestra el colegio activo y permite cambiarlo (es el mismo de Mis cursos).
+class _SelectorColegio extends StatelessWidget {
+  const _SelectorColegio();
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<Colegio>>(
+      stream: db.verColegios(),
+      builder: (context, snapCol) => StreamBuilder<String?>(
+        stream: db.verAjuste('colegio_activo'),
+        builder: (context, snapAct) {
+          final colegios = snapCol.data ?? [];
+          if (colegios.length < 2) return const SizedBox.shrink();
+          final activo = colegios.firstWhere(
+            (c) => c.id.toString() == snapAct.data,
+            orElse: () => colegios.first,
+          );
+          return PopupMenuButton<int>(
+            tooltip: 'Cambiar de colegio',
+            color: Colors.white,
+            position: PopupMenuPosition.under,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            onSelected: (id) =>
+                db.guardarAjuste('colegio_activo', id.toString()),
+            itemBuilder: (_) => [
+              for (final c in colegios)
+                PopupMenuItem(value: c.id, child: Text(c.nombre)),
             ],
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+              decoration: BoxDecoration(
+                color: KipuColores.moradoClaro,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 160),
+                    child: Text(
+                      activo.nombre,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: KipuColores.moradoOscuro,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  Icon(Icons.arrow_drop_down, color: KipuColores.moradoOscuro),
+                ],
+              ),
+            ),
           );
         },
       ),
