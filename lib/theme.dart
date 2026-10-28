@@ -21,6 +21,14 @@ class KipuEstilo {
 
 const estilosKipu = [
   KipuEstilo(
+    'indigo',
+    'Índigo',
+    Color(0xFF4F5BD5),
+    Color(0xFF3A44B0),
+    Color(0xFFE6E8FB),
+    Color(0xFFF3F4FB),
+  ),
+  KipuEstilo(
     'morado',
     'Morado',
     Color(0xFF7C6CF2),

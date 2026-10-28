@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../data/database.dart';
 import '../main.dart';
 import '../theme.dart';
+import 'cursos.dart' show colorColegio;
 
 class EstadoAsistencia {
   final String codigo;
@@ -93,7 +94,10 @@ class _AsistenciaState extends State<Asistencia> {
                             ),
                             selected: c.curso.id == actual.curso.id,
                             showCheckmark: false,
-                            selectedColor: KipuColores.morado,
+                            selectedColor: colorColegio(
+                              colegios.values.toList(),
+                              c.colegio.id,
+                            ),
                             labelStyle: TextStyle(
                               color: c.curso.id == actual.curso.id
                                   ? Colors.white

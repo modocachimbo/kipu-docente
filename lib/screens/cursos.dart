@@ -50,20 +50,45 @@ class _MisCursosState extends State<MisCursos> {
 
   void _cerrarMenu() => setState(() => _menuAbierto = false);
 
+  /// Las pestañas de colegios quedan ocultas arriba; se ven al deslizar hacia abajo.
+  static const _altoPestanas = 60.0;
+  final _scroll = ScrollController(initialScrollOffset: _altoPestanas);
+
+  void _mostrarPestanas() => _scroll.animateTo(
+    0,
+    duration: const Duration(milliseconds: 300),
+    curve: Curves.easeOut,
+  );
+
+  void _ocultarPestanas() {
+    if (_scroll.hasClients && _scroll.offset < _altoPestanas) {
+      _scroll.animateTo(
+        _altoPestanas,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mis cursos'),
         actions: [
-          if (MediaQuery.sizeOf(context).width < 700)
-            StreamBuilder<String?>(
-              stream: db.verAjuste('orden_cursos'),
-              builder: (context, snap) => Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: _BotonOrdenar(orden: snap.data ?? 'grado'),
-              ),
+          StreamBuilder<String?>(
+            stream: db.verAjuste('orden_cursos'),
+            builder: (context, snap) => Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: _BotonOrdenar(orden: snap.data ?? 'grado'),
             ),
+          ),
         ],
       ),
       floatingActionButton: StreamBuilder<List<Colegio>>(
@@ -126,62 +151,75 @@ class _MisCursosState extends State<MisCursos> {
                                   .where((c) => c.colegio.id == activo.id)
                                   .toList();
                               final orden = snapOrd.data ?? 'grado';
-                              final ancho =
-                                  MediaQuery.sizeOf(context).width >= 700;
-                              return ListView(
-                                padding: const EdgeInsets.fromLTRB(
-                                  20,
-                                  4,
-                                  20,
-                                  110,
-                                ),
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: _PestanasColegios(
-                                          colegios: colegios,
-                                          activo: activo,
-                                        ),
+                              final color = colorColegio(colegios, activo.id);
+                              return LayoutBuilder(
+                                builder: (context, caja) => ListView(
+                                  controller: _scroll,
+                                  padding: const EdgeInsets.fromLTRB(
+                                    20,
+                                    4,
+                                    20,
+                                    110,
+                                  ),
+                                  children: [
+                                    SizedBox(
+                                      height: 44,
+                                      child: _PestanasColegios(
+                                        colegios: colegios,
+                                        activo: activo,
+                                        onElegido: _ocultarPestanas,
                                       ),
-                                      if (ancho) ...[
-                                        const SizedBox(width: 12),
-                                        _BotonOrdenar(orden: orden),
-                                      ],
-                                    ],
-                                  ),
-                                  const SizedBox(height: 16),
-                                  AnimatedSize(
-                                    duration: const Duration(milliseconds: 200),
-                                    child: _editando
-                                        ? _AvisoEdicion(
-                                            onListo: () => setState(
-                                              () => _editando = false,
-                                            ),
-                                          )
-                                        : const SizedBox(
-                                            width: double.infinity,
-                                          ),
-                                  ),
-                                  _BannerColegio(
-                                    colegio: activo,
-                                    color: colorColegio(colegios, activo.id),
-                                    cursos: cursos,
-                                    indicadores: snapInd.data ?? {},
-                                  ),
-                                  const SizedBox(height: 6),
-                                  _GrillaCursos(
-                                    cursos: cursos,
-                                    indicadores: snapInd.data ?? {},
-                                    orden: orden,
-                                    color: colorColegio(colegios, activo.id),
-                                    editando: _editando,
-                                    onAgregar: () => crearCurso(
-                                      context,
-                                      colegioId: activo.id,
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(height: 16),
+                                    // Siempre hay espacio para esconder las pestañas.
+                                    ConstrainedBox(
+                                      constraints: BoxConstraints(
+                                        minHeight: caja.maxHeight - 114,
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          AnimatedSize(
+                                            duration: const Duration(
+                                              milliseconds: 200,
+                                            ),
+                                            child: _editando
+                                                ? _AvisoEdicion(
+                                                    onListo: () => setState(
+                                                      () => _editando = false,
+                                                    ),
+                                                  )
+                                                : const SizedBox(
+                                                    width: double.infinity,
+                                                  ),
+                                          ),
+                                          _BannerColegio(
+                                            colegio: activo,
+                                            color: color,
+                                            onCambiar: colegios.length > 1
+                                                ? _mostrarPestanas
+                                                : null,
+                                            cursos: cursos,
+                                            indicadores: snapInd.data ?? {},
+                                          ),
+                                          const SizedBox(height: 6),
+                                          _GrillaCursos(
+                                            cursos: cursos,
+                                            indicadores: snapInd.data ?? {},
+                                            orden: orden,
+                                            color: color,
+                                            editando: _editando,
+                                            onAgregar: () => crearCurso(
+                                              context,
+                                              colegioId: activo.id,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               );
                             },
                           ),
@@ -415,17 +453,22 @@ class _Vacio extends StatelessWidget {
   }
 }
 
-/// Colores para distinguir colegios; el primero sigue al color de la app.
-List<Color> get coloresColegio => [
-  KipuColores.morado,
-  const Color(0xFF3D7BF0),
-  const Color(0xFF16A37F),
-  const Color(0xFFF07A2D),
-  const Color(0xFFE5508E),
+/// Colores que el docente puede elegir para cada colegio.
+const coloresColegio = [
+  Color(0xFFF0614D), // coral
+  Color(0xFFF07A2D), // naranja
+  Color(0xFFE0A21B), // ámbar
+  Color(0xFF16A37F), // verde
+  Color(0xFF0E9F9A), // turquesa
+  Color(0xFF2F6FED), // azul
+  Color(0xFF8B5CF6), // morado
+  Color(0xFFE5508E), // rosa
 ];
 
-/// Color fijo de un colegio según el orden en que se creó.
+/// Color del colegio: el que eligió el docente o uno según el orden de creación.
 Color colorColegio(List<Colegio> colegios, int id) {
+  final elegido = colegios.where((c) => c.id == id).firstOrNull?.color;
+  if (elegido != null) return Color(elegido);
   final ids = colegios.map((c) => c.id).toList()..sort();
   final i = ids.indexOf(id);
   return coloresColegio[(i < 0 ? 0 : i) % coloresColegio.length];
@@ -441,7 +484,12 @@ Colegio colegioActivo(List<Colegio> colegios, String? guardado) =>
 class _PestanasColegios extends StatelessWidget {
   final List<Colegio> colegios;
   final Colegio activo;
-  const _PestanasColegios({required this.colegios, required this.activo});
+  final VoidCallback onElegido;
+  const _PestanasColegios({
+    required this.colegios,
+    required this.activo,
+    required this.onElegido,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -463,8 +511,10 @@ class _PestanasColegios extends StatelessWidget {
                     color: colorColegio(colegios, c.id),
                     cantidad: cursos.where((x) => x.colegio.id == c.id).length,
                     elegida: c.id == activo.id,
-                    onTap: () =>
-                        db.guardarAjuste('colegio_activo', c.id.toString()),
+                    onTap: () {
+                      db.guardarAjuste('colegio_activo', c.id.toString());
+                      onElegido();
+                    },
                   ),
                 ),
               Padding(
@@ -655,9 +705,11 @@ class _BannerColegio extends StatelessWidget {
   final Color color;
   final List<CursoConColegio> cursos;
   final Map<int, IndicadoresCurso> indicadores;
+  final VoidCallback? onCambiar;
   const _BannerColegio({
     required this.colegio,
     required this.color,
+    this.onCambiar,
     required this.cursos,
     required this.indicadores,
   });
@@ -692,12 +744,29 @@ class _BannerColegio extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  colegio.nombre,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
+                InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: onCambiar,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          colegio.nombre,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      if (onCambiar != null)
+                        const Icon(
+                          Icons.keyboard_arrow_down,
+                          color: Colors.white,
+                        ),
+                    ],
                   ),
                 ),
                 if (detalle.isNotEmpty)
@@ -1226,8 +1295,8 @@ class TarjetaCurso extends StatelessWidget {
                   if (proxima != null)
                     _Ficha(
                       '${DateUtils.isSameDay(proxima.dia, ahora) ? 'Hoy' : _dias[proxima.dia.weekday - 1]} ${proxima.bloque.inicio}',
-                      KipuColores.moradoClaro,
-                      KipuColores.moradoOscuro,
+                      tono.withValues(alpha: .14),
+                      tono,
                     ),
                   _Ficha(
                     '${datos.totalEstudiantes} alumnos',
@@ -1382,10 +1451,20 @@ Future<void> crearColegio(BuildContext context) => _formColegio(context);
 Future<void> editarColegio(BuildContext context, Colegio colegio) =>
     _formColegio(context, colegio: colegio);
 
-Future<void> _formColegio(BuildContext context, {Colegio? colegio}) {
+Future<void> _formColegio(BuildContext context, {Colegio? colegio}) async {
   final form = GlobalKey<FormState>();
   final nombre = TextEditingController(text: colegio?.nombre);
   final lugar = TextEditingController(text: colegio?.lugar);
+  final colegios = await db.verColegios().first;
+  // Al crear, se propone el primer color que nadie usa todavía.
+  final usados = colegios.map((c) => colorColegio(colegios, c.id)).toSet();
+  var color = colegio != null
+      ? colorColegio(colegios, colegio.id)
+      : coloresColegio.firstWhere(
+          (c) => !usados.contains(c),
+          orElse: () => coloresColegio.first,
+        );
+  if (!context.mounted) return;
   return _hoja(
     context,
     colegio == null ? 'Crear colegio' : 'Editar colegio',
@@ -1415,6 +1494,43 @@ Future<void> _formColegio(BuildContext context, {Colegio? colegio}) {
                 hintText: 'Ej. Huacho',
               ),
             ),
+            const SizedBox(height: 16),
+            const Text(
+              'Color del colegio',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 10),
+            StatefulBuilder(
+              builder: (ctx, setState) => Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  for (final c in coloresColegio)
+                    InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: () => setState(() => color = c),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: c,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: c == color
+                                ? KipuColores.tinta
+                                : Colors.transparent,
+                            width: 3,
+                          ),
+                        ),
+                        child: c == color
+                            ? const Icon(Icons.check, color: Colors.white)
+                            : null,
+                      ),
+                    ),
+                ],
+              ),
+            ),
             const SizedBox(height: 20),
             _Botones(
               onGuardar: () async {
@@ -1423,12 +1539,18 @@ Future<void> _formColegio(BuildContext context, {Colegio? colegio}) {
                     ? null
                     : lugar.text.trim();
                 if (colegio == null) {
-                  await db.crearColegio(nombre.text.trim(), ciudad);
+                  final id = await db.crearColegio(
+                    nombre.text.trim(),
+                    ciudad,
+                    color: color.toARGB32(),
+                  );
+                  await db.guardarAjuste('colegio_activo', id.toString());
                 } else {
                   await db.editarColegio(
                     colegio.id,
                     nombre.text.trim(),
                     ciudad,
+                    color: color.toARGB32(),
                   );
                 }
                 if (ctx.mounted) Navigator.pop(ctx);

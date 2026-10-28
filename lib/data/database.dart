@@ -16,6 +16,7 @@ class Colegios extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get nombre => text().withLength(min: 1, max: 120)();
   TextColumn get lugar => text().nullable()();
+  IntColumn get color => integer().nullable()(); // ARGB; null = automático
   DateTimeColumn get creado => dateTime().withDefault(currentDateAndTime)();
 }
 
@@ -140,7 +141,7 @@ class KipuDb extends _$KipuDb {
   KipuDb([QueryExecutor? executor]) : super(executor ?? _abrir());
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -151,6 +152,7 @@ class KipuDb extends _$KipuDb {
         await m.createTable(eventos);
       }
       if (from < 4) await m.createTable(horarios);
+      if (from < 5) await m.addColumn(colegios, colegios.color);
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
@@ -185,13 +187,27 @@ class KipuDb extends _$KipuDb {
   Stream<List<Colegio>> verColegios() =>
       (select(colegios)..orderBy([(c) => OrderingTerm.asc(c.nombre)])).watch();
 
-  Future<int> crearColegio(String nombre, String? lugar) => into(colegios)
-      .insert(ColegiosCompanion.insert(nombre: nombre, lugar: Value(lugar)));
-
-  Future<void> editarColegio(int id, String nombre, String? lugar) =>
-      (update(colegios)..where((c) => c.id.equals(id))).write(
-        ColegiosCompanion(nombre: Value(nombre), lugar: Value(lugar)),
+  Future<int> crearColegio(String nombre, String? lugar, {int? color}) =>
+      into(colegios).insert(
+        ColegiosCompanion.insert(
+          nombre: nombre,
+          lugar: Value(lugar),
+          color: Value(color),
+        ),
       );
+
+  Future<void> editarColegio(
+    int id,
+    String nombre,
+    String? lugar, {
+    int? color,
+  }) => (update(colegios)..where((c) => c.id.equals(id))).write(
+    ColegiosCompanion(
+      nombre: Value(nombre),
+      lugar: Value(lugar),
+      color: Value(color),
+    ),
+  );
 
   Future<void> borrarColegio(int id) =>
       (delete(colegios)..where((c) => c.id.equals(id))).go();

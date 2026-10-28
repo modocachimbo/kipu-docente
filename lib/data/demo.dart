@@ -14,9 +14,9 @@ Future<void> cargarDatosDeEjemplo(KipuDb db) async {
   await db.borrarTodo();
 
   final colegios = {
-    'Elite School': 'Huacho',
-    'I.E. Nikola Tesla': 'Huaura',
-    'I.E. José Carlos Mariátegui': 'Végueta',
+    'Elite School': ('Huacho', 0xFFF07A2D),
+    'I.E. Nikola Tesla': ('Huaura', 0xFF16A37F),
+    'I.E. José Carlos Mariátegui': ('Végueta', 0xFF8B5CF6),
   };
   final cursos = [
     ('Elite School', 'Secundaria', '1.° año', 'A', 'Química'),
@@ -131,7 +131,11 @@ Future<void> cargarDatosDeEjemplo(KipuDb db) async {
   final idEstudiantes = <int>[];
   await db.transaction(() async {
     for (final c in colegios.entries) {
-      idColegio[c.key] = await db.crearColegio(c.key, c.value);
+      idColegio[c.key] = await db.crearColegio(
+        c.key,
+        c.value.$1,
+        color: c.value.$2,
+      );
     }
     for (final c in cursos) {
       final cursoId = await db.crearCurso(
