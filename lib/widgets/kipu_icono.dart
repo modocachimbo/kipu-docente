@@ -35,6 +35,7 @@ enum KipuIcono {
   borrar,
   ordenar,
   aviso,
+  paleta,
 }
 
 // R = relleno suave, T = trazo. Ambos se reemplazan por el color al dibujar.
@@ -159,6 +160,10 @@ const _svg = <KipuIcono, String>{
   KipuIcono.aviso: '''
 <path d="M10.3 4.2a2 2 0 0 1 3.4 0l7.5 13a2 2 0 0 1-1.7 3H4.5a2 2 0 0 1-1.7-3l7.5-13Z" fill="R"/>
 <path d="M10.3 4.2a2 2 0 0 1 3.4 0l7.5 13a2 2 0 0 1-1.7 3H4.5a2 2 0 0 1-1.7-3l7.5-13ZM12 9.5v4M12 16.8v.1" stroke="T"/>''',
+  KipuIcono.paleta: '''
+<path d="M12 3a9 9 0 0 0 0 18c1.2 0 1.8-.8 1.8-1.7 0-1.2-1-1.6-1-2.6 0-1 .8-1.7 1.8-1.7h2.1A4.3 4.3 0 0 0 21 10.7C21 6.4 17 3 12 3Z" fill="R"/>
+<path d="M12 3a9 9 0 0 0 0 18c1.2 0 1.8-.8 1.8-1.7 0-1.2-1-1.6-1-2.6 0-1 .8-1.7 1.8-1.7h2.1A4.3 4.3 0 0 0 21 10.7C21 6.4 17 3 12 3Z" stroke="T"/>
+<circle cx="7.5" cy="11" r="1" stroke="T"/><circle cx="10" cy="7" r="1" stroke="T"/><circle cx="15" cy="7.5" r="1" stroke="T"/>''',
 };
 
 String _hex(Color c) =>

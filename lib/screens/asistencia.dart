@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../data/database.dart';
 import '../main.dart';
 import '../theme.dart';
+import '../widgets/selector_color.dart' show textoSobre;
 import 'cursos.dart' show colorColegio;
 
 class EstadoAsistencia {
@@ -100,7 +101,12 @@ class _AsistenciaState extends State<Asistencia> {
                             ),
                             labelStyle: TextStyle(
                               color: c.curso.id == actual.curso.id
-                                  ? Colors.white
+                                  ? textoSobre(
+                                      colorColegio(
+                                        colegios.values.toList(),
+                                        c.colegio.id,
+                                      ),
+                                    )
                                   : KipuColores.tinta,
                             ),
                             onSelected: (_) =>

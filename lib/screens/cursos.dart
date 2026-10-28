@@ -6,6 +6,8 @@ import '../data/paises.dart';
 import '../main.dart';
 import '../theme.dart';
 import '../widgets/kipu_icono.dart';
+import '../widgets/selector_color.dart';
+import '../widgets/ventana.dart';
 import 'curso_detalle.dart';
 
 class MisCursos extends StatefulWidget {
@@ -423,14 +425,14 @@ class _Vacio extends StatelessWidget {
 
 /// Colores que el docente puede elegir para cada colegio.
 const coloresColegio = [
-  Color(0xFFF0614D), // coral
-  Color(0xFFF07A2D), // naranja
-  Color(0xFFE0A21B), // ámbar
-  Color(0xFF16A37F), // verde
-  Color(0xFF0E9F9A), // turquesa
-  Color(0xFF2F6FED), // azul
-  Color(0xFF8B5CF6), // morado
-  Color(0xFFE5508E), // rosa
+  Color(0xFF3B5B83), // acero
+  Color(0xFF2E7D6B), // jade
+  Color(0xFF1F5F6B), // petróleo
+  Color(0xFF5E7D6A), // salvia
+  Color(0xFFB4573E), // terracota
+  Color(0xFFB05A6E), // rosa antiguo
+  Color(0xFF6B3F6E), // ciruela
+  Color(0xFFA87F2A), // ocre
 ];
 
 /// Color del colegio: el que eligió el docente o uno según el orden de creación.
@@ -528,7 +530,7 @@ class _Pestana extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tinta = elegida ? Colors.white : KipuColores.tinta;
+    final tinta = elegida ? textoSobre(color) : KipuColores.tinta;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
       decoration: BoxDecoration(
@@ -555,7 +557,7 @@ class _Pestana extends StatelessWidget {
                 width: 10,
                 height: 10,
                 decoration: BoxDecoration(
-                  color: elegida ? Colors.white : color,
+                  color: elegida ? tinta : color,
                   shape: BoxShape.circle,
                 ),
               ),
@@ -573,7 +575,7 @@ class _Pestana extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
                 decoration: BoxDecoration(
                   color: elegida
-                      ? Colors.white.withValues(alpha: .25)
+                      ? tinta.withValues(alpha: .18)
                       : KipuColores.moradoClaro,
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -582,7 +584,7 @@ class _Pestana extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
-                    color: elegida ? Colors.white : KipuColores.gris,
+                    color: elegida ? tinta : KipuColores.gris,
                   ),
                 ),
               ),
@@ -710,11 +712,15 @@ class _BannerColegio extends StatelessWidget {
       if (!ancho) '${cursos.length} ${cursos.length == 1 ? 'curso' : 'cursos'}',
       if (!ancho) '$alumnos alumnos',
     ].join(' · ');
+    final tinta = textoSobre(color);
     return Container(
       padding: EdgeInsets.fromLTRB(22, ancho ? 18 : 14, 6, ancho ? 18 : 14),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [color, Color.lerp(color, Colors.black, .18)!],
+          colors: [
+            color,
+            Color.lerp(color, Colors.black, esClaro(color) ? .06 : .18)!,
+          ],
         ),
         borderRadius: BorderRadius.circular(20),
       ),
@@ -734,34 +740,41 @@ class _BannerColegio extends StatelessWidget {
                         child: Text(
                           colegio.nombre,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: tinta,
                             fontSize: 22,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
                       if (onCambiar != null)
-                        const KipuIcon(KipuIcono.abajo, color: Colors.white),
+                        KipuIcon(KipuIcono.abajo, color: tinta),
                     ],
                   ),
                 ),
                 if (detalle.isNotEmpty)
                   Text(
                     detalle,
-                    style: const TextStyle(color: Colors.white70, fontSize: 13),
+                    style: TextStyle(
+                      color: tinta.withValues(alpha: .75),
+                      fontSize: 13,
+                    ),
                   ),
               ],
             ),
           ),
           if (ancho) ...[
-            _Dato('${cursos.length}', 'cursos'),
-            _Dato('$alumnos', 'alumnos'),
+            _Dato('${cursos.length}', 'cursos', tinta),
+            _Dato('$alumnos', 'alumnos', tinta),
             if (registros > 0)
-              _Dato('${(presentes * 100 / registros).round()}%', 'asistencia'),
+              _Dato(
+                '${(presentes * 100 / registros).round()}%',
+                'asistencia',
+                tinta,
+              ),
           ],
           PopupMenuButton<String>(
-            iconColor: Colors.white,
+            iconColor: tinta,
             tooltip: 'Opciones del colegio',
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
@@ -816,27 +829,28 @@ class _BannerColegio extends StatelessWidget {
 class _Dato extends StatelessWidget {
   final String valor;
   final String texto;
-  const _Dato(this.valor, this.texto);
+  final Color tinta;
+  const _Dato(this.valor, this.texto, this.tinta);
 
   @override
   Widget build(BuildContext context) => Container(
     margin: const EdgeInsets.only(left: 10),
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
     decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: .16),
+      color: tinta.withValues(alpha: .12),
       borderRadius: BorderRadius.circular(12),
     ),
     child: Column(
       children: [
         Text(
           valor,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: tinta,
             fontSize: 20,
             fontWeight: FontWeight.w700,
           ),
         ),
-        Text(texto, style: const TextStyle(color: Colors.white, fontSize: 12)),
+        Text(texto, style: TextStyle(color: tinta, fontSize: 12)),
       ],
     ),
   );
@@ -1228,8 +1242,8 @@ class TarjetaCurso extends StatelessWidget {
                           ),
                           child: Text(
                             'SECCIÓN ${cur.seccion.toUpperCase()}',
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: textoSobre(tono),
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                             ),
@@ -1263,9 +1277,9 @@ class TarjetaCurso extends StatelessWidget {
                       color: tono,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const KipuIcon(
+                    child: KipuIcon(
                       KipuIcono.flecha,
-                      color: Colors.white,
+                      color: textoSobre(tono),
                       size: 18,
                     ),
                   ),
@@ -1280,7 +1294,7 @@ class TarjetaCurso extends StatelessWidget {
                     _Ficha(
                       '${DateUtils.isSameDay(proxima.dia, ahora) ? 'Hoy' : _dias[proxima.dia.weekday - 1]} ${proxima.bloque.inicio}',
                       tono.withValues(alpha: .14),
-                      tono,
+                      tonoTexto(tono),
                     ),
                   _Ficha(
                     '${datos.totalEstudiantes} alumnos',
@@ -1405,108 +1419,6 @@ Future<void> _ventana(BuildContext context, Widget contenido) {
   );
 }
 
-class _Ventana extends StatelessWidget {
-  final KipuIcono icono;
-  final String titulo;
-  final String subtitulo;
-  final Widget contenido;
-
-  const _Ventana({
-    required this.icono,
-    required this.titulo,
-    required this.subtitulo,
-    required this.contenido,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.white,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              padding: const EdgeInsets.fromLTRB(20, 18, 14, 18),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [KipuColores.morado, KipuColores.moradoOscuro],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 46,
-                    height: 46,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: .18),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: KipuIcon(icono, color: Colors.white, size: 26),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          titulo,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        Text(
-                          subtitulo,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: .85),
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Cerrar',
-                    onPressed: () => Navigator.pop(context),
-                    style: IconButton.styleFrom(
-                      side: BorderSide(
-                        color: Colors.white.withValues(alpha: .6),
-                      ),
-                    ),
-                    icon: const KipuIcon(
-                      KipuIcono.cerrar,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(22, 20, 22, 22),
-                child: contenido,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 const _flechaLista = KipuIcon(
   KipuIcono.abajo,
   size: 20,
@@ -1574,7 +1486,7 @@ Future<void> _formColegio(BuildContext context, {Colegio? colegio}) async {
   if (!context.mounted) return;
   return _ventana(
     context,
-    _Ventana(
+    Ventana(
       icono: KipuIcono.colegio,
       titulo: colegio == null ? 'Nuevo colegio' : 'Editar colegio',
       subtitulo: 'Elige el color que identificará al colegio',
@@ -1663,38 +1575,79 @@ Future<void> _formColegio(BuildContext context, {Colegio? colegio}) async {
               _Campo(
                 'Color',
                 StatefulBuilder(
-                  builder: (ctx, setState) => Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: [
-                      for (final c in coloresColegio)
-                        InkWell(
-                          customBorder: const CircleBorder(),
-                          onTap: () => setState(() => color = c),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 150),
-                            width: 38,
-                            height: 38,
-                            decoration: BoxDecoration(
-                              color: c,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: c == color
-                                    ? KipuColores.tinta
-                                    : Colors.transparent,
-                                width: 3,
-                              ),
-                            ),
-                            child: c == color
-                                ? const KipuIcon(
-                                    KipuIcono.check,
-                                    color: Colors.white,
-                                  )
-                                : null,
+                  builder: (ctx, setState) {
+                    Widget circulo(Color c, {VoidCallback? onTap}) => InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: onTap ?? () => setState(() => color = c),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: c,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: c == color
+                                ? KipuColores.tinta
+                                : Colors.transparent,
+                            width: 3,
                           ),
                         ),
-                    ],
-                  ),
+                        child: c == color
+                            ? KipuIcon(KipuIcono.check, color: textoSobre(c))
+                            : null,
+                      ),
+                    );
+                    Future<void> masColores() async {
+                      final elegido = await elegirColor(
+                        ctx,
+                        actual: color,
+                        nombre: nombre.text.trim().isEmpty
+                            ? 'Mi colegio'
+                            : nombre.text.trim(),
+                        detalle: lugar.text.trim().isEmpty
+                            ? null
+                            : lugar.text.trim(),
+                      );
+                      if (elegido != null) setState(() => color = elegido);
+                    }
+
+                    return Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        for (final c in coloresColegio) circulo(c),
+                        // Un color de "Más colores" se muestra antes del "+".
+                        if (!coloresColegio.contains(color))
+                          circulo(color, onTap: masColores),
+                        Tooltip(
+                          message: 'Más colores',
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: masColores,
+                            child: Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: KipuColores.morado.withValues(
+                                    alpha: .5,
+                                  ),
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: KipuIcon(
+                                KipuIcono.agregar,
+                                color: KipuColores.morado,
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
               const SizedBox(height: 6),
@@ -1801,7 +1754,7 @@ class _FormCursoState extends State<_FormCurso> {
   Widget build(BuildContext context) {
     String? requerido(String? v) => v == null ? 'Selecciona' : null;
     final colegio = widget.colegios.firstWhere((c) => c.id == _colegio);
-    return _Ventana(
+    return Ventana(
       icono: KipuIcono.cursos,
       titulo: 'Nuevo curso',
       subtitulo: [colegio.nombre, colegio.lugar].nonNulls.join(' · '),
