@@ -259,6 +259,16 @@ class $ColegiosTable extends Colegios with TableInfo<$ColegiosTable, Colegio> {
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _paisMeta = const VerificationMeta('pais');
+  @override
+  late final GeneratedColumn<String> pais = GeneratedColumn<String>(
+    'pais',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('PE'),
+  );
   static const VerificationMeta _creadoMeta = const VerificationMeta('creado');
   @override
   late final GeneratedColumn<DateTime> creado = GeneratedColumn<DateTime>(
@@ -270,7 +280,14 @@ class $ColegiosTable extends Colegios with TableInfo<$ColegiosTable, Colegio> {
     defaultValue: currentDateAndTime,
   );
   @override
-  List<GeneratedColumn> get $columns => [id, nombre, lugar, color, creado];
+  List<GeneratedColumn> get $columns => [
+    id,
+    nombre,
+    lugar,
+    color,
+    pais,
+    creado,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -306,6 +323,12 @@ class $ColegiosTable extends Colegios with TableInfo<$ColegiosTable, Colegio> {
         color.isAcceptableOrUnknown(data['color']!, _colorMeta),
       );
     }
+    if (data.containsKey('pais')) {
+      context.handle(
+        _paisMeta,
+        pais.isAcceptableOrUnknown(data['pais']!, _paisMeta),
+      );
+    }
     if (data.containsKey('creado')) {
       context.handle(
         _creadoMeta,
@@ -337,6 +360,10 @@ class $ColegiosTable extends Colegios with TableInfo<$ColegiosTable, Colegio> {
         DriftSqlType.int,
         data['${effectivePrefix}color'],
       ),
+      pais: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pais'],
+      )!,
       creado: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}creado'],
@@ -355,12 +382,14 @@ class Colegio extends DataClass implements Insertable<Colegio> {
   final String nombre;
   final String? lugar;
   final int? color;
+  final String pais;
   final DateTime creado;
   const Colegio({
     required this.id,
     required this.nombre,
     this.lugar,
     this.color,
+    required this.pais,
     required this.creado,
   });
   @override
@@ -374,6 +403,7 @@ class Colegio extends DataClass implements Insertable<Colegio> {
     if (!nullToAbsent || color != null) {
       map['color'] = Variable<int>(color);
     }
+    map['pais'] = Variable<String>(pais);
     map['creado'] = Variable<DateTime>(creado);
     return map;
   }
@@ -388,6 +418,7 @@ class Colegio extends DataClass implements Insertable<Colegio> {
       color: color == null && nullToAbsent
           ? const Value.absent()
           : Value(color),
+      pais: Value(pais),
       creado: Value(creado),
     );
   }
@@ -402,6 +433,7 @@ class Colegio extends DataClass implements Insertable<Colegio> {
       nombre: serializer.fromJson<String>(json['nombre']),
       lugar: serializer.fromJson<String?>(json['lugar']),
       color: serializer.fromJson<int?>(json['color']),
+      pais: serializer.fromJson<String>(json['pais']),
       creado: serializer.fromJson<DateTime>(json['creado']),
     );
   }
@@ -413,6 +445,7 @@ class Colegio extends DataClass implements Insertable<Colegio> {
       'nombre': serializer.toJson<String>(nombre),
       'lugar': serializer.toJson<String?>(lugar),
       'color': serializer.toJson<int?>(color),
+      'pais': serializer.toJson<String>(pais),
       'creado': serializer.toJson<DateTime>(creado),
     };
   }
@@ -422,12 +455,14 @@ class Colegio extends DataClass implements Insertable<Colegio> {
     String? nombre,
     Value<String?> lugar = const Value.absent(),
     Value<int?> color = const Value.absent(),
+    String? pais,
     DateTime? creado,
   }) => Colegio(
     id: id ?? this.id,
     nombre: nombre ?? this.nombre,
     lugar: lugar.present ? lugar.value : this.lugar,
     color: color.present ? color.value : this.color,
+    pais: pais ?? this.pais,
     creado: creado ?? this.creado,
   );
   Colegio copyWithCompanion(ColegiosCompanion data) {
@@ -436,6 +471,7 @@ class Colegio extends DataClass implements Insertable<Colegio> {
       nombre: data.nombre.present ? data.nombre.value : this.nombre,
       lugar: data.lugar.present ? data.lugar.value : this.lugar,
       color: data.color.present ? data.color.value : this.color,
+      pais: data.pais.present ? data.pais.value : this.pais,
       creado: data.creado.present ? data.creado.value : this.creado,
     );
   }
@@ -447,13 +483,14 @@ class Colegio extends DataClass implements Insertable<Colegio> {
           ..write('nombre: $nombre, ')
           ..write('lugar: $lugar, ')
           ..write('color: $color, ')
+          ..write('pais: $pais, ')
           ..write('creado: $creado')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, nombre, lugar, color, creado);
+  int get hashCode => Object.hash(id, nombre, lugar, color, pais, creado);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -462,6 +499,7 @@ class Colegio extends DataClass implements Insertable<Colegio> {
           other.nombre == this.nombre &&
           other.lugar == this.lugar &&
           other.color == this.color &&
+          other.pais == this.pais &&
           other.creado == this.creado);
 }
 
@@ -470,12 +508,14 @@ class ColegiosCompanion extends UpdateCompanion<Colegio> {
   final Value<String> nombre;
   final Value<String?> lugar;
   final Value<int?> color;
+  final Value<String> pais;
   final Value<DateTime> creado;
   const ColegiosCompanion({
     this.id = const Value.absent(),
     this.nombre = const Value.absent(),
     this.lugar = const Value.absent(),
     this.color = const Value.absent(),
+    this.pais = const Value.absent(),
     this.creado = const Value.absent(),
   });
   ColegiosCompanion.insert({
@@ -483,6 +523,7 @@ class ColegiosCompanion extends UpdateCompanion<Colegio> {
     required String nombre,
     this.lugar = const Value.absent(),
     this.color = const Value.absent(),
+    this.pais = const Value.absent(),
     this.creado = const Value.absent(),
   }) : nombre = Value(nombre);
   static Insertable<Colegio> custom({
@@ -490,6 +531,7 @@ class ColegiosCompanion extends UpdateCompanion<Colegio> {
     Expression<String>? nombre,
     Expression<String>? lugar,
     Expression<int>? color,
+    Expression<String>? pais,
     Expression<DateTime>? creado,
   }) {
     return RawValuesInsertable({
@@ -497,6 +539,7 @@ class ColegiosCompanion extends UpdateCompanion<Colegio> {
       if (nombre != null) 'nombre': nombre,
       if (lugar != null) 'lugar': lugar,
       if (color != null) 'color': color,
+      if (pais != null) 'pais': pais,
       if (creado != null) 'creado': creado,
     });
   }
@@ -506,6 +549,7 @@ class ColegiosCompanion extends UpdateCompanion<Colegio> {
     Value<String>? nombre,
     Value<String?>? lugar,
     Value<int?>? color,
+    Value<String>? pais,
     Value<DateTime>? creado,
   }) {
     return ColegiosCompanion(
@@ -513,6 +557,7 @@ class ColegiosCompanion extends UpdateCompanion<Colegio> {
       nombre: nombre ?? this.nombre,
       lugar: lugar ?? this.lugar,
       color: color ?? this.color,
+      pais: pais ?? this.pais,
       creado: creado ?? this.creado,
     );
   }
@@ -532,6 +577,9 @@ class ColegiosCompanion extends UpdateCompanion<Colegio> {
     if (color.present) {
       map['color'] = Variable<int>(color.value);
     }
+    if (pais.present) {
+      map['pais'] = Variable<String>(pais.value);
+    }
     if (creado.present) {
       map['creado'] = Variable<DateTime>(creado.value);
     }
@@ -545,6 +593,7 @@ class ColegiosCompanion extends UpdateCompanion<Colegio> {
           ..write('nombre: $nombre, ')
           ..write('lugar: $lugar, ')
           ..write('color: $color, ')
+          ..write('pais: $pais, ')
           ..write('creado: $creado')
           ..write(')'))
         .toString();
@@ -3107,6 +3156,7 @@ typedef $$ColegiosTableCreateCompanionBuilder = ColegiosCompanion Function({
   required String nombre,
   Value<String?> lugar,
   Value<int?> color,
+  Value<String> pais,
   Value<DateTime> creado,
 });
 typedef $$ColegiosTableUpdateCompanionBuilder = ColegiosCompanion Function({
@@ -3114,6 +3164,7 @@ typedef $$ColegiosTableUpdateCompanionBuilder = ColegiosCompanion Function({
   Value<String> nombre,
   Value<String?> lugar,
   Value<int?> color,
+  Value<String> pais,
   Value<DateTime> creado,
 });
 
@@ -3166,6 +3217,11 @@ class $$ColegiosTableFilterComposer extends Composer<_$KipuDb, $ColegiosTable> {
 
   ColumnFilters<int> get color => $composableBuilder(
     column: $table.color,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pais => $composableBuilder(
+    column: $table.pais,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3229,6 +3285,11 @@ class $$ColegiosTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get pais => $composableBuilder(
+    column: $table.pais,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get creado => $composableBuilder(
     column: $table.creado,
     builder: (column) => ColumnOrderings(column),
@@ -3255,6 +3316,9 @@ class $$ColegiosTableAnnotationComposer
 
   GeneratedColumn<int> get color =>
       $composableBuilder(column: $table.color, builder: (column) => column);
+
+  GeneratedColumn<String> get pais =>
+      $composableBuilder(column: $table.pais, builder: (column) => column);
 
   GeneratedColumn<DateTime> get creado =>
       $composableBuilder(column: $table.creado, builder: (column) => column);
@@ -3317,12 +3381,14 @@ class $$ColegiosTableTableManager
                 Value<String> nombre = const Value.absent(),
                 Value<String?> lugar = const Value.absent(),
                 Value<int?> color = const Value.absent(),
+                Value<String> pais = const Value.absent(),
                 Value<DateTime> creado = const Value.absent(),
               }) => ColegiosCompanion(
                 id: id,
                 nombre: nombre,
                 lugar: lugar,
                 color: color,
+                pais: pais,
                 creado: creado,
               ),
           createCompanionCallback:
@@ -3331,12 +3397,14 @@ class $$ColegiosTableTableManager
                 required String nombre,
                 Value<String?> lugar = const Value.absent(),
                 Value<int?> color = const Value.absent(),
+                Value<String> pais = const Value.absent(),
                 Value<DateTime> creado = const Value.absent(),
               }) => ColegiosCompanion.insert(
                 id: id,
                 nombre: nombre,
                 lugar: lugar,
                 color: color,
+                pais: pais,
                 creado: creado,
               ),
           withReferenceMapper: (p0) => p0

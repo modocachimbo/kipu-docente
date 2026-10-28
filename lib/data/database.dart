@@ -17,6 +17,8 @@ class Colegios extends Table {
   TextColumn get nombre => text().withLength(min: 1, max: 120)();
   TextColumn get lugar => text().nullable()();
   IntColumn get color => integer().nullable()(); // ARGB; null = automático
+  TextColumn get pais =>
+      text().withDefault(const Constant('PE'))(); // código, ver paises.dart
   DateTimeColumn get creado => dateTime().withDefault(currentDateAndTime)();
 }
 
@@ -141,7 +143,7 @@ class KipuDb extends _$KipuDb {
   KipuDb([QueryExecutor? executor]) : super(executor ?? _abrir());
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -153,6 +155,7 @@ class KipuDb extends _$KipuDb {
       }
       if (from < 4) await m.createTable(horarios);
       if (from < 5) await m.addColumn(colegios, colegios.color);
+      if (from < 6) await m.addColumn(colegios, colegios.pais);
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
@@ -187,25 +190,32 @@ class KipuDb extends _$KipuDb {
   Stream<List<Colegio>> verColegios() =>
       (select(colegios)..orderBy([(c) => OrderingTerm.asc(c.nombre)])).watch();
 
-  Future<int> crearColegio(String nombre, String? lugar, {int? color}) =>
-      into(colegios).insert(
-        ColegiosCompanion.insert(
-          nombre: nombre,
-          lugar: Value(lugar),
-          color: Value(color),
-        ),
-      );
+  Future<int> crearColegio(
+    String nombre,
+    String? lugar, {
+    int? color,
+    String pais = 'PE',
+  }) => into(colegios).insert(
+    ColegiosCompanion.insert(
+      nombre: nombre,
+      lugar: Value(lugar),
+      color: Value(color),
+      pais: Value(pais),
+    ),
+  );
 
   Future<void> editarColegio(
     int id,
     String nombre,
     String? lugar, {
     int? color,
+    String pais = 'PE',
   }) => (update(colegios)..where((c) => c.id.equals(id))).write(
     ColegiosCompanion(
       nombre: Value(nombre),
       lugar: Value(lugar),
       color: Value(color),
+      pais: Value(pais),
     ),
   );
 

@@ -2,71 +2,11 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 
 import '../data/database.dart';
+import '../data/paises.dart';
 import '../main.dart';
 import '../theme.dart';
 import '../widgets/kipu_icono.dart';
 import 'curso_detalle.dart';
-
-const grados = {
-  'Inicial': ['3 años', '4 años', '5 años'],
-  'Primaria': [
-    '1.° grado',
-    '2.° grado',
-    '3.° grado',
-    '4.° grado',
-    '5.° grado',
-    '6.° grado',
-  ],
-  'Secundaria': ['1.° año', '2.° año', '3.° año', '4.° año', '5.° año'],
-};
-
-/// "Otro" deja escribir la sección (hay colegios con muchas secciones).
-const secciones = ['Única', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'Otro'];
-
-/// Áreas curriculares del Currículo Nacional (CNEB) por nivel. "Otro" permite
-/// escribir un área propia (otro país o un área del colegio).
-const areaOtra = 'Otro';
-
-const areasPorNivel = {
-  'Inicial': [
-    'Personal Social',
-    'Psicomotriz',
-    'Comunicación',
-    'Castellano como segunda lengua',
-    'Matemática',
-    'Ciencia y Tecnología',
-    'Tutoría',
-    areaOtra,
-  ],
-  'Primaria': [
-    'Personal Social',
-    'Educación Física',
-    'Comunicación',
-    'Arte y Cultura',
-    'Castellano como segunda lengua',
-    'Inglés como lengua extranjera',
-    'Matemática',
-    'Ciencia y Tecnología',
-    'Educación Religiosa',
-    'Tutoría',
-    areaOtra,
-  ],
-  'Secundaria': [
-    'Desarrollo Personal, Ciudadanía y Cívica',
-    'Ciencias Sociales',
-    'Educación Física',
-    'Comunicación',
-    'Arte y Cultura',
-    'Castellano como segunda lengua',
-    'Inglés como lengua extranjera',
-    'Matemática',
-    'Ciencia y Tecnología',
-    'Educación para el Trabajo',
-    'Educación Religiosa',
-    'Tutoría',
-    areaOtra,
-  ],
-};
 
 class MisCursos extends StatefulWidget {
   const MisCursos({super.key});
@@ -994,9 +934,12 @@ class _GrillaCursos extends StatelessWidget {
 
   /// Posición del grado dentro de su nivel (Inicial, Primaria, Secundaria).
   static int _posGrado(Curso c) {
-    final niveles = grados.keys.toList();
-    final n = niveles.indexOf(c.nivel);
-    final g = grados[c.nivel]?.indexOf(c.grado) ?? -1;
+    final pais = paises.firstWhere(
+      (p) => p.grados[c.nivel]?.contains(c.grado) ?? false,
+      orElse: () => peru,
+    );
+    final n = pais.grados.keys.toList().indexOf(c.nivel);
+    final g = pais.grados[c.nivel]?.indexOf(c.grado) ?? -1;
     return (n < 0 ? 9 : n) * 100 + (g < 0 ? 99 : g);
   }
 
@@ -1618,6 +1561,7 @@ Future<void> _formColegio(BuildContext context, {Colegio? colegio}) async {
   final form = GlobalKey<FormState>();
   final nombre = TextEditingController(text: colegio?.nombre);
   final lugar = TextEditingController(text: colegio?.lugar);
+  var pais = paisPorCodigo(colegio?.pais);
   final colegios = await db.verColegios().first;
   // Al crear, se propone el primer color que nadie usa todavía.
   final usados = colegios.map((c) => colorColegio(colegios, c.id)).toSet();
@@ -1653,13 +1597,67 @@ Future<void> _formColegio(BuildContext context, {Colegio? colegio}) async {
                       (v ?? '').trim().isEmpty ? 'Escribe el nombre' : null,
                 ),
               ),
-              _Campo(
-                'Distrito o ciudad',
-                opcional: true,
-                TextFormField(
-                  controller: lugar,
-                  textCapitalization: TextCapitalization.words,
-                  decoration: const InputDecoration(hintText: 'Ej. Huacho'),
+              StatefulBuilder(
+                builder: (ctx, setState) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: _Campo(
+                            'País',
+                            DropdownButtonFormField<Pais>(
+                              initialValue: pais,
+                              isExpanded: true,
+                              icon: _flechaLista,
+                              items: [
+                                for (final p in paises)
+                                  DropdownMenuItem(
+                                    value: p,
+                                    child: Text('${p.bandera} ${p.nombre}'),
+                                  ),
+                              ],
+                              onChanged: (v) => setState(() => pais = v!),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _Campo(
+                            'Distrito o ciudad',
+                            opcional: true,
+                            TextFormField(
+                              controller: lugar,
+                              textCapitalization: TextCapitalization.words,
+                              decoration: const InputDecoration(
+                                hintText: 'Ej. Huacho',
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 14),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: KipuColores.moradoClaro,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        'Se cargan los niveles, grados y áreas del '
+                        '${pais.curriculo}.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: KipuColores.moradoOscuro,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               _Campo(
@@ -1712,6 +1710,7 @@ Future<void> _formColegio(BuildContext context, {Colegio? colegio}) async {
                       nombre.text.trim(),
                       ciudad,
                       color: color.toARGB32(),
+                      pais: pais.codigo,
                     );
                     await db.guardarAjuste('colegio_activo', id.toString());
                   } else {
@@ -1720,6 +1719,7 @@ Future<void> _formColegio(BuildContext context, {Colegio? colegio}) async {
                       nombre.text.trim(),
                       ciudad,
                       color: color.toARGB32(),
+                      pais: pais.codigo,
                     );
                   }
                   if (ctx.mounted) Navigator.pop(ctx);
@@ -1767,12 +1767,20 @@ class _FormCursoState extends State<_FormCurso> {
   final _otraSeccion = TextEditingController();
   final _nombre = TextEditingController();
 
-  bool get _esOtra => _area == areaOtra;
+  bool get _esOtra => _area == opcionOtro;
+
+  Pais get _pais =>
+      paisPorCodigo(widget.colegios.firstWhere((c) => c.id == _colegio).pais);
+
+  List<String> _areas(String? nivel) => [
+    ...?_pais.areas[nivel],
+    if (nivel != null) opcionOtro,
+  ];
 
   Future<void> _guardar() async {
     if (!_form.currentState!.validate()) return;
     final area = _esOtra ? _otraArea.text.trim() : _area!;
-    final seccion = _seccion == 'Otro'
+    final seccion = _seccion == opcionOtro
         ? _otraSeccion.text.trim().toUpperCase()
         : _seccion!;
     final nombre = _nombre.text.trim().isEmpty ? area : _nombre.text.trim();
@@ -1813,7 +1821,15 @@ class _FormCursoState extends State<_FormCurso> {
                     for (final c in widget.colegios)
                       DropdownMenuItem(value: c.id, child: Text(c.nombre)),
                   ],
-                  onChanged: (v) => setState(() => _colegio = v!),
+                  onChanged: (v) => setState(() {
+                    _colegio = v!;
+                    // Otro país puede tener otros niveles y áreas.
+                    if (!_pais.grados.containsKey(_nivel)) {
+                      _nivel = null;
+                      _grado = null;
+                      _area = null;
+                    }
+                  }),
                 ),
               ),
             Row(
@@ -1828,7 +1844,7 @@ class _FormCursoState extends State<_FormCurso> {
                       icon: _flechaLista,
                       hint: const Text('Selecciona'),
                       items: [
-                        for (final n in grados.keys)
+                        for (final n in _pais.grados.keys)
                           DropdownMenuItem(value: n, child: Text(n)),
                       ],
                       validator: requerido,
@@ -1836,8 +1852,7 @@ class _FormCursoState extends State<_FormCurso> {
                         _nivel = v;
                         _grado = null;
                         // Si el área no existe en el nuevo nivel, se limpia.
-                        if (_area != null &&
-                            !(areasPorNivel[v] ?? []).contains(_area)) {
+                        if (_area != null && !_areas(v).contains(_area)) {
                           _area = null;
                         }
                       }),
@@ -1855,7 +1870,8 @@ class _FormCursoState extends State<_FormCurso> {
                       icon: _flechaLista,
                       hint: const Text('Selecciona'),
                       items: [
-                        for (final g in grados[_nivel] ?? const <String>[])
+                        for (final g
+                            in _pais.grados[_nivel] ?? const <String>[])
                           DropdownMenuItem(value: g, child: Text(g)),
                       ],
                       validator: requerido,
@@ -1902,7 +1918,7 @@ class _FormCursoState extends State<_FormCurso> {
                 ),
               ),
             ),
-            if (_seccion == 'Otro')
+            if (_seccion == opcionOtro)
               _Campo(
                 'Escribe la sección',
                 TextFormField(
@@ -1925,7 +1941,7 @@ class _FormCursoState extends State<_FormCurso> {
                   _nivel == null ? 'Primero elige el nivel' : 'Selecciona',
                 ),
                 items: [
-                  for (final a in areasPorNivel[_nivel] ?? const <String>[])
+                  for (final a in _areas(_nivel))
                     DropdownMenuItem(value: a, child: Text(a)),
                 ],
                 validator: requerido,
