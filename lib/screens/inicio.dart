@@ -308,14 +308,18 @@ class _SaludoState extends State<_Saludo> {
           return LayoutBuilder(builder: (context, c) {
             final chico = c.maxWidth < 560;
             final alto = chico ? 160.0 : 170.0;
-            final figura = chico ? 120.0 : 190.0;
+            // El personaje se ve de la cintura para arriba, con la cabeza
+            // sobresaliendo de la tarjeta.
+            final margen = chico ? 44.0 : 60.0;
+            final alturaFigura = (alto + margen) * 1.9;
+            final figura = alturaFigura * (esProfesora ? 0.37 : 0.33);
             return SizedBox(
-              height: alto + 36,
+              height: alto + margen,
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
                   Positioned.fill(
-                    top: 36,
+                    top: margen,
                     child: Container(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(26),
@@ -326,7 +330,7 @@ class _SaludoState extends State<_Saludo> {
                     ),
                   ),
                   Positioned(
-                    top: 52,
+                    top: margen + 16,
                     right: 18,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
@@ -365,20 +369,27 @@ class _SaludoState extends State<_Saludo> {
                     ),
                   ),
                   Positioned(
-                    left: chico ? 4 : 26,
+                    left: chico ? 0 : 22,
+                    top: 0,
                     bottom: 0,
-                    child: Image.asset(
-                      esProfesora
-                          ? 'assets/img/profesora.png'
-                          : 'assets/img/profesor.png',
-                      height: alto + 36,
-                      width: figura,
-                      fit: BoxFit.fitHeight,
-                      alignment: Alignment.bottomCenter,
+                    width: figura,
+                    child: ClipRect(
+                      child: OverflowBox(
+                        alignment: Alignment.topCenter,
+                        maxHeight: alturaFigura,
+                        child: Image.asset(
+                          esProfesora
+                              ? 'assets/img/profesora.png'
+                              : 'assets/img/profesor.png',
+                          height: alturaFigura,
+                          fit: BoxFit.fitHeight,
+                          alignment: Alignment.topCenter,
+                        ),
+                      ),
                     ),
                   ),
                   Positioned(
-                    left: figura + (chico ? 6 : 40),
+                    left: (chico ? 0 : 22) + figura + (chico ? 2 : 10),
                     right: 18,
                     bottom: chico ? 22 : 34,
                     child: Column(
