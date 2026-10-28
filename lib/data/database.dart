@@ -74,6 +74,16 @@ class Eventos extends Table {
   TextColumn get tipo => text().withDefault(const Constant('tarea'))(); // tarea, cumple
 }
 
+/// Bloques del horario semanal: un curso en un día y rango de horas.
+class Horarios extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get cursoId =>
+      integer().references(Cursos, #id, onDelete: KeyAction.cascade)();
+  IntColumn get dia => integer()(); // 1 = lunes ... 7 = domingo
+  TextColumn get inicio => text()(); // HH:mm
+  TextColumn get fin => text()(); // HH:mm
+}
+
 class CursoConColegio {
   final Curso curso;
   final Colegio colegio;
@@ -81,12 +91,12 @@ class CursoConColegio {
   CursoConColegio(this.curso, this.colegio, this.totalEstudiantes);
 }
 
-@DriftDatabase(tables: [Ajustes, Colegios, Cursos, Estudiantes, Asistencias, Notas, Eventos])
+@DriftDatabase(tables: [Ajustes, Colegios, Cursos, Estudiantes, Asistencias, Notas, Eventos, Horarios])
 class KipuDb extends _$KipuDb {
   KipuDb([QueryExecutor? executor]) : super(executor ?? _abrir());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -96,6 +106,7 @@ class KipuDb extends _$KipuDb {
             await m.createTable(notas);
             await m.createTable(eventos);
           }
+          if (from < 4) await m.createTable(horarios);
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
@@ -249,6 +260,73 @@ class KipuDb extends _$KipuDb {
       return (e, c);
     });
   }
+
+  /// Estudiantes con más calificaciones en C y más faltas.
+  Stream<List<({Estudiante estudiante, CursoConColegio? curso, int c, int faltas})>>
+      verNecesitanApoyo({int limite = 4}) {
+    final q = customSelect(
+      'SELECT e.id, '
+      '(SELECT COUNT(*) FROM notas n WHERE n.estudiante_id = e.id AND n.nota = \'C\') AS c, '
+      '(SELECT COUNT(*) FROM asistencias a WHERE a.estudiante_id = e.id AND a.estado = \'F\') AS f '
+      'FROM estudiantes e '
+      'ORDER BY (c * 2 + f) DESC, e.apellidos LIMIT ?',
+      variables: [Variable.withInt(limite)],
+      readsFrom: {estudiantes, notas, asistencias},
+    );
+    return q.watch().asyncMap((filas) async {
+      final cursos = await verCursos().first;
+      final lista = <({Estudiante estudiante, CursoConColegio? curso, int c, int faltas})>[];
+      for (final f in filas) {
+        final c = f.read<int>('c'), faltas = f.read<int>('f');
+        if (c + faltas == 0) continue;
+        final e = await (select(estudiantes)
+              ..where((x) => x.id.equals(f.read<int>('id'))))
+            .getSingle();
+        lista.add((
+          estudiante: e,
+          curso: cursos.where((x) => x.curso.id == e.cursoId).firstOrNull,
+          c: c,
+          faltas: faltas,
+        ));
+      }
+      return lista;
+    });
+  }
+
+  /// Conteo de estados de asistencia por fecha entre dos días.
+  Stream<Map<String, Map<String, int>>> verAsistenciaRango(
+      String desde, String hasta) {
+    final total = asistencias.estudianteId.count();
+    final q = selectOnly(asistencias)
+      ..addColumns([asistencias.fecha, asistencias.estado, total])
+      ..where(asistencias.fecha.isBetweenValues(desde, hasta))
+      ..groupBy([asistencias.fecha, asistencias.estado]);
+    return q.watch().map((filas) {
+      final r = <String, Map<String, int>>{};
+      for (final f in filas) {
+        final fecha = f.read(asistencias.fecha)!;
+        final estado = f.read(asistencias.estado)!;
+        (r[fecha] ??= <String, int>{})[estado] = f.read(total) ?? 0;
+      }
+      return r;
+    });
+  }
+
+  // Horario
+
+  Stream<List<(Horario, CursoConColegio)>> verClasesDelDia(int dia) =>
+      (select(horarios)
+            ..where((h) => h.dia.equals(dia))
+            ..orderBy([(h) => OrderingTerm.asc(h.inicio)]))
+          .watch()
+          .asyncMap((lista) async {
+        final cursos = await verCursos().first;
+        return [
+          for (final h in lista)
+            for (final c in cursos.where((c) => c.curso.id == h.cursoId))
+              (h, c)
+        ];
+      });
 
   // Eventos
 

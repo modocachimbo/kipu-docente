@@ -2517,6 +2517,348 @@ class EventosCompanion extends UpdateCompanion<Evento> {
   }
 }
 
+class $HorariosTable extends Horarios with TableInfo<$HorariosTable, Horario> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $HorariosTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _cursoIdMeta = const VerificationMeta(
+    'cursoId',
+  );
+  @override
+  late final GeneratedColumn<int> cursoId = GeneratedColumn<int>(
+    'curso_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES cursos (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _diaMeta = const VerificationMeta('dia');
+  @override
+  late final GeneratedColumn<int> dia = GeneratedColumn<int>(
+    'dia',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _inicioMeta = const VerificationMeta('inicio');
+  @override
+  late final GeneratedColumn<String> inicio = GeneratedColumn<String>(
+    'inicio',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _finMeta = const VerificationMeta('fin');
+  @override
+  late final GeneratedColumn<String> fin = GeneratedColumn<String>(
+    'fin',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, cursoId, dia, inicio, fin];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'horarios';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Horario> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('curso_id')) {
+      context.handle(
+        _cursoIdMeta,
+        cursoId.isAcceptableOrUnknown(data['curso_id']!, _cursoIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_cursoIdMeta);
+    }
+    if (data.containsKey('dia')) {
+      context.handle(
+        _diaMeta,
+        dia.isAcceptableOrUnknown(data['dia']!, _diaMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_diaMeta);
+    }
+    if (data.containsKey('inicio')) {
+      context.handle(
+        _inicioMeta,
+        inicio.isAcceptableOrUnknown(data['inicio']!, _inicioMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_inicioMeta);
+    }
+    if (data.containsKey('fin')) {
+      context.handle(
+        _finMeta,
+        fin.isAcceptableOrUnknown(data['fin']!, _finMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_finMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Horario map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Horario(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      cursoId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}curso_id'],
+      )!,
+      dia: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}dia'],
+      )!,
+      inicio: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}inicio'],
+      )!,
+      fin: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}fin'],
+      )!,
+    );
+  }
+
+  @override
+  $HorariosTable createAlias(String alias) {
+    return $HorariosTable(attachedDatabase, alias);
+  }
+}
+
+class Horario extends DataClass implements Insertable<Horario> {
+  final int id;
+  final int cursoId;
+  final int dia;
+  final String inicio;
+  final String fin;
+  const Horario({
+    required this.id,
+    required this.cursoId,
+    required this.dia,
+    required this.inicio,
+    required this.fin,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['curso_id'] = Variable<int>(cursoId);
+    map['dia'] = Variable<int>(dia);
+    map['inicio'] = Variable<String>(inicio);
+    map['fin'] = Variable<String>(fin);
+    return map;
+  }
+
+  HorariosCompanion toCompanion(bool nullToAbsent) {
+    return HorariosCompanion(
+      id: Value(id),
+      cursoId: Value(cursoId),
+      dia: Value(dia),
+      inicio: Value(inicio),
+      fin: Value(fin),
+    );
+  }
+
+  factory Horario.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Horario(
+      id: serializer.fromJson<int>(json['id']),
+      cursoId: serializer.fromJson<int>(json['cursoId']),
+      dia: serializer.fromJson<int>(json['dia']),
+      inicio: serializer.fromJson<String>(json['inicio']),
+      fin: serializer.fromJson<String>(json['fin']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'cursoId': serializer.toJson<int>(cursoId),
+      'dia': serializer.toJson<int>(dia),
+      'inicio': serializer.toJson<String>(inicio),
+      'fin': serializer.toJson<String>(fin),
+    };
+  }
+
+  Horario copyWith({
+    int? id,
+    int? cursoId,
+    int? dia,
+    String? inicio,
+    String? fin,
+  }) => Horario(
+    id: id ?? this.id,
+    cursoId: cursoId ?? this.cursoId,
+    dia: dia ?? this.dia,
+    inicio: inicio ?? this.inicio,
+    fin: fin ?? this.fin,
+  );
+  Horario copyWithCompanion(HorariosCompanion data) {
+    return Horario(
+      id: data.id.present ? data.id.value : this.id,
+      cursoId: data.cursoId.present ? data.cursoId.value : this.cursoId,
+      dia: data.dia.present ? data.dia.value : this.dia,
+      inicio: data.inicio.present ? data.inicio.value : this.inicio,
+      fin: data.fin.present ? data.fin.value : this.fin,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Horario(')
+          ..write('id: $id, ')
+          ..write('cursoId: $cursoId, ')
+          ..write('dia: $dia, ')
+          ..write('inicio: $inicio, ')
+          ..write('fin: $fin')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, cursoId, dia, inicio, fin);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Horario &&
+          other.id == this.id &&
+          other.cursoId == this.cursoId &&
+          other.dia == this.dia &&
+          other.inicio == this.inicio &&
+          other.fin == this.fin);
+}
+
+class HorariosCompanion extends UpdateCompanion<Horario> {
+  final Value<int> id;
+  final Value<int> cursoId;
+  final Value<int> dia;
+  final Value<String> inicio;
+  final Value<String> fin;
+  const HorariosCompanion({
+    this.id = const Value.absent(),
+    this.cursoId = const Value.absent(),
+    this.dia = const Value.absent(),
+    this.inicio = const Value.absent(),
+    this.fin = const Value.absent(),
+  });
+  HorariosCompanion.insert({
+    this.id = const Value.absent(),
+    required int cursoId,
+    required int dia,
+    required String inicio,
+    required String fin,
+  }) : cursoId = Value(cursoId),
+       dia = Value(dia),
+       inicio = Value(inicio),
+       fin = Value(fin);
+  static Insertable<Horario> custom({
+    Expression<int>? id,
+    Expression<int>? cursoId,
+    Expression<int>? dia,
+    Expression<String>? inicio,
+    Expression<String>? fin,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (cursoId != null) 'curso_id': cursoId,
+      if (dia != null) 'dia': dia,
+      if (inicio != null) 'inicio': inicio,
+      if (fin != null) 'fin': fin,
+    });
+  }
+
+  HorariosCompanion copyWith({
+    Value<int>? id,
+    Value<int>? cursoId,
+    Value<int>? dia,
+    Value<String>? inicio,
+    Value<String>? fin,
+  }) {
+    return HorariosCompanion(
+      id: id ?? this.id,
+      cursoId: cursoId ?? this.cursoId,
+      dia: dia ?? this.dia,
+      inicio: inicio ?? this.inicio,
+      fin: fin ?? this.fin,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (cursoId.present) {
+      map['curso_id'] = Variable<int>(cursoId.value);
+    }
+    if (dia.present) {
+      map['dia'] = Variable<int>(dia.value);
+    }
+    if (inicio.present) {
+      map['inicio'] = Variable<String>(inicio.value);
+    }
+    if (fin.present) {
+      map['fin'] = Variable<String>(fin.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('HorariosCompanion(')
+          ..write('id: $id, ')
+          ..write('cursoId: $cursoId, ')
+          ..write('dia: $dia, ')
+          ..write('inicio: $inicio, ')
+          ..write('fin: $fin')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$KipuDb extends GeneratedDatabase {
   _$KipuDb(QueryExecutor e) : super(e);
   $KipuDbManager get managers => $KipuDbManager(this);
@@ -2527,6 +2869,7 @@ abstract class _$KipuDb extends GeneratedDatabase {
   late final $AsistenciasTable asistencias = $AsistenciasTable(this);
   late final $NotasTable notas = $NotasTable(this);
   late final $EventosTable eventos = $EventosTable(this);
+  late final $HorariosTable horarios = $HorariosTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2539,6 +2882,7 @@ abstract class _$KipuDb extends GeneratedDatabase {
     asistencias,
     notas,
     eventos,
+    horarios,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -2569,6 +2913,13 @@ abstract class _$KipuDb extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('notas', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'cursos',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('horarios', kind: UpdateKind.delete)],
     ),
   ]);
 }
@@ -3036,6 +3387,25 @@ final class $$CursosTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$HorariosTable, List<Horario>> _horariosRefsTable(
+    _$KipuDb db,
+  ) => MultiTypedResultKey.fromTable(
+    db.horarios,
+    aliasName: 'cursos__id__horarios__curso_id',
+  );
+
+  $$HorariosTableProcessedTableManager get horariosRefs {
+    final manager = $$HorariosTableTableManager(
+      $_db,
+      $_db.horarios,
+    ).filter((f) => f.cursoId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_horariosRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$CursosTableFilterComposer extends Composer<_$KipuDb, $CursosTable> {
@@ -3120,6 +3490,31 @@ class $$CursosTableFilterComposer extends Composer<_$KipuDb, $CursosTable> {
           }) => $$EstudiantesTableFilterComposer(
             $db: $db,
             $table: $db.estudiantes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> horariosRefs(
+    Expression<bool> Function($$HorariosTableFilterComposer f) f,
+  ) {
+    final $$HorariosTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.horarios,
+      getReferencedColumn: (t) => t.cursoId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$HorariosTableFilterComposer(
+            $db: $db,
+            $table: $db.horarios,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -3273,6 +3668,31 @@ class $$CursosTableAnnotationComposer extends Composer<_$KipuDb, $CursosTable> {
     );
     return f(composer);
   }
+
+  Expression<T> horariosRefs<T extends Object>(
+    Expression<T> Function($$HorariosTableAnnotationComposer a) f,
+  ) {
+    final $$HorariosTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.horarios,
+      getReferencedColumn: (t) => t.cursoId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$HorariosTableAnnotationComposer(
+            $db: $db,
+            $table: $db.horarios,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$CursosTableTableManager
@@ -3288,7 +3708,11 @@ class $$CursosTableTableManager
           $$CursosTableUpdateCompanionBuilder,
           (Curso, $$CursosTableReferences),
           Curso,
-          PrefetchHooks Function({bool colegioId, bool estudiantesRefs})
+          PrefetchHooks Function({
+            bool colegioId,
+            bool estudiantesRefs,
+            bool horariosRefs,
+          })
         > {
   $$CursosTableTableManager(_$KipuDb db, $CursosTable table)
     : super(
@@ -3350,11 +3774,16 @@ class $$CursosTableTableManager
               )
               .toList(),
           prefetchHooksCallback:
-              ({colegioId = false, estudiantesRefs = false}) {
+              ({
+                colegioId = false,
+                estudiantesRefs = false,
+                horariosRefs = false,
+              }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
                     if (estudiantesRefs) db.estudiantes,
+                    if (horariosRefs) db.horarios,
                   ],
                   addJoins:
                       <
@@ -3408,6 +3837,26 @@ class $$CursosTableTableManager
                           referencedColumn: 'curso_id',
                           typedResults: items,
                         ),
+                      if (horariosRefs)
+                        await $_getPrefetchedDataByColumns<
+                          Curso,
+                          $CursosTable,
+                          Horario,
+                          $HorariosTable
+                        >(
+                          currentTable: table,
+                          referencedTable: $$CursosTableReferences
+                              ._horariosRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$CursosTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).horariosRefs,
+                          currentColumn: 'id',
+                          referencedColumn: 'curso_id',
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -3428,7 +3877,11 @@ typedef $$CursosTableProcessedTableManager =
       $$CursosTableUpdateCompanionBuilder,
       (Curso, $$CursosTableReferences),
       Curso,
-      PrefetchHooks Function({bool colegioId, bool estudiantesRefs})
+      PrefetchHooks Function({
+        bool colegioId,
+        bool estudiantesRefs,
+        bool horariosRefs,
+      })
     >;
 typedef $$EstudiantesTableCreateCompanionBuilder =
     EstudiantesCompanion Function({
@@ -4777,6 +5230,312 @@ typedef $$EventosTableProcessedTableManager =
       Evento,
       PrefetchHooks Function()
     >;
+typedef $$HorariosTableCreateCompanionBuilder = HorariosCompanion Function({
+  Value<int> id,
+  required int cursoId,
+  required int dia,
+  required String inicio,
+  required String fin,
+});
+typedef $$HorariosTableUpdateCompanionBuilder = HorariosCompanion Function({
+  Value<int> id,
+  Value<int> cursoId,
+  Value<int> dia,
+  Value<String> inicio,
+  Value<String> fin,
+});
+
+final class $$HorariosTableReferences
+    extends BaseReferences<_$KipuDb, $HorariosTable, Horario> {
+  $$HorariosTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $CursosTable _cursoIdTable(_$KipuDb db) =>
+      db.cursos.createAlias('horarios__curso_id__cursos__id');
+
+  $$CursosTableProcessedTableManager get cursoId {
+    final $_column = $_itemColumn<int>('curso_id')!;
+
+    final manager = $$CursosTableTableManager(
+      $_db,
+      $_db.cursos,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_cursoIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$HorariosTableFilterComposer extends Composer<_$KipuDb, $HorariosTable> {
+  $$HorariosTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get dia => $composableBuilder(
+    column: $table.dia,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get inicio => $composableBuilder(
+    column: $table.inicio,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fin => $composableBuilder(
+    column: $table.fin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$CursosTableFilterComposer get cursoId {
+    final $$CursosTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.cursoId,
+      referencedTable: $db.cursos,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CursosTableFilterComposer(
+            $db: $db,
+            $table: $db.cursos,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$HorariosTableOrderingComposer
+    extends Composer<_$KipuDb, $HorariosTable> {
+  $$HorariosTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get dia => $composableBuilder(
+    column: $table.dia,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get inicio => $composableBuilder(
+    column: $table.inicio,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fin => $composableBuilder(
+    column: $table.fin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$CursosTableOrderingComposer get cursoId {
+    final $$CursosTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.cursoId,
+      referencedTable: $db.cursos,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CursosTableOrderingComposer(
+            $db: $db,
+            $table: $db.cursos,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$HorariosTableAnnotationComposer
+    extends Composer<_$KipuDb, $HorariosTable> {
+  $$HorariosTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get dia =>
+      $composableBuilder(column: $table.dia, builder: (column) => column);
+
+  GeneratedColumn<String> get inicio =>
+      $composableBuilder(column: $table.inicio, builder: (column) => column);
+
+  GeneratedColumn<String> get fin =>
+      $composableBuilder(column: $table.fin, builder: (column) => column);
+
+  $$CursosTableAnnotationComposer get cursoId {
+    final $$CursosTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.cursoId,
+      referencedTable: $db.cursos,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CursosTableAnnotationComposer(
+            $db: $db,
+            $table: $db.cursos,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$HorariosTableTableManager
+    extends
+        RootTableManager<
+          _$KipuDb,
+          $HorariosTable,
+          Horario,
+          $$HorariosTableFilterComposer,
+          $$HorariosTableOrderingComposer,
+          $$HorariosTableAnnotationComposer,
+          $$HorariosTableCreateCompanionBuilder,
+          $$HorariosTableUpdateCompanionBuilder,
+          (Horario, $$HorariosTableReferences),
+          Horario,
+          PrefetchHooks Function({bool cursoId})
+        > {
+  $$HorariosTableTableManager(_$KipuDb db, $HorariosTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$HorariosTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$HorariosTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$HorariosTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> cursoId = const Value.absent(),
+                Value<int> dia = const Value.absent(),
+                Value<String> inicio = const Value.absent(),
+                Value<String> fin = const Value.absent(),
+              }) => HorariosCompanion(
+                id: id,
+                cursoId: cursoId,
+                dia: dia,
+                inicio: inicio,
+                fin: fin,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int cursoId,
+                required int dia,
+                required String inicio,
+                required String fin,
+              }) => HorariosCompanion.insert(
+                id: id,
+                cursoId: cursoId,
+                dia: dia,
+                inicio: inicio,
+                fin: fin,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$HorariosTable, Horario>(table),
+                  $$HorariosTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({cursoId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (cursoId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.cursoId,
+                        referencedTable: $$HorariosTableReferences
+                            ._cursoIdTable(db),
+                        referencedColumn: $$HorariosTableReferences
+                            ._cursoIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$HorariosTableProcessedTableManager =
+    ProcessedTableManager<
+      _$KipuDb,
+      $HorariosTable,
+      Horario,
+      $$HorariosTableFilterComposer,
+      $$HorariosTableOrderingComposer,
+      $$HorariosTableAnnotationComposer,
+      $$HorariosTableCreateCompanionBuilder,
+      $$HorariosTableUpdateCompanionBuilder,
+      (Horario, $$HorariosTableReferences),
+      Horario,
+      PrefetchHooks Function({bool cursoId})
+    >;
 
 class $KipuDbManager {
   final _$KipuDb _db;
@@ -4795,4 +5554,6 @@ class $KipuDbManager {
       $$NotasTableTableManager(_db, _db.notas);
   $$EventosTableTableManager get eventos =>
       $$EventosTableTableManager(_db, _db.eventos);
+  $$HorariosTableTableManager get horarios =>
+      $$HorariosTableTableManager(_db, _db.horarios);
 }

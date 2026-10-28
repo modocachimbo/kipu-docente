@@ -58,6 +58,16 @@ Future<void> cargarDatosDeEjemplo(KipuDb db) async {
     if (d.weekday <= DateTime.friday) dias.add(d);
   }
 
+  // Horario semanal: (curso, día, inicio, fin)
+  const bloques = [
+    (0, 1, '07:50', '09:20'), (1, 1, '09:35', '11:05'), (2, 1, '11:20', '12:50'),
+    (3, 2, '07:50', '09:20'), (4, 2, '09:35', '11:05'), (5, 2, '13:00', '14:30'),
+    (0, 3, '07:50', '09:20'), (2, 3, '09:35', '11:05'), (1, 3, '11:20', '12:50'), (3, 3, '13:00', '14:30'),
+    (4, 4, '07:50', '09:20'), (5, 4, '09:35', '11:05'), (0, 4, '11:20', '12:50'),
+    (1, 5, '07:50', '09:20'), (2, 5, '09:35', '11:05'), (3, 5, '11:20', '12:50'),
+  ];
+  final idCursos = <int>[];
+
   final idColegio = <String, int>{};
   final idEstudiantes = <int>[];
   await db.transaction(() async {
@@ -73,6 +83,7 @@ Future<void> cargarDatosDeEjemplo(KipuDb db) async {
         nombre: c.$5,
         area: const Value('Ciencia y Tecnología'),
       ));
+      idCursos.add(cursoId);
       final cantidad = 22 + azar.nextInt(10);
       for (var i = 0; i < cantidad; i++) {
         final id = await db.into(db.estudiantes).insert(
@@ -112,6 +123,12 @@ Future<void> cargarDatosDeEjemplo(KipuDb db) async {
         });
       }
     }
+
+    await db.batch((b) => b.insertAll(db.horarios, [
+          for (final (curso, dia, inicio, fin) in bloques)
+            HorariosCompanion.insert(
+                cursoId: idCursos[curso], dia: dia, inicio: inicio, fin: fin),
+        ]));
 
     final eventos = <EventosCompanion>[
       EventosCompanion.insert(
