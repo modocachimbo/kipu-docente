@@ -5,7 +5,7 @@ import 'kipu_icono.dart';
 import 'ventana.dart';
 
 /// Colores claros (pasteles) llevan texto oscuro para que se lea bien.
-bool esClaro(Color c) => c.computeLuminance() > .45;
+bool esClaro(Color c) => c.computeLuminance() > .4;
 
 Color textoSobre(Color fondo) =>
     esClaro(fondo) ? KipuColores.tinta : Colors.white;
@@ -13,60 +13,60 @@ Color textoSobre(Color fondo) =>
 /// El mismo color, oscurecido si es pastel, para usarlo como texto sobre blanco.
 Color tonoTexto(Color c) => esClaro(c) ? Color.lerp(c, Colors.black, .55)! : c;
 
-/// Los colores clásicos y otros más finos, en tonos aptos para fondo con texto blanco.
+/// Colores vivos en varias tonalidades (índigo, azul italiano, turquesa…).
 const coloresSolidos = <(String, Color)>[
-  ('Rojo', Color(0xFFB23A3A)),
-  ('Vino', Color(0xFF7A2E3B)),
-  ('Rosado', Color(0xFFB05A6E)),
-  ('Fucsia', Color(0xFFA23B72)),
-  ('Naranja', Color(0xFFC2621F)),
-  ('Terracota', Color(0xFFB4573E)),
-  ('Mostaza', Color(0xFFA87F2A)),
-  ('Oliva', Color(0xFF6F7A3A)),
-  ('Verde', Color(0xFF2E7D4F)),
-  ('Salvia', Color(0xFF5E7D6A)),
-  ('Bosque', Color(0xFF2F5D4A)),
-  ('Jade', Color(0xFF2E7D6B)),
-  ('Petróleo', Color(0xFF1F5F6B)),
-  ('Turquesa', Color(0xFF1F7F8C)),
-  ('Azul', Color(0xFF2F5FA8)),
-  ('Acero', Color(0xFF3B5B83)),
-  ('Marino', Color(0xFF1E2A47)),
-  ('Índigo', Color(0xFF5458A8)),
-  ('Morado', Color(0xFF6E4BA8)),
-  ('Ciruela', Color(0xFF6B3F6E)),
-  ('Café', Color(0xFF6B4A3A)),
-  ('Topo', Color(0xFF7A6A5F)),
-  ('Pizarra', Color(0xFF4B5563)),
-  ('Grafito', Color(0xFF2F3640)),
+  ('Índigo', Color(0xFF4F46E5)),
+  ('Índigo noche', Color(0xFF3730A3)),
+  ('Azul italiano', Color(0xFF1F5FD1)),
+  ('Cobalto', Color(0xFF0047AB)),
+  ('Zafiro', Color(0xFF1E40AF)),
+  ('Azul cielo', Color(0xFF0EA5E9)),
+  ('Celeste', Color(0xFF0891B2)),
+  ('Turquesa', Color(0xFF14B8A6)),
+  ('Turquesa mar', Color(0xFF0D9488)),
+  ('Esmeralda', Color(0xFF10B981)),
+  ('Jade', Color(0xFF059669)),
+  ('Bosque', Color(0xFF15803D)),
+  ('Lima', Color(0xFF65A30D)),
+  ('Ámbar', Color(0xFFF59E0B)),
+  ('Mostaza', Color(0xFFCA8A04)),
+  ('Naranja', Color(0xFFF97316)),
+  ('Coral', Color(0xFFF2654A)),
+  ('Carmín', Color(0xFFDC2626)),
+  ('Rubí', Color(0xFFBE123C)),
+  ('Frambuesa', Color(0xFFDB2777)),
+  ('Fucsia', Color(0xFFC026D3)),
+  ('Púrpura', Color(0xFF9333EA)),
+  ('Violeta', Color(0xFF7C3AED)),
+  ('Medianoche', Color(0xFF1E1B4B)),
 ];
 
-/// Pasteles empolvados para fondo con texto oscuro.
+/// Pasteles vivos pero suaves para fondo, con texto oscuro.
 const coloresPasteles = <(String, Color)>[
-  ('Rubor', Color(0xFFEBCFD2)),
-  ('Palo rosa', Color(0xFFE4C3C6)),
-  ('Malva', Color(0xFFE2CCD6)),
-  ('Orquídea', Color(0xFFE9D0E3)),
-  ('Lila', Color(0xFFE6D5EA)),
-  ('Lavanda', Color(0xFFDDD3EE)),
-  ('Pervinca', Color(0xFFD3D6F0)),
-  ('Cielo', Color(0xFFCFDDF0)),
-  ('Niebla', Color(0xFFD3E0EA)),
-  ('Agua', Color(0xFFC9E4E4)),
-  ('Menta', Color(0xFFCDE8DD)),
-  ('Eucalipto', Color(0xFFC9DDD4)),
-  ('Salvia', Color(0xFFCFDDC8)),
-  ('Pistacho', Color(0xFFDCE5C6)),
-  ('Limón', Color(0xFFEEEBC4)),
-  ('Vainilla', Color(0xFFF4E9C5)),
-  ('Damasco', Color(0xFFF3DCC0)),
-  ('Melocotón', Color(0xFFF2D3C2)),
-  ('Arena', Color(0xFFEADFCB)),
-  ('Marfil', Color(0xFFF2EEE3)),
-  ('Piedra', Color(0xFFDAD5CE)),
-  ('Perla', Color(0xFFE3E3E8)),
-  ('Humo', Color(0xFFD5D9DE)),
-  ('Crema', Color(0xFFF3EBDB)),
+  ('Rubor', Color(0xFFFECDD3)),
+  ('Fresa', Color(0xFFFDA4AF)),
+  ('Rosa', Color(0xFFF9A8D4)),
+  ('Chicle', Color(0xFFF8B4D9)),
+  ('Malva', Color(0xFFE9A8C9)),
+  ('Coral', Color(0xFFFCA5A5)),
+  ('Melocotón', Color(0xFFFFC4A3)),
+  ('Durazno', Color(0xFFFDBA74)),
+  ('Arena', Color(0xFFF5D0A9)),
+  ('Mango', Color(0xFFFCD34D)),
+  ('Limón', Color(0xFFFDE047)),
+  ('Lima', Color(0xFFD9F99D)),
+  ('Salvia', Color(0xFFA7D7B8)),
+  ('Menta', Color(0xFF6EE7B7)),
+  ('Agua', Color(0xFF5EEAD4)),
+  ('Turquesa', Color(0xFF67E8F9)),
+  ('Hielo', Color(0xFFBAE6FD)),
+  ('Cielo', Color(0xFF7DD3FC)),
+  ('Azul', Color(0xFF93C5FD)),
+  ('Pervinca', Color(0xFFA5B4FC)),
+  ('Lavanda', Color(0xFFC4B5FD)),
+  ('Lila', Color(0xFFD8B4FE)),
+  ('Orquídea', Color(0xFFF0ABFC)),
+  ('Algodón', Color(0xFFFBCFE8)),
 ];
 
 /// Ventana "Más colores": sólidos, pasteles o uno personalizado (cuadro,
@@ -248,7 +248,7 @@ class _Paleta extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Wrap(
-      spacing: 4,
+      spacing: 1,
       runSpacing: 10,
       alignment: WrapAlignment.center,
       children: [
@@ -257,7 +257,7 @@ class _Paleta extends StatelessWidget {
             onTap: () => onTap(c),
             borderRadius: BorderRadius.circular(10),
             child: SizedBox(
-              width: 54,
+              width: 58,
               child: Column(
                 children: [
                   AnimatedContainer(
@@ -283,12 +283,14 @@ class _Paleta extends StatelessWidget {
                         : null,
                   ),
                   const SizedBox(height: 3),
+                  // Nombres de dos palabras van en dos líneas.
                   Text(
                     nombre,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    maxLines: 2,
+                    textAlign: TextAlign.center,
                     style: const TextStyle(
-                      fontSize: 10.5,
+                      fontSize: 10,
+                      height: 1.1,
                       color: KipuColores.gris,
                     ),
                   ),

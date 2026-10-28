@@ -425,14 +425,14 @@ class _Vacio extends StatelessWidget {
 
 /// Colores que el docente puede elegir para cada colegio.
 const coloresColegio = [
-  Color(0xFF3B5B83), // acero
-  Color(0xFF2E7D6B), // jade
-  Color(0xFF1F5F6B), // petróleo
-  Color(0xFF5E7D6A), // salvia
-  Color(0xFFB4573E), // terracota
-  Color(0xFFB05A6E), // rosa antiguo
-  Color(0xFF6B3F6E), // ciruela
-  Color(0xFFA87F2A), // ocre
+  Color(0xFF1F5FD1), // azul italiano
+  Color(0xFF14B8A6), // turquesa
+  Color(0xFF10B981), // esmeralda
+  Color(0xFFF59E0B), // ámbar
+  Color(0xFFF97316), // naranja
+  Color(0xFFF2654A), // coral
+  Color(0xFFDB2777), // frambuesa
+  Color(0xFF7C3AED), // violeta
 ];
 
 /// Color del colegio: el que eligió el docente o uno según el orden de creación.
