@@ -40,7 +40,6 @@ dependencies:
   drift_flutter: ^0.3.1
   path_provider: ^2.1.6
   intl: ^0.20.3
-  google_fonts: ^9.0.0
   flutter_svg: ^2.3.0
 
 dev_dependencies:
@@ -64,18 +63,18 @@ flutter:
   assets:
     - assets/img/
   fonts:
-    - family: Lufga
+    - family: Outfit
       fonts:
-        - asset: assets/fonts/Lufga-Light.ttf
+        - asset: assets/fonts/Outfit-Light.ttf
           weight: 300
-        - asset: assets/fonts/Lufga-Regular.ttf
-        - asset: assets/fonts/Lufga-Medium.ttf
+        - asset: assets/fonts/Outfit-Regular.ttf
+        - asset: assets/fonts/Outfit-Medium.ttf
           weight: 500
-        - asset: assets/fonts/Lufga-SemiBold.ttf
+        - asset: assets/fonts/Outfit-SemiBold.ttf
           weight: 600
-        - asset: assets/fonts/Lufga-Bold.ttf
+        - asset: assets/fonts/Outfit-Bold.ttf
           weight: 700
-        - asset: assets/fonts/Lufga-ExtraBold.ttf
+        - asset: assets/fonts/Outfit-ExtraBold.ttf
           weight: 800
 
   # The following line ensures that the Material Icons font is

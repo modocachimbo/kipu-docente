@@ -31,7 +31,7 @@ ThemeData kipuTema() {
   final redondo = RoundedRectangleBorder(borderRadius: BorderRadius.circular(14));
   return ThemeData(
     colorScheme: esquema,
-    fontFamily: 'Lufga',
+    fontFamily: 'Outfit',
     scaffoldBackgroundColor: KipuColores.fondo,
     appBarTheme: const AppBarTheme(
       backgroundColor: KipuColores.fondo,
@@ -40,7 +40,7 @@ ThemeData kipuTema() {
       scrolledUnderElevation: 0,
       centerTitle: false,
       titleTextStyle: TextStyle(
-        fontFamily: 'Lufga',
+        fontFamily: 'Outfit',
         fontSize: 22,
         fontWeight: FontWeight.w700,
         color: KipuColores.tinta,
@@ -74,7 +74,7 @@ ThemeData kipuTema() {
         shape: redondo,
         padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
         textStyle: const TextStyle(
-            fontFamily: 'Lufga', fontWeight: FontWeight.w600),
+            fontFamily: 'Outfit', fontWeight: FontWeight.w600),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
@@ -87,7 +87,7 @@ ThemeData kipuTema() {
       backgroundColor: Colors.white,
       indicatorColor: KipuColores.moradoClaro,
       labelTextStyle: WidgetStateProperty.all(
-        const TextStyle(fontFamily: 'Lufga', fontSize: 12),
+        const TextStyle(fontFamily: 'Outfit', fontSize: 12),
       ),
     ),
     floatingActionButtonTheme: const FloatingActionButtonThemeData(
