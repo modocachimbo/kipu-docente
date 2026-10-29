@@ -4,6 +4,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:intl/intl.dart';
 
 import '../data/academico.dart';
@@ -133,7 +134,12 @@ class _RegistroCursoState extends State<RegistroCurso> {
     final periodos = config?.periodos ?? periodosDe('bimestre');
     final escalas = {for (final e in config?.escalas ?? peru.escalas) e.id: e};
     final escalaDefecto = config?.escalaPorDefecto ?? peru.escalas.first.id;
-    final lista = (estudiantes ?? const <Estudiante>[])
+    final delPeriodo =
+        (estudiantes ?? const <Estudiante>[])
+            .where((e) => estaEnPeriodo(e, _periodo))
+            .toList()
+          ..sort((a, b) => claveOrden(a).compareTo(claveOrden(b)));
+    final lista = delPeriodo
         .where(
           (e) =>
               _buscar.isEmpty ||
@@ -142,7 +148,10 @@ class _RegistroCursoState extends State<RegistroCurso> {
               ),
         )
         .toList();
-    final total = estudiantes?.length ?? 0;
+    final total = delPeriodo.length;
+    String nombrePeriodo(int p) => p >= 1 && p <= periodos.length
+        ? periodos[p - 1].nombre
+        : '$p.° periodo';
     final presentes = asistencia.values.where((v) => v == 'P' || v == 'T');
 
     Escala? escalaDe(RegistroColumna c) =>
@@ -156,6 +165,18 @@ class _RegistroCursoState extends State<RegistroCurso> {
       escalaDefecto: escalaDefecto,
       colores: colores,
       codigoSugerido: 'N${columnas.where((c) => c.tipo == 'nota').length + 1}',
+    );
+
+    Future<void> accion(String v) => _accionRegistro(
+      context,
+      v,
+      datos: widget.datos,
+      periodo: _periodo,
+      periodos: periodos,
+      colores: colores,
+      estudiantes: delPeriodo,
+      equipos: equipos,
+      nuevaColumna: nuevaColumna,
     );
 
     final cabecera = _Cabecera(
@@ -181,19 +202,17 @@ class _RegistroCursoState extends State<RegistroCurso> {
       ),
       onBuscar: (t) => setState(() => _buscar = t),
       onNuevaColumna: nuevaColumna,
-      menu: _MenuRegistro(
-        datos: widget.datos,
-        colores: colores,
-        estudiantes: estudiantes ?? const [],
-        equipos: equipos,
-      ),
     );
 
     Widget cuerpo;
     if (estudiantes == null) {
       cuerpo = const Center(child: CircularProgressIndicator());
-    } else if (estudiantes.isEmpty) {
-      cuerpo = _SinEstudiantes(cursoId: _cursoId, colores: colores);
+    } else if (delPeriodo.isEmpty) {
+      cuerpo = _SinEstudiantes(
+        colores: colores,
+        periodo: nombrePeriodo(_periodo),
+        onAccion: accion,
+      );
     } else {
       cuerpo = _Tabla(
         key: ValueKey(_periodo),
@@ -206,7 +225,8 @@ class _RegistroCursoState extends State<RegistroCurso> {
         colores: colores,
         escalaDe: escalaDe,
         onNueva: nuevaColumna,
-        onEstudiante: (e) => editarEstudiante(context, _cursoId, e),
+        onEstudiante: (e) =>
+            editarEstudiante(context, _cursoId, e, _periodo, nombrePeriodo),
         onConducta: (e) => _anotarConducta(context, e, colores),
         onColumna: (c) => _menuColumna(
           context,
@@ -244,22 +264,11 @@ class _RegistroCursoState extends State<RegistroCurso> {
     return Scaffold(
       drawer: const MenuCajon(),
       backgroundColor: KipuColores.fondo,
-      floatingActionButton: !ancho && total > 0
-          ? FloatingActionButton.extended(
-              backgroundColor: colores.calculadas,
-              foregroundColor: Colors.white,
-              onPressed: nuevaColumna,
-              icon: const KipuIcon(
-                KipuIcono.columna,
-                color: Colors.white,
-                size: 22,
-              ),
-              label: const Text(
-                'Columna',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-            )
-          : null,
+      floatingActionButton: _BotonMas(
+        colores: colores,
+        sinEstudiantes: total == 0,
+        onAccion: accion,
+      ),
       body: SafeArea(
         child: Column(
           children: [
@@ -314,7 +323,6 @@ class _Cabecera extends StatelessWidget {
   final VoidCallback onAsistencia;
   final ValueChanged<String> onBuscar;
   final VoidCallback onNuevaColumna;
-  final Widget menu;
 
   const _Cabecera({
     required this.ancho,
@@ -328,7 +336,6 @@ class _Cabecera extends StatelessWidget {
     required this.onAsistencia,
     required this.onBuscar,
     required this.onNuevaColumna,
-    required this.menu,
   });
 
   @override
@@ -427,8 +434,6 @@ class _Cabecera extends StatelessWidget {
               ),
               label: const Text('Nueva columna'),
             ),
-            const SizedBox(width: 8),
-            menu,
           ],
         ),
       );
@@ -442,7 +447,6 @@ class _Cabecera extends StatelessWidget {
               boton,
               const SizedBox(width: 10),
               Expanded(child: textos),
-              menu,
             ],
           ),
           const SizedBox(height: 10),
@@ -644,84 +648,168 @@ class _BotonAsistencia extends StatelessWidget {
   }
 }
 
-class _MenuRegistro extends StatelessWidget {
-  final CursoConColegio datos;
-  final ColoresRegistro colores;
-  final List<Estudiante> estudiantes;
-  final Map<int, int> equipos;
-  const _MenuRegistro({
-    required this.datos,
-    required this.colores,
-    required this.estudiantes,
-    required this.equipos,
-  });
+typedef _Opcion = (String accion, KipuIcono icono, String texto);
 
-  @override
-  Widget build(BuildContext context) {
-    PopupMenuItem<String> item(String v, KipuIcono i, String t, {Color? c}) =>
-        PopupMenuItem(
-          value: v,
-          child: Row(
-            children: [
-              KipuIcon(i, size: 21, color: c ?? colores.calculadas),
-              const SizedBox(width: 12),
-              Text(t, style: TextStyle(color: c)),
-            ],
-          ),
-        );
-    return PopupMenuButton<String>(
-      tooltip: 'Más opciones',
-      color: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      onSelected: (v) async {
-        final id = datos.curso.id;
-        switch (v) {
-          case 'estudiante':
-            editarEstudiante(context, id);
-          case 'pegar':
-            pegarLista(context, id);
-          case 'equipos':
-            _editarEquipos(context, id, estudiantes, equipos, colores);
-          case 'colores':
-            _editarColores(context, id, colores);
-          case 'borrar':
-            if (await confirmar(
-              context,
-              '¿Eliminar este curso?',
-              'Se borrarán también sus estudiantes y notas.',
-            )) {
-              await db.borrarCurso(id);
-              if (context.mounted) Navigator.pop(context);
-            }
-        }
-      },
-      itemBuilder: (_) => [
-        item('estudiante', KipuIcono.secciones, 'Agregar estudiante'),
-        item('pegar', KipuIcono.pegar, 'Pegar lista de estudiantes'),
-        item('equipos', KipuIcono.equipo, 'Equipos'),
-        item('colores', KipuIcono.paleta, 'Colores del registro'),
-        const PopupMenuDivider(),
-        item('borrar', KipuIcono.borrar, 'Eliminar curso', c: _rojo),
-      ],
-      child: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: const Center(
-          child: KipuIcon(KipuIcono.mas, color: KipuColores.gris),
-        ),
-      ),
-    );
+Future<void> _accionRegistro(
+  BuildContext context,
+  String v, {
+  required CursoConColegio datos,
+  required int periodo,
+  required List<Periodo> periodos,
+  required ColoresRegistro colores,
+  required List<Estudiante> estudiantes,
+  required Map<int, int> equipos,
+  required VoidCallback nuevaColumna,
+}) async {
+  final id = datos.curso.id;
+  String nombre(int p) =>
+      p >= 1 && p <= periodos.length ? periodos[p - 1].nombre : '$p.° periodo';
+  switch (v) {
+    case 'columna':
+      nuevaColumna();
+    case 'azar':
+      await _alumnoAlAzar(context, estudiantes, colores);
+    case 'estudiante':
+      await editarEstudiante(context, id, null, periodo, nombre);
+    case 'importar':
+      await importarEstudiantes(
+        context,
+        id,
+        periodo: periodo,
+        color: colores.calculadas,
+      );
+    case 'columnas':
+      await _importarColumnas(context, datos, periodo, periodos, colores);
+    case 'equipos':
+      await _editarEquipos(context, id, estudiantes, equipos, colores);
+    case 'colores':
+      await _editarColores(context, id, colores);
   }
 }
 
-class _SinEstudiantes extends StatelessWidget {
-  final int cursoId;
+/// Botón flotante "+" que despliega todas las opciones de abajo hacia arriba.
+class _BotonMas extends StatelessWidget {
   final ColoresRegistro colores;
-  const _SinEstudiantes({required this.cursoId, required this.colores});
+  final bool sinEstudiantes;
+  final ValueChanged<String> onAccion;
+  const _BotonMas({
+    required this.colores,
+    required this.sinEstudiantes,
+    required this.onAccion,
+  });
+
+  static const _opciones = <_Opcion>[
+    ('colores', KipuIcono.paleta, 'Colores del registro'),
+    ('equipos', KipuIcono.equipo, 'Equipos'),
+    ('columnas', KipuIcono.copia, 'Importar columnas'),
+    ('importar', KipuIcono.pegar, 'Importar estudiantes'),
+    ('estudiante', KipuIcono.secciones, 'Nuevo estudiante'),
+    ('azar', KipuIcono.participa, 'Alumno al azar'),
+    ('columna', KipuIcono.columna, 'Nueva columna'),
+  ];
+
+  Future<void> _abrir(BuildContext context) async {
+    final base = colores.calculadas;
+    final v = await showGeneralDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Cerrar',
+      barrierColor: KipuColores.tinta.withValues(alpha: .35),
+      transitionDuration: const Duration(milliseconds: 220),
+      pageBuilder: (ctx, _, _) => SafeArea(
+        child: Align(
+          alignment: Alignment.bottomRight,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                for (final (accion, icono, texto) in _opciones)
+                  if (!sinEstudiantes ||
+                      const {'estudiante', 'importar'}.contains(accion))
+                    Padding(
+                      padding: EdgeInsets.only(
+                        bottom: accion == 'columna' ? 16 : 10,
+                      ),
+                      child: Material(
+                        color: Colors.white,
+                        elevation: 2,
+                        shadowColor: KipuColores.tinta.withValues(alpha: .3),
+                        borderRadius: BorderRadius.circular(18),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(18),
+                          onTap: () => Navigator.pop(ctx, accion),
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 12, 18, 12),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                KipuIcon(icono, size: 22, color: base),
+                                const SizedBox(width: 12),
+                                Text(
+                                  texto,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: KipuColores.tinta,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                FloatingActionButton(
+                  heroTag: null,
+                  backgroundColor: KipuColores.tinta,
+                  shape: const CircleBorder(),
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const KipuIcon(
+                    KipuIcono.cerrar,
+                    size: 26,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      transitionBuilder: (_, anim, _, child) => FadeTransition(
+        opacity: anim,
+        child: SlideTransition(
+          position: Tween(
+            begin: const Offset(0, .06),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOut)),
+          child: child,
+        ),
+      ),
+    );
+    if (v != null) onAccion(v);
+  }
+
+  @override
+  Widget build(BuildContext context) => FloatingActionButton(
+    tooltip: 'Más opciones',
+    backgroundColor: colores.calculadas,
+    shape: const CircleBorder(),
+    onPressed: () => _abrir(context),
+    child: const KipuIcon(KipuIcono.agregar, size: 28, color: Colors.white),
+  );
+}
+
+class _SinEstudiantes extends StatelessWidget {
+  final ColoresRegistro colores;
+  final String periodo;
+  final ValueChanged<String> onAccion;
+  const _SinEstudiantes({
+    required this.colores,
+    required this.periodo,
+    required this.onAccion,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -799,30 +887,30 @@ class _SinEstudiantes extends StatelessWidget {
                 color: colores.calculadas,
               ),
               const SizedBox(height: 14),
-              const Text(
-                'Tu curso aún no tiene estudiantes',
+              Text(
+                'Aún no hay estudiantes en el $periodo',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 6),
               const Text(
-                'Agrégalos una sola vez; quedan para todos los periodos.',
+                'Agrégalos una sola vez: siguen en los bimestres que vienen.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: KipuColores.gris),
               ),
               const SizedBox(height: 6),
               opcion(
                 KipuIcono.pegar,
-                'Pegar lista',
-                'Copia apellidos y nombres del Excel o SIAGIE',
-                () => pegarLista(context, cursoId),
+                'Importar estudiantes',
+                'Pega la lista o sube la plantilla de Excel',
+                () => onAccion('importar'),
                 principal: true,
               ),
               opcion(
                 KipuIcono.secciones,
                 'Agregar uno por uno',
                 'Nombre, foto, DNI y apoderado',
-                () => editarEstudiante(context, cursoId),
+                () => onAccion('estudiante'),
               ),
             ],
           ),
@@ -1581,6 +1669,258 @@ class _Pastilla extends StatelessWidget {
 }
 
 // ─────────────────────────────── Ventanas ───────────────────────────────
+
+// Alumno al azar
+
+Future<void> _alumnoAlAzar(
+  BuildContext context,
+  List<Estudiante> estudiantes,
+  ColoresRegistro colores,
+) async {
+  if (estudiantes.isEmpty) return;
+  await _hoja(context, _AlAzar(estudiantes: estudiantes, colores: colores));
+}
+
+/// Ya llamados en esta sesión, por curso: no se repite hasta que salgan todos.
+final _llamados = <int, Set<int>>{};
+
+class _AlAzar extends StatefulWidget {
+  final List<Estudiante> estudiantes;
+  final ColoresRegistro colores;
+  const _AlAzar({required this.estudiantes, required this.colores});
+
+  @override
+  State<_AlAzar> createState() => _AlAzarState();
+}
+
+class _AlAzarState extends State<_AlAzar> {
+  final _voz = FlutterTts();
+  final _azar = Random();
+  late Estudiante _e;
+  bool _anotado = false;
+
+  Set<int> get _ya => _llamados[widget.estudiantes.first.cursoId] ??= {};
+
+  @override
+  void initState() {
+    super.initState();
+    _voz.setLanguage('es-ES');
+    _voz.setSpeechRate(.45);
+    _siguiente();
+  }
+
+  @override
+  void dispose() {
+    _voz.stop();
+    super.dispose();
+  }
+
+  void _siguiente() {
+    var quedan = widget.estudiantes.where((e) => !_ya.contains(e.id)).toList();
+    if (quedan.isEmpty) {
+      _ya.clear();
+      quedan = widget.estudiantes;
+    }
+    _e = quedan[_azar.nextInt(quedan.length)];
+    _ya.add(_e.id);
+    _anotado = false;
+    _hablar();
+  }
+
+  void _hablar() => _voz.speak(
+    '${tituloNombre(_e.nombres).split(' ').first} '
+    '${tituloNombre(_e.apellidos).split(' ').first}',
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final base = widget.colores.calculadas;
+    final faltan = widget.estudiantes.length - _ya.length;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'Alumno al azar',
+          style: TextStyle(
+            fontSize: 14,
+            color: base,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 18),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 250),
+          transitionBuilder: (c, a) => ScaleTransition(scale: a, child: c),
+          child: Column(
+            key: ValueKey(_e.id),
+            children: [
+              AvatarEstudiante(_e, tam: 104),
+              const SizedBox(height: 14),
+              Text(
+                tituloNombre(_e.nombres),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                tituloNombre(_e.apellidos),
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 17, color: KipuColores.gris),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 6),
+        TextButton.icon(
+          onPressed: _hablar,
+          icon: KipuIcon(KipuIcono.charla, size: 18, color: base),
+          label: Text('Repetir nombre', style: TextStyle(color: base)),
+        ),
+        Text(
+          faltan == 0
+              ? 'Ya salieron todos; la próxima ronda empieza de nuevo'
+              : 'Faltan $faltan por salir',
+          style: const TextStyle(fontSize: 12.5, color: KipuColores.gris),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  foregroundColor: _verde,
+                  side: BorderSide(
+                    color: _anotado ? _verde : const Color(0xFFCFE9DD),
+                  ),
+                ),
+                onPressed: _anotado
+                    ? null
+                    : () async {
+                        await db.anotarConducta(
+                          _e.id,
+                          claveFecha(DateTime.now()),
+                          true,
+                          'Participa',
+                        );
+                        setState(() => _anotado = true);
+                      },
+                icon: KipuIcon(
+                  _anotado ? KipuIcono.check : KipuIcono.participa,
+                  size: 20,
+                  color: _verde,
+                ),
+                label: Text(_anotado ? 'Anotado' : '+1 Participa'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: base,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                onPressed: () => setState(_siguiente),
+                icon: const KipuIcon(
+                  KipuIcono.participa,
+                  size: 20,
+                  color: Colors.white,
+                ),
+                label: const Text('Otro alumno'),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+// Importar columnas
+
+Future<void> _importarColumnas(
+  BuildContext context,
+  CursoConColegio destino,
+  int periodo,
+  List<Periodo> periodos,
+  ColoresRegistro colores,
+) async {
+  final todas = await db.todasLasColumnas();
+  final cursos = await db.verCursos().first;
+  if (!context.mounted) return;
+  // Agrupadas por registro de origen: (curso, periodo).
+  final grupos = <(int, int), List<RegistroColumna>>{};
+  for (final c in todas) {
+    if (c.cursoId == destino.curso.id && c.periodo == periodo) continue;
+    (grupos[(c.cursoId, c.periodo)] ??= []).add(c);
+  }
+  CursoConColegio? curso(int id) =>
+      cursos.where((c) => c.curso.id == id).firstOrNull;
+  String nombre(int p) =>
+      p >= 1 && p <= periodos.length ? periodos[p - 1].nombre : '$p.° periodo';
+  final orden = grupos.keys.toList()
+    ..sort((a, b) {
+      // Primero este mismo curso, luego el mismo periodo en otras secciones.
+      int peso((int, int) k) =>
+          k.$1 == destino.curso.id ? 0 : (k.$2 == periodo ? 1 : 2);
+      return peso(a).compareTo(peso(b));
+    });
+  final base = colores.calculadas;
+  final elegido = await _hoja<(int, int)>(
+    context,
+    Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _CabezaHoja(
+          icono: KipuIcono.copia,
+          color: base,
+          titulo: 'Importar columnas',
+          subtitulo:
+              'Se copian los códigos, temas y escalas, sin notas, al ${nombre(periodo)}',
+        ),
+        const SizedBox(height: 10),
+        if (orden.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 20),
+            child: Text(
+              'Todavía no hay otros registros con columnas.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: KipuColores.gris),
+            ),
+          ),
+        for (final k in orden)
+          if (curso(k.$1) case final c?)
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+              leading: KipuIcon(
+                k.$1 == destino.curso.id
+                    ? KipuIcono.calendario
+                    : KipuIcono.cursos,
+                size: 26,
+                color: base,
+              ),
+              title: Text(
+                k.$1 == destino.curso.id
+                    ? nombre(k.$2)
+                    : '${c.curso.nombre} · ${_gradoCorto(c.curso)} · ${nombre(k.$2)}',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              subtitle: Text(
+                grupos[k]!.map((x) => x.codigo).join(' · '),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              onTap: () => Navigator.pop(context, k),
+            ),
+      ],
+    ),
+  );
+  if (elegido == null) return;
+  await db.copiarColumnas(grupos[elegido]!, destino.curso.id, periodo);
+}
 
 Future<T?> _hoja<T>(BuildContext context, Widget contenido) =>
     showModalBottomSheet<T>(

@@ -44,6 +44,9 @@ class Estudiantes extends Table {
   TextColumn get apoderado => text().nullable()();
   TextColumn get telefono => text().nullable()();
   BlobColumn get foto => blob().nullable()(); // JPG o PNG pequeño
+  // Periodo en que entró al curso y, si se retiró, desde cuál ya no está.
+  IntColumn get desde => integer().withDefault(const Constant(1))();
+  IntColumn get hasta => integer().nullable()();
   DateTimeColumn get creado => dateTime().withDefault(currentDateAndTime)();
 }
 
@@ -191,7 +194,7 @@ class KipuDb extends _$KipuDb {
   KipuDb([QueryExecutor? executor]) : super(executor ?? _abrir());
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -209,6 +212,10 @@ class KipuDb extends _$KipuDb {
         await m.createTable(registroColumnas);
         await m.createTable(registroNotas);
         await m.createTable(conductas);
+      }
+      if (from < 8) {
+        await m.addColumn(estudiantes, estudiantes.desde);
+        await m.addColumn(estudiantes, estudiantes.hasta);
       }
     },
     beforeOpen: (details) async {

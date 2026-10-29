@@ -231,7 +231,11 @@ class _PasarListaState extends State<PasarLista> {
       builder: (context, snapEst) => StreamBuilder<Map<int, String>>(
         stream: db.verAsistencia(widget.datos.curso.id, clave),
         builder: (context, snapAs) {
-          final lista = snapEst.data ?? [];
+          // Los retirados ya no se llaman en la lista.
+          final lista = [
+            for (final e in snapEst.data ?? <Estudiante>[])
+              if (e.hasta == null) e,
+          ];
           final marcas = snapAs.data ?? {};
           return ListView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),

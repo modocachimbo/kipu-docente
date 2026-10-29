@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:drift/drift.dart' show OrderingTerm, Value;
 import 'package:flutter/material.dart';
 
 import '../widgets/selector_color.dart';
@@ -97,6 +98,21 @@ String iniciales(Estudiante e) {
   return '${primera(e.apellidos)}${primera(e.nombres)}';
 }
 
+/// ¿El estudiante figura en ese periodo? Entra en `desde` y deja de estar
+/// en `hasta` si se retiró.
+bool estaEnPeriodo(Estudiante e, int periodo) =>
+    e.desde <= periodo && (e.hasta == null || periodo < e.hasta!);
+
+/// Clave para ordenar por apellidos sin que las tildes ni la Ñ los desordenen.
+String claveOrden(Estudiante e) {
+  const de = 'áéíóúüñ', a = 'aeiouun';
+  var t = '${e.apellidos} ${e.nombres}'.toLowerCase();
+  for (var i = 0; i < de.length; i++) {
+    t = t.replaceAll(de[i], i == 6 ? 'n~' : a[i]);
+  }
+  return t;
+}
+
 /// Texto corto de una escala para la cabecera: "0–20", "AD/A/B/C", "Logrado".
 String escalaCorta(Escala? e) {
   if (e == null) return '';
@@ -142,6 +158,33 @@ extension RegistroDb on KipuDb {
   /// Último periodo abierto en el registro del curso (el 1.° la primera vez).
   Future<int> periodoRegistro(int cursoId) async =>
       int.tryParse(await leerAjuste('registro_periodo_$cursoId') ?? '') ?? 1;
+
+  /// Todas las columnas de todos los cursos, para importarlas a otro registro.
+  Future<List<RegistroColumna>> todasLasColumnas() => (select(
+    registroColumnas,
+  )..orderBy([(c) => OrderingTerm.asc(c.orden)])).get();
+
+  /// Copia columnas (sin notas ni fecha) al final del registro indicado.
+  Future<void> copiarColumnas(
+    List<RegistroColumna> origen,
+    int cursoId,
+    int periodo,
+  ) async {
+    for (final c in origen) {
+      await crearColumna(
+        RegistroColumnasCompanion.insert(
+          cursoId: cursoId,
+          periodo: periodo,
+          orden: 0,
+          codigo: c.codigo,
+          tema: Value(c.tema),
+          tipo: Value(c.tipo),
+          escala: Value(c.escala),
+          enEquipo: Value(c.enEquipo),
+        ),
+      );
+    }
+  }
 
   Future<void> guardarPeriodoRegistro(int cursoId, int periodo) =>
       guardarAjuste('registro_periodo_$cursoId', '$periodo');

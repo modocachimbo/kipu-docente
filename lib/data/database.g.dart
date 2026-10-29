@@ -1182,6 +1182,25 @@ class $EstudiantesTable extends Estudiantes
     type: DriftSqlType.blob,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _desdeMeta = const VerificationMeta('desde');
+  @override
+  late final GeneratedColumn<int> desde = GeneratedColumn<int>(
+    'desde',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _hastaMeta = const VerificationMeta('hasta');
+  @override
+  late final GeneratedColumn<int> hasta = GeneratedColumn<int>(
+    'hasta',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _creadoMeta = const VerificationMeta('creado');
   @override
   late final GeneratedColumn<DateTime> creado = GeneratedColumn<DateTime>(
@@ -1202,6 +1221,8 @@ class $EstudiantesTable extends Estudiantes
     apoderado,
     telefono,
     foto,
+    desde,
+    hasta,
     creado,
   ];
   @override
@@ -1267,6 +1288,18 @@ class $EstudiantesTable extends Estudiantes
         foto.isAcceptableOrUnknown(data['foto']!, _fotoMeta),
       );
     }
+    if (data.containsKey('desde')) {
+      context.handle(
+        _desdeMeta,
+        desde.isAcceptableOrUnknown(data['desde']!, _desdeMeta),
+      );
+    }
+    if (data.containsKey('hasta')) {
+      context.handle(
+        _hastaMeta,
+        hasta.isAcceptableOrUnknown(data['hasta']!, _hastaMeta),
+      );
+    }
     if (data.containsKey('creado')) {
       context.handle(
         _creadoMeta,
@@ -1314,6 +1347,14 @@ class $EstudiantesTable extends Estudiantes
         DriftSqlType.blob,
         data['${effectivePrefix}foto'],
       ),
+      desde: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}desde'],
+      )!,
+      hasta: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}hasta'],
+      ),
       creado: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}creado'],
@@ -1336,6 +1377,8 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
   final String? apoderado;
   final String? telefono;
   final Uint8List? foto;
+  final int desde;
+  final int? hasta;
   final DateTime creado;
   const Estudiante({
     required this.id,
@@ -1346,6 +1389,8 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
     this.apoderado,
     this.telefono,
     this.foto,
+    required this.desde,
+    this.hasta,
     required this.creado,
   });
   @override
@@ -1367,6 +1412,10 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
     if (!nullToAbsent || foto != null) {
       map['foto'] = Variable<Uint8List>(foto);
     }
+    map['desde'] = Variable<int>(desde);
+    if (!nullToAbsent || hasta != null) {
+      map['hasta'] = Variable<int>(hasta);
+    }
     map['creado'] = Variable<DateTime>(creado);
     return map;
   }
@@ -1385,6 +1434,10 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
           ? const Value.absent()
           : Value(telefono),
       foto: foto == null && nullToAbsent ? const Value.absent() : Value(foto),
+      desde: Value(desde),
+      hasta: hasta == null && nullToAbsent
+          ? const Value.absent()
+          : Value(hasta),
       creado: Value(creado),
     );
   }
@@ -1403,6 +1456,8 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
       apoderado: serializer.fromJson<String?>(json['apoderado']),
       telefono: serializer.fromJson<String?>(json['telefono']),
       foto: serializer.fromJson<Uint8List?>(json['foto']),
+      desde: serializer.fromJson<int>(json['desde']),
+      hasta: serializer.fromJson<int?>(json['hasta']),
       creado: serializer.fromJson<DateTime>(json['creado']),
     );
   }
@@ -1418,6 +1473,8 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
       'apoderado': serializer.toJson<String?>(apoderado),
       'telefono': serializer.toJson<String?>(telefono),
       'foto': serializer.toJson<Uint8List?>(foto),
+      'desde': serializer.toJson<int>(desde),
+      'hasta': serializer.toJson<int?>(hasta),
       'creado': serializer.toJson<DateTime>(creado),
     };
   }
@@ -1431,6 +1488,8 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
     Value<String?> apoderado = const Value.absent(),
     Value<String?> telefono = const Value.absent(),
     Value<Uint8List?> foto = const Value.absent(),
+    int? desde,
+    Value<int?> hasta = const Value.absent(),
     DateTime? creado,
   }) => Estudiante(
     id: id ?? this.id,
@@ -1441,6 +1500,8 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
     apoderado: apoderado.present ? apoderado.value : this.apoderado,
     telefono: telefono.present ? telefono.value : this.telefono,
     foto: foto.present ? foto.value : this.foto,
+    desde: desde ?? this.desde,
+    hasta: hasta.present ? hasta.value : this.hasta,
     creado: creado ?? this.creado,
   );
   Estudiante copyWithCompanion(EstudiantesCompanion data) {
@@ -1453,6 +1514,8 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
       apoderado: data.apoderado.present ? data.apoderado.value : this.apoderado,
       telefono: data.telefono.present ? data.telefono.value : this.telefono,
       foto: data.foto.present ? data.foto.value : this.foto,
+      desde: data.desde.present ? data.desde.value : this.desde,
+      hasta: data.hasta.present ? data.hasta.value : this.hasta,
       creado: data.creado.present ? data.creado.value : this.creado,
     );
   }
@@ -1468,6 +1531,8 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
           ..write('apoderado: $apoderado, ')
           ..write('telefono: $telefono, ')
           ..write('foto: $foto, ')
+          ..write('desde: $desde, ')
+          ..write('hasta: $hasta, ')
           ..write('creado: $creado')
           ..write(')'))
         .toString();
@@ -1483,6 +1548,8 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
     apoderado,
     telefono,
     $driftBlobEquality.hash(foto),
+    desde,
+    hasta,
     creado,
   );
   @override
@@ -1497,6 +1564,8 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
           other.apoderado == this.apoderado &&
           other.telefono == this.telefono &&
           $driftBlobEquality.equals(other.foto, this.foto) &&
+          other.desde == this.desde &&
+          other.hasta == this.hasta &&
           other.creado == this.creado);
 }
 
@@ -1509,6 +1578,8 @@ class EstudiantesCompanion extends UpdateCompanion<Estudiante> {
   final Value<String?> apoderado;
   final Value<String?> telefono;
   final Value<Uint8List?> foto;
+  final Value<int> desde;
+  final Value<int?> hasta;
   final Value<DateTime> creado;
   const EstudiantesCompanion({
     this.id = const Value.absent(),
@@ -1519,6 +1590,8 @@ class EstudiantesCompanion extends UpdateCompanion<Estudiante> {
     this.apoderado = const Value.absent(),
     this.telefono = const Value.absent(),
     this.foto = const Value.absent(),
+    this.desde = const Value.absent(),
+    this.hasta = const Value.absent(),
     this.creado = const Value.absent(),
   });
   EstudiantesCompanion.insert({
@@ -1530,6 +1603,8 @@ class EstudiantesCompanion extends UpdateCompanion<Estudiante> {
     this.apoderado = const Value.absent(),
     this.telefono = const Value.absent(),
     this.foto = const Value.absent(),
+    this.desde = const Value.absent(),
+    this.hasta = const Value.absent(),
     this.creado = const Value.absent(),
   }) : cursoId = Value(cursoId),
        apellidos = Value(apellidos),
@@ -1543,6 +1618,8 @@ class EstudiantesCompanion extends UpdateCompanion<Estudiante> {
     Expression<String>? apoderado,
     Expression<String>? telefono,
     Expression<Uint8List>? foto,
+    Expression<int>? desde,
+    Expression<int>? hasta,
     Expression<DateTime>? creado,
   }) {
     return RawValuesInsertable({
@@ -1554,6 +1631,8 @@ class EstudiantesCompanion extends UpdateCompanion<Estudiante> {
       if (apoderado != null) 'apoderado': apoderado,
       if (telefono != null) 'telefono': telefono,
       if (foto != null) 'foto': foto,
+      if (desde != null) 'desde': desde,
+      if (hasta != null) 'hasta': hasta,
       if (creado != null) 'creado': creado,
     });
   }
@@ -1567,6 +1646,8 @@ class EstudiantesCompanion extends UpdateCompanion<Estudiante> {
     Value<String?>? apoderado,
     Value<String?>? telefono,
     Value<Uint8List?>? foto,
+    Value<int>? desde,
+    Value<int?>? hasta,
     Value<DateTime>? creado,
   }) {
     return EstudiantesCompanion(
@@ -1578,6 +1659,8 @@ class EstudiantesCompanion extends UpdateCompanion<Estudiante> {
       apoderado: apoderado ?? this.apoderado,
       telefono: telefono ?? this.telefono,
       foto: foto ?? this.foto,
+      desde: desde ?? this.desde,
+      hasta: hasta ?? this.hasta,
       creado: creado ?? this.creado,
     );
   }
@@ -1609,6 +1692,12 @@ class EstudiantesCompanion extends UpdateCompanion<Estudiante> {
     if (foto.present) {
       map['foto'] = Variable<Uint8List>(foto.value);
     }
+    if (desde.present) {
+      map['desde'] = Variable<int>(desde.value);
+    }
+    if (hasta.present) {
+      map['hasta'] = Variable<int>(hasta.value);
+    }
     if (creado.present) {
       map['creado'] = Variable<DateTime>(creado.value);
     }
@@ -1626,6 +1715,8 @@ class EstudiantesCompanion extends UpdateCompanion<Estudiante> {
           ..write('apoderado: $apoderado, ')
           ..write('telefono: $telefono, ')
           ..write('foto: $foto, ')
+          ..write('desde: $desde, ')
+          ..write('hasta: $hasta, ')
           ..write('creado: $creado')
           ..write(')'))
         .toString();
@@ -5472,6 +5563,8 @@ typedef $$EstudiantesTableCreateCompanionBuilder =
       Value<String?> apoderado,
       Value<String?> telefono,
       Value<Uint8List?> foto,
+      Value<int> desde,
+      Value<int?> hasta,
       Value<DateTime> creado,
     });
 typedef $$EstudiantesTableUpdateCompanionBuilder =
@@ -5484,6 +5577,8 @@ typedef $$EstudiantesTableUpdateCompanionBuilder =
       Value<String?> apoderado,
       Value<String?> telefono,
       Value<Uint8List?> foto,
+      Value<int> desde,
+      Value<int?> hasta,
       Value<DateTime> creado,
     });
 
@@ -5623,6 +5718,16 @@ class $$EstudiantesTableFilterComposer
 
   ColumnFilters<Uint8List> get foto => $composableBuilder(
     column: $table.foto,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get desde => $composableBuilder(
+    column: $table.desde,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get hasta => $composableBuilder(
+    column: $table.hasta,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5799,6 +5904,16 @@ class $$EstudiantesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get desde => $composableBuilder(
+    column: $table.desde,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get hasta => $composableBuilder(
+    column: $table.hasta,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get creado => $composableBuilder(
     column: $table.creado,
     builder: (column) => ColumnOrderings(column),
@@ -5857,6 +5972,12 @@ class $$EstudiantesTableAnnotationComposer
 
   GeneratedColumn<Uint8List> get foto =>
       $composableBuilder(column: $table.foto, builder: (column) => column);
+
+  GeneratedColumn<int> get desde =>
+      $composableBuilder(column: $table.desde, builder: (column) => column);
+
+  GeneratedColumn<int> get hasta =>
+      $composableBuilder(column: $table.hasta, builder: (column) => column);
 
   GeneratedColumn<DateTime> get creado =>
       $composableBuilder(column: $table.creado, builder: (column) => column);
@@ -6027,6 +6148,8 @@ class $$EstudiantesTableTableManager
                 Value<String?> apoderado = const Value.absent(),
                 Value<String?> telefono = const Value.absent(),
                 Value<Uint8List?> foto = const Value.absent(),
+                Value<int> desde = const Value.absent(),
+                Value<int?> hasta = const Value.absent(),
                 Value<DateTime> creado = const Value.absent(),
               }) => EstudiantesCompanion(
                 id: id,
@@ -6037,6 +6160,8 @@ class $$EstudiantesTableTableManager
                 apoderado: apoderado,
                 telefono: telefono,
                 foto: foto,
+                desde: desde,
+                hasta: hasta,
                 creado: creado,
               ),
           createCompanionCallback:
@@ -6049,6 +6174,8 @@ class $$EstudiantesTableTableManager
                 Value<String?> apoderado = const Value.absent(),
                 Value<String?> telefono = const Value.absent(),
                 Value<Uint8List?> foto = const Value.absent(),
+                Value<int> desde = const Value.absent(),
+                Value<int?> hasta = const Value.absent(),
                 Value<DateTime> creado = const Value.absent(),
               }) => EstudiantesCompanion.insert(
                 id: id,
@@ -6059,6 +6186,8 @@ class $$EstudiantesTableTableManager
                 apoderado: apoderado,
                 telefono: telefono,
                 foto: foto,
+                desde: desde,
+                hasta: hasta,
                 creado: creado,
               ),
           withReferenceMapper: (p0) => p0

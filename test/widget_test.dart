@@ -14,4 +14,12 @@ void main() {
     expect(apellidoCorto('CASTILLO DE LA CRUZ'), 'Castillo C.');
     expect(apellidoCorto('QUISPE'), 'Quispe');
   });
+
+  test('la plantilla de Excel se vuelve a leer', () {
+    final filas = leerExcel(plantillaExcel());
+    expect(filas, hasLength(1));
+    expect(filas.first.apellidos, 'QUISPE MAMANI');
+    expect(filas.first.nombres, 'Luz Angélica');
+    expect(filas.first.telefono, '987654321');
+  });
 }
