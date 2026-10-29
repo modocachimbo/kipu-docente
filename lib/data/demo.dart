@@ -147,21 +147,38 @@ Future<void> cargarDatosDeEjemplo(KipuDb db) async {
           seccion: c.$4,
           nombre: c.$5,
           area: const Value('Ciencia y Tecnología'),
+          tutor: const Value('Prof. Ana Ríos'),
+          tutorCelular: const Value('987123456'),
         ),
       );
       idCursos.add(cursoId);
       final alumnos = <(int, double)>[];
       final cantidad = 22 + azar.nextInt(10);
       for (var i = 0; i < cantidad; i++) {
-        final id = await db
-            .into(db.estudiantes)
-            .insert(
-              EstudiantesCompanion.insert(
-                cursoId: cursoId,
-                apellidos: '${elegir(apellidos)} ${elegir(apellidos)}',
-                nombres: elegir(nombres),
+        final ape = '${elegir(apellidos)} ${elegir(apellidos)}';
+        final madre = azar.nextInt(3) > 0;
+        final id = await db.guardarEstudiante(
+          EstudiantesCompanion.insert(
+            cursoId: cursoId,
+            apellidos: ape,
+            nombres: elegir(nombres),
+            nacimiento: Value(
+              fecha(
+                DateTime(
+                  hoy.year - 13 - azar.nextInt(3),
+                  1 + azar.nextInt(12),
+                  1 + azar.nextInt(28),
+                ),
               ),
-            );
+            ),
+            apoderado: Value(
+              '${madre ? elegir(const ['Rosa', 'María', 'Carmen', 'Ana', 'Lucía']) : elegir(const ['Jorge', 'Luis', 'Carlos', 'Pedro', 'Juan'])} '
+              '${tituloNombre(ape.split(' ')[madre ? 1 : 0])}',
+            ),
+            parentesco: Value(madre ? 'Madre' : 'Padre'),
+            telefono: Value('9${10000000 + azar.nextInt(89999999)}'),
+          ),
+        );
         idEstudiantes.add(id);
         // Cada estudiante tiene su propio nivel para que las notas sean coherentes.
         final nivel = azar.nextDouble() * 0.5 - 0.15;
@@ -246,18 +263,15 @@ Future<void> cargarDatosDeEjemplo(KipuDb db) async {
         titulo: 'Cierre de registro del bimestre',
       ),
     ];
-    // Cumpleaños de algunos estudiantes.
+    // Cumpleaños de algunos estudiantes: salen solos en el calendario.
     final cumpleaneros = await (db.select(db.estudiantes)..limit(4)).get();
     for (var i = 0; i < cumpleaneros.length; i++) {
-      final e = cumpleaneros[i];
-      final c = cursos[0];
-      eventos.add(
-        EventosCompanion.insert(
-          fecha: fecha(hoy.add(Duration(days: i < 2 ? 0 : i))),
-          titulo:
-              '${e.apellidos.split(' ').first} ${e.nombres.split(' ').first}',
-          etiqueta: Value('${c.$3} ${c.$4} · ${c.$1}'),
-          tipo: const Value('cumple'),
+      final d = hoy.add(Duration(days: i < 2 ? 0 : i));
+      await (db.update(
+        db.estudiantes,
+      )..where((x) => x.id.equals(cumpleaneros[i].id))).write(
+        EstudiantesCompanion(
+          nacimiento: Value(fecha(DateTime(hoy.year - 13, d.month, d.day))),
         ),
       );
     }
@@ -290,7 +304,14 @@ Future<void> _registroDeEjemplo(
   final equipos = {
     for (var i = 0; i < alumnos.length; i++) alumnos[i].$1: i ~/ 4 + 1,
   };
-  await db.guardarEquipos(cursoId, equipos);
+  await db.guardarGruposEquipos(cursoId, [
+    GrupoEquipos(
+      id: 1,
+      nombre: 'Exposición: estados de la materia',
+      creado: dia(20),
+      equipos: equipos,
+    ),
+  ]);
   final notaEquipo = <int, String>{};
   for (final (codigo, tema, escala, enEquipo, tipo, d) in columnas) {
     final col = await db.crearColumna(
@@ -304,6 +325,7 @@ Future<void> _registroDeEjemplo(
         tipo: Value(tipo),
         escala: Value(escala),
         enEquipo: Value(enEquipo),
+        grupo: Value(enEquipo ? 1 : null),
       ),
     );
     if (tipo != 'nota') continue;

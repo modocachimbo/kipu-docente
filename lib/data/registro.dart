@@ -1,9 +1,11 @@
 import 'dart:convert';
 
-import 'package:drift/drift.dart' show OrderingTerm, Value;
+import 'package:drift/drift.dart'
+    show BooleanExpressionOperators, OrderingTerm, Value;
 import 'package:flutter/material.dart';
 
 import '../widgets/selector_color.dart';
+import 'academico.dart';
 import 'database.dart';
 import 'paises.dart';
 
@@ -141,18 +143,36 @@ extension RegistroDb on KipuDb {
         c == null ? '' : jsonEncode(c.aJson()),
       );
 
-  /// Equipos del curso: {estudianteId: número de equipo}.
-  Stream<Map<int, int>> verEquipos(int cursoId) =>
-      verAjuste('equipos_$cursoId').map((v) {
-        if (v == null || v.isEmpty) return <int, int>{};
-        final j = jsonDecode(v) as Map<String, dynamic>;
-        return {for (final e in j.entries) int.parse(e.key): e.value as int};
+  /// Grupos de equipos del curso, del más antiguo al más nuevo. Cada tema o
+  /// actividad puede tener sus propios equipos.
+  Stream<List<GrupoEquipos>> verGruposEquipos(int cursoId) =>
+      verAjuste('grupos_equipos_$cursoId').asyncMap((v) async {
+        if (v != null && v.isNotEmpty) {
+          return [
+            for (final g in jsonDecode(v) as List)
+              GrupoEquipos.deJson(g as Map<String, dynamic>),
+          ];
+        }
+        // Antes había un solo juego de equipos por curso.
+        final viejo = await leerAjuste('equipos_$cursoId');
+        if (viejo == null || viejo.isEmpty) return <GrupoEquipos>[];
+        final j = jsonDecode(viejo) as Map<String, dynamic>;
+        return [
+          GrupoEquipos(
+            id: 1,
+            nombre: 'Equipos 1',
+            creado: claveFecha(DateTime.now()),
+            equipos: {
+              for (final e in j.entries) int.parse(e.key): e.value as int,
+            },
+          ),
+        ];
       });
 
-  Future<void> guardarEquipos(int cursoId, Map<int, int> equipos) =>
+  Future<void> guardarGruposEquipos(int cursoId, List<GrupoEquipos> grupos) =>
       guardarAjuste(
-        'equipos_$cursoId',
-        jsonEncode({for (final e in equipos.entries) '${e.key}': e.value}),
+        'grupos_equipos_$cursoId',
+        jsonEncode([for (final g in grupos) g.aJson()]),
       );
 
   /// Último periodo abierto en el registro del curso (el 1.° la primera vez).
@@ -188,4 +208,137 @@ extension RegistroDb on KipuDb {
 
   Future<void> guardarPeriodoRegistro(int cursoId, int periodo) =>
       guardarAjuste('registro_periodo_$cursoId', '$periodo');
+
+  /// Asistencia, notas y conducta de un estudiante en un periodo (o en todo el
+  /// año si [periodo] es null). Se actualiza solo al anotar algo nuevo.
+  Stream<ResumenFicha> verResumenFicha(
+    Estudiante e, {
+    int? periodo,
+    String? desde,
+    String? hasta,
+  }) =>
+      customSelect(
+        'SELECT 1',
+        readsFrom: {asistencias, registroNotas, registroColumnas, conductas},
+      ).watch().asyncMap((_) async {
+        bool enRango(String f) =>
+            (desde == null || f.compareTo(desde) >= 0) &&
+            (hasta == null || f.compareTo(hasta) <= 0);
+        final asis = <String, int>{};
+        for (final a in await (select(
+          asistencias,
+        )..where((a) => a.estudianteId.equals(e.id))).get()) {
+          if (enRango(a.fecha)) asis[a.estado] = (asis[a.estado] ?? 0) + 1;
+        }
+        final cols = [
+          for (final c
+              in await (select(registroColumnas)..where(
+                    (c) => c.cursoId.equals(e.cursoId) & c.tipo.equals('nota'),
+                  ))
+                  .get())
+            if (periodo == null
+                ? estaEnPeriodo(e, c.periodo)
+                : c.periodo == periodo)
+              c,
+        ];
+        final valores = {
+          for (final n in await (select(
+            registroNotas,
+          )..where((n) => n.estudianteId.equals(e.id))).get())
+            n.columnaId: n.valor,
+        };
+        final cond = [
+          for (final c
+              in await (select(conductas)
+                    ..where((c) => c.estudianteId.equals(e.id))
+                    ..orderBy([
+                      (c) => OrderingTerm.desc(c.fecha),
+                      (c) => OrderingTerm.desc(c.id),
+                    ]))
+                  .get())
+            if (enRango(c.fecha)) c,
+        ];
+        return ResumenFicha(
+          asistencia: asis,
+          notas: [
+            for (final c in cols)
+              if (valores[c.id] != null) (c, valores[c.id]!),
+          ],
+          pendientes: cols.where((c) => valores[c.id] == null).length,
+          conductas: cond,
+        );
+      });
+}
+
+class ResumenFicha {
+  /// Cuántos días de cada estado: P, T, F, J.
+  final Map<String, int> asistencia;
+  final List<(RegistroColumna, String)> notas;
+  final int pendientes;
+  final List<Conducta> conductas;
+
+  const ResumenFicha({
+    required this.asistencia,
+    required this.notas,
+    required this.pendientes,
+    required this.conductas,
+  });
+}
+
+/// Equipos armados para un tema o actividad: {estudianteId: número de equipo}.
+class GrupoEquipos {
+  final int id;
+  final String nombre;
+  final String creado; // yyyy-MM-dd
+  final Map<int, int> equipos;
+
+  const GrupoEquipos({
+    required this.id,
+    required this.nombre,
+    required this.creado,
+    required this.equipos,
+  });
+
+  int get cantidad => equipos.values.fold(0, (a, b) => a > b ? a : b);
+
+  /// Integrantes de cada equipo, en el orden de la lista.
+  Map<int, List<int>> get integrantes {
+    final r = <int, List<int>>{};
+    for (final e in equipos.entries) {
+      (r[e.value] ??= []).add(e.key);
+    }
+    return Map.fromEntries(
+      r.entries.toList()..sort((a, b) => a.key.compareTo(b.key)),
+    );
+  }
+
+  GrupoEquipos copiar({String? nombre, Map<int, int>? equipos}) => GrupoEquipos(
+    id: id,
+    nombre: nombre ?? this.nombre,
+    creado: creado,
+    equipos: equipos ?? this.equipos,
+  );
+
+  Map<String, dynamic> aJson() => {
+    'id': id,
+    'nombre': nombre,
+    'creado': creado,
+    'equipos': {for (final e in equipos.entries) '${e.key}': e.value},
+  };
+
+  factory GrupoEquipos.deJson(Map<String, dynamic> j) => GrupoEquipos(
+    id: j['id'] as int,
+    nombre: j['nombre'] as String,
+    creado: j['creado'] as String,
+    equipos: {
+      for (final e in (j['equipos'] as Map<String, dynamic>).entries)
+        int.parse(e.key): e.value as int,
+    },
+  );
+}
+
+/// Los equipos que usa una columna: los suyos o, si no eligió, los más nuevos.
+GrupoEquipos? grupoDe(List<GrupoEquipos> grupos, RegistroColumna c) {
+  if (!c.enEquipo || grupos.isEmpty) return null;
+  return grupos.where((g) => g.id == c.grupo).firstOrNull ?? grupos.last;
 }

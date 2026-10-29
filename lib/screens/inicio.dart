@@ -9,6 +9,7 @@ import '../data/demo.dart';
 import '../main.dart';
 import '../theme.dart';
 import '../widgets/kipu_icono.dart';
+import '../widgets/ventana.dart';
 import 'asistencia.dart' show estadosAsistencia, fechaClave;
 import 'configuracion.dart' show editarPerfil;
 
@@ -227,10 +228,8 @@ class _Campana extends StatelessWidget {
           shape: const CircleBorder(),
           child: InkWell(
             customBorder: const CircleBorder(),
-            onTap: () => showModalBottomSheet(
+            onTap: () => ventanaCentrada(
               context: context,
-              showDragHandle: true,
-              backgroundColor: Colors.white,
               builder: (_) => SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),

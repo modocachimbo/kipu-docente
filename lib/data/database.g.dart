@@ -683,6 +683,26 @@ class $CursosTable extends Cursos with TableInfo<$CursosTable, Curso> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _tutorMeta = const VerificationMeta('tutor');
+  @override
+  late final GeneratedColumn<String> tutor = GeneratedColumn<String>(
+    'tutor',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _tutorCelularMeta = const VerificationMeta(
+    'tutorCelular',
+  );
+  @override
+  late final GeneratedColumn<String> tutorCelular = GeneratedColumn<String>(
+    'tutor_celular',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _creadoMeta = const VerificationMeta('creado');
   @override
   late final GeneratedColumn<DateTime> creado = GeneratedColumn<DateTime>(
@@ -702,6 +722,8 @@ class $CursosTable extends Cursos with TableInfo<$CursosTable, Curso> {
     seccion,
     nombre,
     area,
+    tutor,
+    tutorCelular,
     creado,
   ];
   @override
@@ -765,6 +787,21 @@ class $CursosTable extends Cursos with TableInfo<$CursosTable, Curso> {
         area.isAcceptableOrUnknown(data['area']!, _areaMeta),
       );
     }
+    if (data.containsKey('tutor')) {
+      context.handle(
+        _tutorMeta,
+        tutor.isAcceptableOrUnknown(data['tutor']!, _tutorMeta),
+      );
+    }
+    if (data.containsKey('tutor_celular')) {
+      context.handle(
+        _tutorCelularMeta,
+        tutorCelular.isAcceptableOrUnknown(
+          data['tutor_celular']!,
+          _tutorCelularMeta,
+        ),
+      );
+    }
     if (data.containsKey('creado')) {
       context.handle(
         _creadoMeta,
@@ -808,6 +845,14 @@ class $CursosTable extends Cursos with TableInfo<$CursosTable, Curso> {
         DriftSqlType.string,
         data['${effectivePrefix}area'],
       ),
+      tutor: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tutor'],
+      ),
+      tutorCelular: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tutor_celular'],
+      ),
       creado: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}creado'],
@@ -829,6 +874,8 @@ class Curso extends DataClass implements Insertable<Curso> {
   final String seccion;
   final String nombre;
   final String? area;
+  final String? tutor;
+  final String? tutorCelular;
   final DateTime creado;
   const Curso({
     required this.id,
@@ -838,6 +885,8 @@ class Curso extends DataClass implements Insertable<Curso> {
     required this.seccion,
     required this.nombre,
     this.area,
+    this.tutor,
+    this.tutorCelular,
     required this.creado,
   });
   @override
@@ -852,6 +901,12 @@ class Curso extends DataClass implements Insertable<Curso> {
     if (!nullToAbsent || area != null) {
       map['area'] = Variable<String>(area);
     }
+    if (!nullToAbsent || tutor != null) {
+      map['tutor'] = Variable<String>(tutor);
+    }
+    if (!nullToAbsent || tutorCelular != null) {
+      map['tutor_celular'] = Variable<String>(tutorCelular);
+    }
     map['creado'] = Variable<DateTime>(creado);
     return map;
   }
@@ -865,6 +920,12 @@ class Curso extends DataClass implements Insertable<Curso> {
       seccion: Value(seccion),
       nombre: Value(nombre),
       area: area == null && nullToAbsent ? const Value.absent() : Value(area),
+      tutor: tutor == null && nullToAbsent
+          ? const Value.absent()
+          : Value(tutor),
+      tutorCelular: tutorCelular == null && nullToAbsent
+          ? const Value.absent()
+          : Value(tutorCelular),
       creado: Value(creado),
     );
   }
@@ -882,6 +943,8 @@ class Curso extends DataClass implements Insertable<Curso> {
       seccion: serializer.fromJson<String>(json['seccion']),
       nombre: serializer.fromJson<String>(json['nombre']),
       area: serializer.fromJson<String?>(json['area']),
+      tutor: serializer.fromJson<String?>(json['tutor']),
+      tutorCelular: serializer.fromJson<String?>(json['tutorCelular']),
       creado: serializer.fromJson<DateTime>(json['creado']),
     );
   }
@@ -896,6 +959,8 @@ class Curso extends DataClass implements Insertable<Curso> {
       'seccion': serializer.toJson<String>(seccion),
       'nombre': serializer.toJson<String>(nombre),
       'area': serializer.toJson<String?>(area),
+      'tutor': serializer.toJson<String?>(tutor),
+      'tutorCelular': serializer.toJson<String?>(tutorCelular),
       'creado': serializer.toJson<DateTime>(creado),
     };
   }
@@ -908,6 +973,8 @@ class Curso extends DataClass implements Insertable<Curso> {
     String? seccion,
     String? nombre,
     Value<String?> area = const Value.absent(),
+    Value<String?> tutor = const Value.absent(),
+    Value<String?> tutorCelular = const Value.absent(),
     DateTime? creado,
   }) => Curso(
     id: id ?? this.id,
@@ -917,6 +984,8 @@ class Curso extends DataClass implements Insertable<Curso> {
     seccion: seccion ?? this.seccion,
     nombre: nombre ?? this.nombre,
     area: area.present ? area.value : this.area,
+    tutor: tutor.present ? tutor.value : this.tutor,
+    tutorCelular: tutorCelular.present ? tutorCelular.value : this.tutorCelular,
     creado: creado ?? this.creado,
   );
   Curso copyWithCompanion(CursosCompanion data) {
@@ -928,6 +997,10 @@ class Curso extends DataClass implements Insertable<Curso> {
       seccion: data.seccion.present ? data.seccion.value : this.seccion,
       nombre: data.nombre.present ? data.nombre.value : this.nombre,
       area: data.area.present ? data.area.value : this.area,
+      tutor: data.tutor.present ? data.tutor.value : this.tutor,
+      tutorCelular: data.tutorCelular.present
+          ? data.tutorCelular.value
+          : this.tutorCelular,
       creado: data.creado.present ? data.creado.value : this.creado,
     );
   }
@@ -942,14 +1015,26 @@ class Curso extends DataClass implements Insertable<Curso> {
           ..write('seccion: $seccion, ')
           ..write('nombre: $nombre, ')
           ..write('area: $area, ')
+          ..write('tutor: $tutor, ')
+          ..write('tutorCelular: $tutorCelular, ')
           ..write('creado: $creado')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, colegioId, nivel, grado, seccion, nombre, area, creado);
+  int get hashCode => Object.hash(
+    id,
+    colegioId,
+    nivel,
+    grado,
+    seccion,
+    nombre,
+    area,
+    tutor,
+    tutorCelular,
+    creado,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -961,6 +1046,8 @@ class Curso extends DataClass implements Insertable<Curso> {
           other.seccion == this.seccion &&
           other.nombre == this.nombre &&
           other.area == this.area &&
+          other.tutor == this.tutor &&
+          other.tutorCelular == this.tutorCelular &&
           other.creado == this.creado);
 }
 
@@ -972,6 +1059,8 @@ class CursosCompanion extends UpdateCompanion<Curso> {
   final Value<String> seccion;
   final Value<String> nombre;
   final Value<String?> area;
+  final Value<String?> tutor;
+  final Value<String?> tutorCelular;
   final Value<DateTime> creado;
   const CursosCompanion({
     this.id = const Value.absent(),
@@ -981,6 +1070,8 @@ class CursosCompanion extends UpdateCompanion<Curso> {
     this.seccion = const Value.absent(),
     this.nombre = const Value.absent(),
     this.area = const Value.absent(),
+    this.tutor = const Value.absent(),
+    this.tutorCelular = const Value.absent(),
     this.creado = const Value.absent(),
   });
   CursosCompanion.insert({
@@ -991,6 +1082,8 @@ class CursosCompanion extends UpdateCompanion<Curso> {
     required String seccion,
     required String nombre,
     this.area = const Value.absent(),
+    this.tutor = const Value.absent(),
+    this.tutorCelular = const Value.absent(),
     this.creado = const Value.absent(),
   }) : colegioId = Value(colegioId),
        nivel = Value(nivel),
@@ -1005,6 +1098,8 @@ class CursosCompanion extends UpdateCompanion<Curso> {
     Expression<String>? seccion,
     Expression<String>? nombre,
     Expression<String>? area,
+    Expression<String>? tutor,
+    Expression<String>? tutorCelular,
     Expression<DateTime>? creado,
   }) {
     return RawValuesInsertable({
@@ -1015,6 +1110,8 @@ class CursosCompanion extends UpdateCompanion<Curso> {
       if (seccion != null) 'seccion': seccion,
       if (nombre != null) 'nombre': nombre,
       if (area != null) 'area': area,
+      if (tutor != null) 'tutor': tutor,
+      if (tutorCelular != null) 'tutor_celular': tutorCelular,
       if (creado != null) 'creado': creado,
     });
   }
@@ -1027,6 +1124,8 @@ class CursosCompanion extends UpdateCompanion<Curso> {
     Value<String>? seccion,
     Value<String>? nombre,
     Value<String?>? area,
+    Value<String?>? tutor,
+    Value<String?>? tutorCelular,
     Value<DateTime>? creado,
   }) {
     return CursosCompanion(
@@ -1037,6 +1136,8 @@ class CursosCompanion extends UpdateCompanion<Curso> {
       seccion: seccion ?? this.seccion,
       nombre: nombre ?? this.nombre,
       area: area ?? this.area,
+      tutor: tutor ?? this.tutor,
+      tutorCelular: tutorCelular ?? this.tutorCelular,
       creado: creado ?? this.creado,
     );
   }
@@ -1065,6 +1166,12 @@ class CursosCompanion extends UpdateCompanion<Curso> {
     if (area.present) {
       map['area'] = Variable<String>(area.value);
     }
+    if (tutor.present) {
+      map['tutor'] = Variable<String>(tutor.value);
+    }
+    if (tutorCelular.present) {
+      map['tutor_celular'] = Variable<String>(tutorCelular.value);
+    }
     if (creado.present) {
       map['creado'] = Variable<DateTime>(creado.value);
     }
@@ -1081,6 +1188,8 @@ class CursosCompanion extends UpdateCompanion<Curso> {
           ..write('seccion: $seccion, ')
           ..write('nombre: $nombre, ')
           ..write('area: $area, ')
+          ..write('tutor: $tutor, ')
+          ..write('tutorCelular: $tutorCelular, ')
           ..write('creado: $creado')
           ..write(')'))
         .toString();
@@ -1162,12 +1271,96 @@ class $EstudiantesTable extends Estudiantes
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _parentescoMeta = const VerificationMeta(
+    'parentesco',
+  );
+  @override
+  late final GeneratedColumn<String> parentesco = GeneratedColumn<String>(
+    'parentesco',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _telefonoMeta = const VerificationMeta(
     'telefono',
   );
   @override
   late final GeneratedColumn<String> telefono = GeneratedColumn<String>(
     'telefono',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _apoderado2Meta = const VerificationMeta(
+    'apoderado2',
+  );
+  @override
+  late final GeneratedColumn<String> apoderado2 = GeneratedColumn<String>(
+    'apoderado2',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _parentesco2Meta = const VerificationMeta(
+    'parentesco2',
+  );
+  @override
+  late final GeneratedColumn<String> parentesco2 = GeneratedColumn<String>(
+    'parentesco2',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _telefono2Meta = const VerificationMeta(
+    'telefono2',
+  );
+  @override
+  late final GeneratedColumn<String> telefono2 = GeneratedColumn<String>(
+    'telefono2',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _nacimientoMeta = const VerificationMeta(
+    'nacimiento',
+  );
+  @override
+  late final GeneratedColumn<String> nacimiento = GeneratedColumn<String>(
+    'nacimiento',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _observacionesMeta = const VerificationMeta(
+    'observaciones',
+  );
+  @override
+  late final GeneratedColumn<String> observaciones = GeneratedColumn<String>(
+    'observaciones',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _codigoMeta = const VerificationMeta('codigo');
+  @override
+  late final GeneratedColumn<String> codigo = GeneratedColumn<String>(
+    'codigo',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _claveMeta = const VerificationMeta('clave');
+  @override
+  late final GeneratedColumn<String> clave = GeneratedColumn<String>(
+    'clave',
     aliasedName,
     true,
     type: DriftSqlType.string,
@@ -1219,7 +1412,15 @@ class $EstudiantesTable extends Estudiantes
     nombres,
     dni,
     apoderado,
+    parentesco,
     telefono,
+    apoderado2,
+    parentesco2,
+    telefono2,
+    nacimiento,
+    observaciones,
+    codigo,
+    clave,
     foto,
     desde,
     hasta,
@@ -1276,10 +1477,64 @@ class $EstudiantesTable extends Estudiantes
         apoderado.isAcceptableOrUnknown(data['apoderado']!, _apoderadoMeta),
       );
     }
+    if (data.containsKey('parentesco')) {
+      context.handle(
+        _parentescoMeta,
+        parentesco.isAcceptableOrUnknown(data['parentesco']!, _parentescoMeta),
+      );
+    }
     if (data.containsKey('telefono')) {
       context.handle(
         _telefonoMeta,
         telefono.isAcceptableOrUnknown(data['telefono']!, _telefonoMeta),
+      );
+    }
+    if (data.containsKey('apoderado2')) {
+      context.handle(
+        _apoderado2Meta,
+        apoderado2.isAcceptableOrUnknown(data['apoderado2']!, _apoderado2Meta),
+      );
+    }
+    if (data.containsKey('parentesco2')) {
+      context.handle(
+        _parentesco2Meta,
+        parentesco2.isAcceptableOrUnknown(
+          data['parentesco2']!,
+          _parentesco2Meta,
+        ),
+      );
+    }
+    if (data.containsKey('telefono2')) {
+      context.handle(
+        _telefono2Meta,
+        telefono2.isAcceptableOrUnknown(data['telefono2']!, _telefono2Meta),
+      );
+    }
+    if (data.containsKey('nacimiento')) {
+      context.handle(
+        _nacimientoMeta,
+        nacimiento.isAcceptableOrUnknown(data['nacimiento']!, _nacimientoMeta),
+      );
+    }
+    if (data.containsKey('observaciones')) {
+      context.handle(
+        _observacionesMeta,
+        observaciones.isAcceptableOrUnknown(
+          data['observaciones']!,
+          _observacionesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('codigo')) {
+      context.handle(
+        _codigoMeta,
+        codigo.isAcceptableOrUnknown(data['codigo']!, _codigoMeta),
+      );
+    }
+    if (data.containsKey('clave')) {
+      context.handle(
+        _claveMeta,
+        clave.isAcceptableOrUnknown(data['clave']!, _claveMeta),
       );
     }
     if (data.containsKey('foto')) {
@@ -1339,9 +1594,41 @@ class $EstudiantesTable extends Estudiantes
         DriftSqlType.string,
         data['${effectivePrefix}apoderado'],
       ),
+      parentesco: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}parentesco'],
+      ),
       telefono: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}telefono'],
+      ),
+      apoderado2: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}apoderado2'],
+      ),
+      parentesco2: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}parentesco2'],
+      ),
+      telefono2: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}telefono2'],
+      ),
+      nacimiento: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}nacimiento'],
+      ),
+      observaciones: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}observaciones'],
+      ),
+      codigo: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}codigo'],
+      ),
+      clave: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}clave'],
       ),
       foto: attachedDatabase.typeMapping.read(
         DriftSqlType.blob,
@@ -1375,7 +1662,15 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
   final String nombres;
   final String? dni;
   final String? apoderado;
+  final String? parentesco;
   final String? telefono;
+  final String? apoderado2;
+  final String? parentesco2;
+  final String? telefono2;
+  final String? nacimiento;
+  final String? observaciones;
+  final String? codigo;
+  final String? clave;
   final Uint8List? foto;
   final int desde;
   final int? hasta;
@@ -1387,7 +1682,15 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
     required this.nombres,
     this.dni,
     this.apoderado,
+    this.parentesco,
     this.telefono,
+    this.apoderado2,
+    this.parentesco2,
+    this.telefono2,
+    this.nacimiento,
+    this.observaciones,
+    this.codigo,
+    this.clave,
     this.foto,
     required this.desde,
     this.hasta,
@@ -1406,8 +1709,32 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
     if (!nullToAbsent || apoderado != null) {
       map['apoderado'] = Variable<String>(apoderado);
     }
+    if (!nullToAbsent || parentesco != null) {
+      map['parentesco'] = Variable<String>(parentesco);
+    }
     if (!nullToAbsent || telefono != null) {
       map['telefono'] = Variable<String>(telefono);
+    }
+    if (!nullToAbsent || apoderado2 != null) {
+      map['apoderado2'] = Variable<String>(apoderado2);
+    }
+    if (!nullToAbsent || parentesco2 != null) {
+      map['parentesco2'] = Variable<String>(parentesco2);
+    }
+    if (!nullToAbsent || telefono2 != null) {
+      map['telefono2'] = Variable<String>(telefono2);
+    }
+    if (!nullToAbsent || nacimiento != null) {
+      map['nacimiento'] = Variable<String>(nacimiento);
+    }
+    if (!nullToAbsent || observaciones != null) {
+      map['observaciones'] = Variable<String>(observaciones);
+    }
+    if (!nullToAbsent || codigo != null) {
+      map['codigo'] = Variable<String>(codigo);
+    }
+    if (!nullToAbsent || clave != null) {
+      map['clave'] = Variable<String>(clave);
     }
     if (!nullToAbsent || foto != null) {
       map['foto'] = Variable<Uint8List>(foto);
@@ -1430,9 +1757,33 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
       apoderado: apoderado == null && nullToAbsent
           ? const Value.absent()
           : Value(apoderado),
+      parentesco: parentesco == null && nullToAbsent
+          ? const Value.absent()
+          : Value(parentesco),
       telefono: telefono == null && nullToAbsent
           ? const Value.absent()
           : Value(telefono),
+      apoderado2: apoderado2 == null && nullToAbsent
+          ? const Value.absent()
+          : Value(apoderado2),
+      parentesco2: parentesco2 == null && nullToAbsent
+          ? const Value.absent()
+          : Value(parentesco2),
+      telefono2: telefono2 == null && nullToAbsent
+          ? const Value.absent()
+          : Value(telefono2),
+      nacimiento: nacimiento == null && nullToAbsent
+          ? const Value.absent()
+          : Value(nacimiento),
+      observaciones: observaciones == null && nullToAbsent
+          ? const Value.absent()
+          : Value(observaciones),
+      codigo: codigo == null && nullToAbsent
+          ? const Value.absent()
+          : Value(codigo),
+      clave: clave == null && nullToAbsent
+          ? const Value.absent()
+          : Value(clave),
       foto: foto == null && nullToAbsent ? const Value.absent() : Value(foto),
       desde: Value(desde),
       hasta: hasta == null && nullToAbsent
@@ -1454,7 +1805,15 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
       nombres: serializer.fromJson<String>(json['nombres']),
       dni: serializer.fromJson<String?>(json['dni']),
       apoderado: serializer.fromJson<String?>(json['apoderado']),
+      parentesco: serializer.fromJson<String?>(json['parentesco']),
       telefono: serializer.fromJson<String?>(json['telefono']),
+      apoderado2: serializer.fromJson<String?>(json['apoderado2']),
+      parentesco2: serializer.fromJson<String?>(json['parentesco2']),
+      telefono2: serializer.fromJson<String?>(json['telefono2']),
+      nacimiento: serializer.fromJson<String?>(json['nacimiento']),
+      observaciones: serializer.fromJson<String?>(json['observaciones']),
+      codigo: serializer.fromJson<String?>(json['codigo']),
+      clave: serializer.fromJson<String?>(json['clave']),
       foto: serializer.fromJson<Uint8List?>(json['foto']),
       desde: serializer.fromJson<int>(json['desde']),
       hasta: serializer.fromJson<int?>(json['hasta']),
@@ -1471,7 +1830,15 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
       'nombres': serializer.toJson<String>(nombres),
       'dni': serializer.toJson<String?>(dni),
       'apoderado': serializer.toJson<String?>(apoderado),
+      'parentesco': serializer.toJson<String?>(parentesco),
       'telefono': serializer.toJson<String?>(telefono),
+      'apoderado2': serializer.toJson<String?>(apoderado2),
+      'parentesco2': serializer.toJson<String?>(parentesco2),
+      'telefono2': serializer.toJson<String?>(telefono2),
+      'nacimiento': serializer.toJson<String?>(nacimiento),
+      'observaciones': serializer.toJson<String?>(observaciones),
+      'codigo': serializer.toJson<String?>(codigo),
+      'clave': serializer.toJson<String?>(clave),
       'foto': serializer.toJson<Uint8List?>(foto),
       'desde': serializer.toJson<int>(desde),
       'hasta': serializer.toJson<int?>(hasta),
@@ -1486,7 +1853,15 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
     String? nombres,
     Value<String?> dni = const Value.absent(),
     Value<String?> apoderado = const Value.absent(),
+    Value<String?> parentesco = const Value.absent(),
     Value<String?> telefono = const Value.absent(),
+    Value<String?> apoderado2 = const Value.absent(),
+    Value<String?> parentesco2 = const Value.absent(),
+    Value<String?> telefono2 = const Value.absent(),
+    Value<String?> nacimiento = const Value.absent(),
+    Value<String?> observaciones = const Value.absent(),
+    Value<String?> codigo = const Value.absent(),
+    Value<String?> clave = const Value.absent(),
     Value<Uint8List?> foto = const Value.absent(),
     int? desde,
     Value<int?> hasta = const Value.absent(),
@@ -1498,7 +1873,17 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
     nombres: nombres ?? this.nombres,
     dni: dni.present ? dni.value : this.dni,
     apoderado: apoderado.present ? apoderado.value : this.apoderado,
+    parentesco: parentesco.present ? parentesco.value : this.parentesco,
     telefono: telefono.present ? telefono.value : this.telefono,
+    apoderado2: apoderado2.present ? apoderado2.value : this.apoderado2,
+    parentesco2: parentesco2.present ? parentesco2.value : this.parentesco2,
+    telefono2: telefono2.present ? telefono2.value : this.telefono2,
+    nacimiento: nacimiento.present ? nacimiento.value : this.nacimiento,
+    observaciones: observaciones.present
+        ? observaciones.value
+        : this.observaciones,
+    codigo: codigo.present ? codigo.value : this.codigo,
+    clave: clave.present ? clave.value : this.clave,
     foto: foto.present ? foto.value : this.foto,
     desde: desde ?? this.desde,
     hasta: hasta.present ? hasta.value : this.hasta,
@@ -1512,7 +1897,25 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
       nombres: data.nombres.present ? data.nombres.value : this.nombres,
       dni: data.dni.present ? data.dni.value : this.dni,
       apoderado: data.apoderado.present ? data.apoderado.value : this.apoderado,
+      parentesco: data.parentesco.present
+          ? data.parentesco.value
+          : this.parentesco,
       telefono: data.telefono.present ? data.telefono.value : this.telefono,
+      apoderado2: data.apoderado2.present
+          ? data.apoderado2.value
+          : this.apoderado2,
+      parentesco2: data.parentesco2.present
+          ? data.parentesco2.value
+          : this.parentesco2,
+      telefono2: data.telefono2.present ? data.telefono2.value : this.telefono2,
+      nacimiento: data.nacimiento.present
+          ? data.nacimiento.value
+          : this.nacimiento,
+      observaciones: data.observaciones.present
+          ? data.observaciones.value
+          : this.observaciones,
+      codigo: data.codigo.present ? data.codigo.value : this.codigo,
+      clave: data.clave.present ? data.clave.value : this.clave,
       foto: data.foto.present ? data.foto.value : this.foto,
       desde: data.desde.present ? data.desde.value : this.desde,
       hasta: data.hasta.present ? data.hasta.value : this.hasta,
@@ -1529,7 +1932,15 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
           ..write('nombres: $nombres, ')
           ..write('dni: $dni, ')
           ..write('apoderado: $apoderado, ')
+          ..write('parentesco: $parentesco, ')
           ..write('telefono: $telefono, ')
+          ..write('apoderado2: $apoderado2, ')
+          ..write('parentesco2: $parentesco2, ')
+          ..write('telefono2: $telefono2, ')
+          ..write('nacimiento: $nacimiento, ')
+          ..write('observaciones: $observaciones, ')
+          ..write('codigo: $codigo, ')
+          ..write('clave: $clave, ')
           ..write('foto: $foto, ')
           ..write('desde: $desde, ')
           ..write('hasta: $hasta, ')
@@ -1546,7 +1957,15 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
     nombres,
     dni,
     apoderado,
+    parentesco,
     telefono,
+    apoderado2,
+    parentesco2,
+    telefono2,
+    nacimiento,
+    observaciones,
+    codigo,
+    clave,
     $driftBlobEquality.hash(foto),
     desde,
     hasta,
@@ -1562,7 +1981,15 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
           other.nombres == this.nombres &&
           other.dni == this.dni &&
           other.apoderado == this.apoderado &&
+          other.parentesco == this.parentesco &&
           other.telefono == this.telefono &&
+          other.apoderado2 == this.apoderado2 &&
+          other.parentesco2 == this.parentesco2 &&
+          other.telefono2 == this.telefono2 &&
+          other.nacimiento == this.nacimiento &&
+          other.observaciones == this.observaciones &&
+          other.codigo == this.codigo &&
+          other.clave == this.clave &&
           $driftBlobEquality.equals(other.foto, this.foto) &&
           other.desde == this.desde &&
           other.hasta == this.hasta &&
@@ -1576,7 +2003,15 @@ class EstudiantesCompanion extends UpdateCompanion<Estudiante> {
   final Value<String> nombres;
   final Value<String?> dni;
   final Value<String?> apoderado;
+  final Value<String?> parentesco;
   final Value<String?> telefono;
+  final Value<String?> apoderado2;
+  final Value<String?> parentesco2;
+  final Value<String?> telefono2;
+  final Value<String?> nacimiento;
+  final Value<String?> observaciones;
+  final Value<String?> codigo;
+  final Value<String?> clave;
   final Value<Uint8List?> foto;
   final Value<int> desde;
   final Value<int?> hasta;
@@ -1588,7 +2023,15 @@ class EstudiantesCompanion extends UpdateCompanion<Estudiante> {
     this.nombres = const Value.absent(),
     this.dni = const Value.absent(),
     this.apoderado = const Value.absent(),
+    this.parentesco = const Value.absent(),
     this.telefono = const Value.absent(),
+    this.apoderado2 = const Value.absent(),
+    this.parentesco2 = const Value.absent(),
+    this.telefono2 = const Value.absent(),
+    this.nacimiento = const Value.absent(),
+    this.observaciones = const Value.absent(),
+    this.codigo = const Value.absent(),
+    this.clave = const Value.absent(),
     this.foto = const Value.absent(),
     this.desde = const Value.absent(),
     this.hasta = const Value.absent(),
@@ -1601,7 +2044,15 @@ class EstudiantesCompanion extends UpdateCompanion<Estudiante> {
     required String nombres,
     this.dni = const Value.absent(),
     this.apoderado = const Value.absent(),
+    this.parentesco = const Value.absent(),
     this.telefono = const Value.absent(),
+    this.apoderado2 = const Value.absent(),
+    this.parentesco2 = const Value.absent(),
+    this.telefono2 = const Value.absent(),
+    this.nacimiento = const Value.absent(),
+    this.observaciones = const Value.absent(),
+    this.codigo = const Value.absent(),
+    this.clave = const Value.absent(),
     this.foto = const Value.absent(),
     this.desde = const Value.absent(),
     this.hasta = const Value.absent(),
@@ -1616,7 +2067,15 @@ class EstudiantesCompanion extends UpdateCompanion<Estudiante> {
     Expression<String>? nombres,
     Expression<String>? dni,
     Expression<String>? apoderado,
+    Expression<String>? parentesco,
     Expression<String>? telefono,
+    Expression<String>? apoderado2,
+    Expression<String>? parentesco2,
+    Expression<String>? telefono2,
+    Expression<String>? nacimiento,
+    Expression<String>? observaciones,
+    Expression<String>? codigo,
+    Expression<String>? clave,
     Expression<Uint8List>? foto,
     Expression<int>? desde,
     Expression<int>? hasta,
@@ -1629,7 +2088,15 @@ class EstudiantesCompanion extends UpdateCompanion<Estudiante> {
       if (nombres != null) 'nombres': nombres,
       if (dni != null) 'dni': dni,
       if (apoderado != null) 'apoderado': apoderado,
+      if (parentesco != null) 'parentesco': parentesco,
       if (telefono != null) 'telefono': telefono,
+      if (apoderado2 != null) 'apoderado2': apoderado2,
+      if (parentesco2 != null) 'parentesco2': parentesco2,
+      if (telefono2 != null) 'telefono2': telefono2,
+      if (nacimiento != null) 'nacimiento': nacimiento,
+      if (observaciones != null) 'observaciones': observaciones,
+      if (codigo != null) 'codigo': codigo,
+      if (clave != null) 'clave': clave,
       if (foto != null) 'foto': foto,
       if (desde != null) 'desde': desde,
       if (hasta != null) 'hasta': hasta,
@@ -1644,7 +2111,15 @@ class EstudiantesCompanion extends UpdateCompanion<Estudiante> {
     Value<String>? nombres,
     Value<String?>? dni,
     Value<String?>? apoderado,
+    Value<String?>? parentesco,
     Value<String?>? telefono,
+    Value<String?>? apoderado2,
+    Value<String?>? parentesco2,
+    Value<String?>? telefono2,
+    Value<String?>? nacimiento,
+    Value<String?>? observaciones,
+    Value<String?>? codigo,
+    Value<String?>? clave,
     Value<Uint8List?>? foto,
     Value<int>? desde,
     Value<int?>? hasta,
@@ -1657,7 +2132,15 @@ class EstudiantesCompanion extends UpdateCompanion<Estudiante> {
       nombres: nombres ?? this.nombres,
       dni: dni ?? this.dni,
       apoderado: apoderado ?? this.apoderado,
+      parentesco: parentesco ?? this.parentesco,
       telefono: telefono ?? this.telefono,
+      apoderado2: apoderado2 ?? this.apoderado2,
+      parentesco2: parentesco2 ?? this.parentesco2,
+      telefono2: telefono2 ?? this.telefono2,
+      nacimiento: nacimiento ?? this.nacimiento,
+      observaciones: observaciones ?? this.observaciones,
+      codigo: codigo ?? this.codigo,
+      clave: clave ?? this.clave,
       foto: foto ?? this.foto,
       desde: desde ?? this.desde,
       hasta: hasta ?? this.hasta,
@@ -1686,8 +2169,32 @@ class EstudiantesCompanion extends UpdateCompanion<Estudiante> {
     if (apoderado.present) {
       map['apoderado'] = Variable<String>(apoderado.value);
     }
+    if (parentesco.present) {
+      map['parentesco'] = Variable<String>(parentesco.value);
+    }
     if (telefono.present) {
       map['telefono'] = Variable<String>(telefono.value);
+    }
+    if (apoderado2.present) {
+      map['apoderado2'] = Variable<String>(apoderado2.value);
+    }
+    if (parentesco2.present) {
+      map['parentesco2'] = Variable<String>(parentesco2.value);
+    }
+    if (telefono2.present) {
+      map['telefono2'] = Variable<String>(telefono2.value);
+    }
+    if (nacimiento.present) {
+      map['nacimiento'] = Variable<String>(nacimiento.value);
+    }
+    if (observaciones.present) {
+      map['observaciones'] = Variable<String>(observaciones.value);
+    }
+    if (codigo.present) {
+      map['codigo'] = Variable<String>(codigo.value);
+    }
+    if (clave.present) {
+      map['clave'] = Variable<String>(clave.value);
     }
     if (foto.present) {
       map['foto'] = Variable<Uint8List>(foto.value);
@@ -1713,7 +2220,15 @@ class EstudiantesCompanion extends UpdateCompanion<Estudiante> {
           ..write('nombres: $nombres, ')
           ..write('dni: $dni, ')
           ..write('apoderado: $apoderado, ')
+          ..write('parentesco: $parentesco, ')
           ..write('telefono: $telefono, ')
+          ..write('apoderado2: $apoderado2, ')
+          ..write('parentesco2: $parentesco2, ')
+          ..write('telefono2: $telefono2, ')
+          ..write('nacimiento: $nacimiento, ')
+          ..write('observaciones: $observaciones, ')
+          ..write('codigo: $codigo, ')
+          ..write('clave: $clave, ')
           ..write('foto: $foto, ')
           ..write('desde: $desde, ')
           ..write('hasta: $hasta, ')
@@ -3203,6 +3718,15 @@ class $RegistroColumnasTable extends RegistroColumnas
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _grupoMeta = const VerificationMeta('grupo');
+  @override
+  late final GeneratedColumn<int> grupo = GeneratedColumn<int>(
+    'grupo',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _fijadaMeta = const VerificationMeta('fijada');
   @override
   late final GeneratedColumn<bool> fijada = GeneratedColumn<bool>(
@@ -3228,6 +3752,7 @@ class $RegistroColumnasTable extends RegistroColumnas
     tipo,
     escala,
     enEquipo,
+    grupo,
     fijada,
   ];
   @override
@@ -3307,6 +3832,12 @@ class $RegistroColumnasTable extends RegistroColumnas
         enEquipo.isAcceptableOrUnknown(data['en_equipo']!, _enEquipoMeta),
       );
     }
+    if (data.containsKey('grupo')) {
+      context.handle(
+        _grupoMeta,
+        grupo.isAcceptableOrUnknown(data['grupo']!, _grupoMeta),
+      );
+    }
     if (data.containsKey('fijada')) {
       context.handle(
         _fijadaMeta,
@@ -3362,6 +3893,10 @@ class $RegistroColumnasTable extends RegistroColumnas
         DriftSqlType.bool,
         data['${effectivePrefix}en_equipo'],
       )!,
+      grupo: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}grupo'],
+      ),
       fijada: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}fijada'],
@@ -3387,6 +3922,9 @@ class RegistroColumna extends DataClass implements Insertable<RegistroColumna> {
   final String? escala;
   final bool enEquipo;
 
+  /// Qué equipos usa una columna en equipo (id del grupo de equipos del curso).
+  final int? grupo;
+
   /// Queda fija a la derecha al deslizar (solo una por curso y periodo).
   final bool fijada;
   const RegistroColumna({
@@ -3400,6 +3938,7 @@ class RegistroColumna extends DataClass implements Insertable<RegistroColumna> {
     required this.tipo,
     this.escala,
     required this.enEquipo,
+    this.grupo,
     required this.fijada,
   });
   @override
@@ -3421,6 +3960,9 @@ class RegistroColumna extends DataClass implements Insertable<RegistroColumna> {
       map['escala'] = Variable<String>(escala);
     }
     map['en_equipo'] = Variable<bool>(enEquipo);
+    if (!nullToAbsent || grupo != null) {
+      map['grupo'] = Variable<int>(grupo);
+    }
     map['fijada'] = Variable<bool>(fijada);
     return map;
   }
@@ -3441,6 +3983,9 @@ class RegistroColumna extends DataClass implements Insertable<RegistroColumna> {
           ? const Value.absent()
           : Value(escala),
       enEquipo: Value(enEquipo),
+      grupo: grupo == null && nullToAbsent
+          ? const Value.absent()
+          : Value(grupo),
       fijada: Value(fijada),
     );
   }
@@ -3461,6 +4006,7 @@ class RegistroColumna extends DataClass implements Insertable<RegistroColumna> {
       tipo: serializer.fromJson<String>(json['tipo']),
       escala: serializer.fromJson<String?>(json['escala']),
       enEquipo: serializer.fromJson<bool>(json['enEquipo']),
+      grupo: serializer.fromJson<int?>(json['grupo']),
       fijada: serializer.fromJson<bool>(json['fijada']),
     );
   }
@@ -3478,6 +4024,7 @@ class RegistroColumna extends DataClass implements Insertable<RegistroColumna> {
       'tipo': serializer.toJson<String>(tipo),
       'escala': serializer.toJson<String?>(escala),
       'enEquipo': serializer.toJson<bool>(enEquipo),
+      'grupo': serializer.toJson<int?>(grupo),
       'fijada': serializer.toJson<bool>(fijada),
     };
   }
@@ -3493,6 +4040,7 @@ class RegistroColumna extends DataClass implements Insertable<RegistroColumna> {
     String? tipo,
     Value<String?> escala = const Value.absent(),
     bool? enEquipo,
+    Value<int?> grupo = const Value.absent(),
     bool? fijada,
   }) => RegistroColumna(
     id: id ?? this.id,
@@ -3505,6 +4053,7 @@ class RegistroColumna extends DataClass implements Insertable<RegistroColumna> {
     tipo: tipo ?? this.tipo,
     escala: escala.present ? escala.value : this.escala,
     enEquipo: enEquipo ?? this.enEquipo,
+    grupo: grupo.present ? grupo.value : this.grupo,
     fijada: fijada ?? this.fijada,
   );
   RegistroColumna copyWithCompanion(RegistroColumnasCompanion data) {
@@ -3519,6 +4068,7 @@ class RegistroColumna extends DataClass implements Insertable<RegistroColumna> {
       tipo: data.tipo.present ? data.tipo.value : this.tipo,
       escala: data.escala.present ? data.escala.value : this.escala,
       enEquipo: data.enEquipo.present ? data.enEquipo.value : this.enEquipo,
+      grupo: data.grupo.present ? data.grupo.value : this.grupo,
       fijada: data.fijada.present ? data.fijada.value : this.fijada,
     );
   }
@@ -3536,6 +4086,7 @@ class RegistroColumna extends DataClass implements Insertable<RegistroColumna> {
           ..write('tipo: $tipo, ')
           ..write('escala: $escala, ')
           ..write('enEquipo: $enEquipo, ')
+          ..write('grupo: $grupo, ')
           ..write('fijada: $fijada')
           ..write(')'))
         .toString();
@@ -3553,6 +4104,7 @@ class RegistroColumna extends DataClass implements Insertable<RegistroColumna> {
     tipo,
     escala,
     enEquipo,
+    grupo,
     fijada,
   );
   @override
@@ -3569,6 +4121,7 @@ class RegistroColumna extends DataClass implements Insertable<RegistroColumna> {
           other.tipo == this.tipo &&
           other.escala == this.escala &&
           other.enEquipo == this.enEquipo &&
+          other.grupo == this.grupo &&
           other.fijada == this.fijada);
 }
 
@@ -3583,6 +4136,7 @@ class RegistroColumnasCompanion extends UpdateCompanion<RegistroColumna> {
   final Value<String> tipo;
   final Value<String?> escala;
   final Value<bool> enEquipo;
+  final Value<int?> grupo;
   final Value<bool> fijada;
   const RegistroColumnasCompanion({
     this.id = const Value.absent(),
@@ -3595,6 +4149,7 @@ class RegistroColumnasCompanion extends UpdateCompanion<RegistroColumna> {
     this.tipo = const Value.absent(),
     this.escala = const Value.absent(),
     this.enEquipo = const Value.absent(),
+    this.grupo = const Value.absent(),
     this.fijada = const Value.absent(),
   });
   RegistroColumnasCompanion.insert({
@@ -3608,6 +4163,7 @@ class RegistroColumnasCompanion extends UpdateCompanion<RegistroColumna> {
     this.tipo = const Value.absent(),
     this.escala = const Value.absent(),
     this.enEquipo = const Value.absent(),
+    this.grupo = const Value.absent(),
     this.fijada = const Value.absent(),
   }) : cursoId = Value(cursoId),
        periodo = Value(periodo),
@@ -3624,6 +4180,7 @@ class RegistroColumnasCompanion extends UpdateCompanion<RegistroColumna> {
     Expression<String>? tipo,
     Expression<String>? escala,
     Expression<bool>? enEquipo,
+    Expression<int>? grupo,
     Expression<bool>? fijada,
   }) {
     return RawValuesInsertable({
@@ -3637,6 +4194,7 @@ class RegistroColumnasCompanion extends UpdateCompanion<RegistroColumna> {
       if (tipo != null) 'tipo': tipo,
       if (escala != null) 'escala': escala,
       if (enEquipo != null) 'en_equipo': enEquipo,
+      if (grupo != null) 'grupo': grupo,
       if (fijada != null) 'fijada': fijada,
     });
   }
@@ -3652,6 +4210,7 @@ class RegistroColumnasCompanion extends UpdateCompanion<RegistroColumna> {
     Value<String>? tipo,
     Value<String?>? escala,
     Value<bool>? enEquipo,
+    Value<int?>? grupo,
     Value<bool>? fijada,
   }) {
     return RegistroColumnasCompanion(
@@ -3665,6 +4224,7 @@ class RegistroColumnasCompanion extends UpdateCompanion<RegistroColumna> {
       tipo: tipo ?? this.tipo,
       escala: escala ?? this.escala,
       enEquipo: enEquipo ?? this.enEquipo,
+      grupo: grupo ?? this.grupo,
       fijada: fijada ?? this.fijada,
     );
   }
@@ -3702,6 +4262,9 @@ class RegistroColumnasCompanion extends UpdateCompanion<RegistroColumna> {
     if (enEquipo.present) {
       map['en_equipo'] = Variable<bool>(enEquipo.value);
     }
+    if (grupo.present) {
+      map['grupo'] = Variable<int>(grupo.value);
+    }
     if (fijada.present) {
       map['fijada'] = Variable<bool>(fijada.value);
     }
@@ -3721,6 +4284,7 @@ class RegistroColumnasCompanion extends UpdateCompanion<RegistroColumna> {
           ..write('tipo: $tipo, ')
           ..write('escala: $escala, ')
           ..write('enEquipo: $enEquipo, ')
+          ..write('grupo: $grupo, ')
           ..write('fijada: $fijada')
           ..write(')'))
         .toString();
@@ -4912,6 +5476,8 @@ typedef $$CursosTableCreateCompanionBuilder = CursosCompanion Function({
   required String seccion,
   required String nombre,
   Value<String?> area,
+  Value<String?> tutor,
+  Value<String?> tutorCelular,
   Value<DateTime> creado,
 });
 typedef $$CursosTableUpdateCompanionBuilder = CursosCompanion Function({
@@ -4922,6 +5488,8 @@ typedef $$CursosTableUpdateCompanionBuilder = CursosCompanion Function({
   Value<String> seccion,
   Value<String> nombre,
   Value<String?> area,
+  Value<String?> tutor,
+  Value<String?> tutorCelular,
   Value<DateTime> creado,
 });
 
@@ -5039,6 +5607,16 @@ class $$CursosTableFilterComposer extends Composer<_$KipuDb, $CursosTable> {
 
   ColumnFilters<String> get area => $composableBuilder(
     column: $table.area,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tutor => $composableBuilder(
+    column: $table.tutor,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tutorCelular => $composableBuilder(
+    column: $table.tutorCelular,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5184,6 +5762,16 @@ class $$CursosTableOrderingComposer extends Composer<_$KipuDb, $CursosTable> {
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get tutor => $composableBuilder(
+    column: $table.tutor,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get tutorCelular => $composableBuilder(
+    column: $table.tutorCelular,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get creado => $composableBuilder(
     column: $table.creado,
     builder: (column) => ColumnOrderings(column),
@@ -5238,6 +5826,14 @@ class $$CursosTableAnnotationComposer extends Composer<_$KipuDb, $CursosTable> {
 
   GeneratedColumn<String> get area =>
       $composableBuilder(column: $table.area, builder: (column) => column);
+
+  GeneratedColumn<String> get tutor =>
+      $composableBuilder(column: $table.tutor, builder: (column) => column);
+
+  GeneratedColumn<String> get tutorCelular => $composableBuilder(
+    column: $table.tutorCelular,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<DateTime> get creado =>
       $composableBuilder(column: $table.creado, builder: (column) => column);
@@ -5381,6 +5977,8 @@ class $$CursosTableTableManager
                 Value<String> seccion = const Value.absent(),
                 Value<String> nombre = const Value.absent(),
                 Value<String?> area = const Value.absent(),
+                Value<String?> tutor = const Value.absent(),
+                Value<String?> tutorCelular = const Value.absent(),
                 Value<DateTime> creado = const Value.absent(),
               }) => CursosCompanion(
                 id: id,
@@ -5390,6 +5988,8 @@ class $$CursosTableTableManager
                 seccion: seccion,
                 nombre: nombre,
                 area: area,
+                tutor: tutor,
+                tutorCelular: tutorCelular,
                 creado: creado,
               ),
           createCompanionCallback:
@@ -5401,6 +6001,8 @@ class $$CursosTableTableManager
                 required String seccion,
                 required String nombre,
                 Value<String?> area = const Value.absent(),
+                Value<String?> tutor = const Value.absent(),
+                Value<String?> tutorCelular = const Value.absent(),
                 Value<DateTime> creado = const Value.absent(),
               }) => CursosCompanion.insert(
                 id: id,
@@ -5410,6 +6012,8 @@ class $$CursosTableTableManager
                 seccion: seccion,
                 nombre: nombre,
                 area: area,
+                tutor: tutor,
+                tutorCelular: tutorCelular,
                 creado: creado,
               ),
           withReferenceMapper: (p0) => p0
@@ -5561,7 +6165,15 @@ typedef $$EstudiantesTableCreateCompanionBuilder =
       required String nombres,
       Value<String?> dni,
       Value<String?> apoderado,
+      Value<String?> parentesco,
       Value<String?> telefono,
+      Value<String?> apoderado2,
+      Value<String?> parentesco2,
+      Value<String?> telefono2,
+      Value<String?> nacimiento,
+      Value<String?> observaciones,
+      Value<String?> codigo,
+      Value<String?> clave,
       Value<Uint8List?> foto,
       Value<int> desde,
       Value<int?> hasta,
@@ -5575,7 +6187,15 @@ typedef $$EstudiantesTableUpdateCompanionBuilder =
       Value<String> nombres,
       Value<String?> dni,
       Value<String?> apoderado,
+      Value<String?> parentesco,
       Value<String?> telefono,
+      Value<String?> apoderado2,
+      Value<String?> parentesco2,
+      Value<String?> telefono2,
+      Value<String?> nacimiento,
+      Value<String?> observaciones,
+      Value<String?> codigo,
+      Value<String?> clave,
       Value<Uint8List?> foto,
       Value<int> desde,
       Value<int?> hasta,
@@ -5711,8 +6331,48 @@ class $$EstudiantesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get parentesco => $composableBuilder(
+    column: $table.parentesco,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get telefono => $composableBuilder(
     column: $table.telefono,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get apoderado2 => $composableBuilder(
+    column: $table.apoderado2,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get parentesco2 => $composableBuilder(
+    column: $table.parentesco2,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get telefono2 => $composableBuilder(
+    column: $table.telefono2,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get nacimiento => $composableBuilder(
+    column: $table.nacimiento,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get observaciones => $composableBuilder(
+    column: $table.observaciones,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get codigo => $composableBuilder(
+    column: $table.codigo,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get clave => $composableBuilder(
+    column: $table.clave,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5894,8 +6554,48 @@ class $$EstudiantesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get parentesco => $composableBuilder(
+    column: $table.parentesco,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get telefono => $composableBuilder(
     column: $table.telefono,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get apoderado2 => $composableBuilder(
+    column: $table.apoderado2,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get parentesco2 => $composableBuilder(
+    column: $table.parentesco2,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get telefono2 => $composableBuilder(
+    column: $table.telefono2,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get nacimiento => $composableBuilder(
+    column: $table.nacimiento,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get observaciones => $composableBuilder(
+    column: $table.observaciones,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get codigo => $composableBuilder(
+    column: $table.codigo,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get clave => $composableBuilder(
+    column: $table.clave,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -5967,8 +6667,42 @@ class $$EstudiantesTableAnnotationComposer
   GeneratedColumn<String> get apoderado =>
       $composableBuilder(column: $table.apoderado, builder: (column) => column);
 
+  GeneratedColumn<String> get parentesco => $composableBuilder(
+    column: $table.parentesco,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get telefono =>
       $composableBuilder(column: $table.telefono, builder: (column) => column);
+
+  GeneratedColumn<String> get apoderado2 => $composableBuilder(
+    column: $table.apoderado2,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get parentesco2 => $composableBuilder(
+    column: $table.parentesco2,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get telefono2 =>
+      $composableBuilder(column: $table.telefono2, builder: (column) => column);
+
+  GeneratedColumn<String> get nacimiento => $composableBuilder(
+    column: $table.nacimiento,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get observaciones => $composableBuilder(
+    column: $table.observaciones,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get codigo =>
+      $composableBuilder(column: $table.codigo, builder: (column) => column);
+
+  GeneratedColumn<String> get clave =>
+      $composableBuilder(column: $table.clave, builder: (column) => column);
 
   GeneratedColumn<Uint8List> get foto =>
       $composableBuilder(column: $table.foto, builder: (column) => column);
@@ -6146,7 +6880,15 @@ class $$EstudiantesTableTableManager
                 Value<String> nombres = const Value.absent(),
                 Value<String?> dni = const Value.absent(),
                 Value<String?> apoderado = const Value.absent(),
+                Value<String?> parentesco = const Value.absent(),
                 Value<String?> telefono = const Value.absent(),
+                Value<String?> apoderado2 = const Value.absent(),
+                Value<String?> parentesco2 = const Value.absent(),
+                Value<String?> telefono2 = const Value.absent(),
+                Value<String?> nacimiento = const Value.absent(),
+                Value<String?> observaciones = const Value.absent(),
+                Value<String?> codigo = const Value.absent(),
+                Value<String?> clave = const Value.absent(),
                 Value<Uint8List?> foto = const Value.absent(),
                 Value<int> desde = const Value.absent(),
                 Value<int?> hasta = const Value.absent(),
@@ -6158,7 +6900,15 @@ class $$EstudiantesTableTableManager
                 nombres: nombres,
                 dni: dni,
                 apoderado: apoderado,
+                parentesco: parentesco,
                 telefono: telefono,
+                apoderado2: apoderado2,
+                parentesco2: parentesco2,
+                telefono2: telefono2,
+                nacimiento: nacimiento,
+                observaciones: observaciones,
+                codigo: codigo,
+                clave: clave,
                 foto: foto,
                 desde: desde,
                 hasta: hasta,
@@ -6172,7 +6922,15 @@ class $$EstudiantesTableTableManager
                 required String nombres,
                 Value<String?> dni = const Value.absent(),
                 Value<String?> apoderado = const Value.absent(),
+                Value<String?> parentesco = const Value.absent(),
                 Value<String?> telefono = const Value.absent(),
+                Value<String?> apoderado2 = const Value.absent(),
+                Value<String?> parentesco2 = const Value.absent(),
+                Value<String?> telefono2 = const Value.absent(),
+                Value<String?> nacimiento = const Value.absent(),
+                Value<String?> observaciones = const Value.absent(),
+                Value<String?> codigo = const Value.absent(),
+                Value<String?> clave = const Value.absent(),
                 Value<Uint8List?> foto = const Value.absent(),
                 Value<int> desde = const Value.absent(),
                 Value<int?> hasta = const Value.absent(),
@@ -6184,7 +6942,15 @@ class $$EstudiantesTableTableManager
                 nombres: nombres,
                 dni: dni,
                 apoderado: apoderado,
+                parentesco: parentesco,
                 telefono: telefono,
+                apoderado2: apoderado2,
+                parentesco2: parentesco2,
+                telefono2: telefono2,
+                nacimiento: nacimiento,
+                observaciones: observaciones,
+                codigo: codigo,
+                clave: clave,
                 foto: foto,
                 desde: desde,
                 hasta: hasta,
@@ -7463,6 +8229,7 @@ typedef $$RegistroColumnasTableCreateCompanionBuilder =
       Value<String> tipo,
       Value<String?> escala,
       Value<bool> enEquipo,
+      Value<int?> grupo,
       Value<bool> fijada,
     });
 typedef $$RegistroColumnasTableUpdateCompanionBuilder =
@@ -7477,6 +8244,7 @@ typedef $$RegistroColumnasTableUpdateCompanionBuilder =
       Value<String> tipo,
       Value<String?> escala,
       Value<bool> enEquipo,
+      Value<int?> grupo,
       Value<bool> fijada,
     });
 
@@ -7575,6 +8343,11 @@ class $$RegistroColumnasTableFilterComposer
 
   ColumnFilters<bool> get enEquipo => $composableBuilder(
     column: $table.enEquipo,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get grupo => $composableBuilder(
+    column: $table.grupo,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7686,6 +8459,11 @@ class $$RegistroColumnasTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get grupo => $composableBuilder(
+    column: $table.grupo,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get fijada => $composableBuilder(
     column: $table.fijada,
     builder: (column) => ColumnOrderings(column),
@@ -7750,6 +8528,9 @@ class $$RegistroColumnasTableAnnotationComposer
 
   GeneratedColumn<bool> get enEquipo =>
       $composableBuilder(column: $table.enEquipo, builder: (column) => column);
+
+  GeneratedColumn<int> get grupo =>
+      $composableBuilder(column: $table.grupo, builder: (column) => column);
 
   GeneratedColumn<bool> get fijada =>
       $composableBuilder(column: $table.fijada, builder: (column) => column);
@@ -7841,6 +8622,7 @@ class $$RegistroColumnasTableTableManager
                 Value<String> tipo = const Value.absent(),
                 Value<String?> escala = const Value.absent(),
                 Value<bool> enEquipo = const Value.absent(),
+                Value<int?> grupo = const Value.absent(),
                 Value<bool> fijada = const Value.absent(),
               }) => RegistroColumnasCompanion(
                 id: id,
@@ -7853,6 +8635,7 @@ class $$RegistroColumnasTableTableManager
                 tipo: tipo,
                 escala: escala,
                 enEquipo: enEquipo,
+                grupo: grupo,
                 fijada: fijada,
               ),
           createCompanionCallback:
@@ -7867,6 +8650,7 @@ class $$RegistroColumnasTableTableManager
                 Value<String> tipo = const Value.absent(),
                 Value<String?> escala = const Value.absent(),
                 Value<bool> enEquipo = const Value.absent(),
+                Value<int?> grupo = const Value.absent(),
                 Value<bool> fijada = const Value.absent(),
               }) => RegistroColumnasCompanion.insert(
                 id: id,
@@ -7879,6 +8663,7 @@ class $$RegistroColumnasTableTableManager
                 tipo: tipo,
                 escala: escala,
                 enEquipo: enEquipo,
+                grupo: grupo,
                 fijada: fijada,
               ),
           withReferenceMapper: (p0) => p0

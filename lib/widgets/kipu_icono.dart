@@ -57,6 +57,20 @@ enum KipuIcono {
   izquierda,
   derecha,
   obras,
+  whatsapp,
+  llamar,
+  llave,
+  candado,
+  ojo,
+  ojoCerrado,
+  refrescar,
+  numeral,
+  ficha,
+  apuntes,
+  familia,
+  enviar,
+  copiar,
+  dado,
 }
 
 // R = relleno suave, T = trazo. Ambos se reemplazan por el color al dibujar.
@@ -257,6 +271,61 @@ const _svg = <KipuIcono, String>{
   KipuIcono.obras: '''
 <path d="M4 20h16l-8-15-8 15Z" fill="R"/>
 <path d="M4 20h16l-8-15-8 15ZM7.5 14h9M6 17h12" stroke="T"/>''',
+  KipuIcono.whatsapp: '''
+<path d="M4 20l1.3-4A8 8 0 1 1 8.6 19L4 20Z" fill="R"/>
+<path d="M4 20l1.3-4A8 8 0 1 1 8.6 19L4 20Z" stroke="T"/>
+<path d="M9.2 8.6c-.3 2.8 2.8 6 5.9 6l.9-1.4-1.9-.9-.9.7c-1-.5-1.8-1.3-2.3-2.3l.7-.9-.8-1.9-1.6.7Z" stroke="T"/>''',
+  KipuIcono.llamar: '''
+<path d="M6.2 3.5h2.6l1.8 4.6-2.3 1.4a11 11 0 0 0 6.2 6.2l1.4-2.3 4.6 1.8v2.6a2.7 2.7 0 0 1-2.7 2.7A15.3 15.3 0 0 1 3.5 6.2a2.7 2.7 0 0 1 2.7-2.7Z" fill="R"/>
+<path d="M6.2 3.5h2.6l1.8 4.6-2.3 1.4a11 11 0 0 0 6.2 6.2l1.4-2.3 4.6 1.8v2.6a2.7 2.7 0 0 1-2.7 2.7A15.3 15.3 0 0 1 3.5 6.2a2.7 2.7 0 0 1 2.7-2.7Z" stroke="T"/>''',
+  KipuIcono.llave: '''
+<circle cx="8" cy="15" r="4.5" fill="R"/>
+<circle cx="8" cy="15" r="4.5" stroke="T"/>
+<path d="m11.3 11.7 8.2-8.2M16.5 6.5l2.2 2.2M14 9l2 2" stroke="T"/>''',
+  KipuIcono.candado: '''
+<rect x="5" y="10" width="14" height="11" rx="3" fill="R"/>
+<rect x="5" y="10" width="14" height="11" rx="3" stroke="T"/>
+<path d="M8 10V7.5a4 4 0 0 1 8 0V10M12 14.5v2.5" stroke="T"/>''',
+  KipuIcono.ojo: '''
+<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" fill="R"/>
+<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" stroke="T"/>
+<circle cx="12" cy="12" r="3" stroke="T"/>''',
+  KipuIcono.ojoCerrado: '''
+<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" fill="R"/>
+<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" stroke="T"/>
+<path d="M4 4l16 16" stroke="T"/>''',
+  KipuIcono.refrescar: '''
+<path d="M19.5 11A7.5 7.5 0 0 0 6 6.5L4.5 8M4.5 4v4h4M4.5 13A7.5 7.5 0 0 0 18 17.5l1.5-1.5M19.5 20v-4h-4" stroke="T"/>''',
+  KipuIcono.numeral: '''
+<rect x="3" y="4" width="18" height="16" rx="4" fill="R"/>
+<rect x="3" y="4" width="18" height="16" rx="4" stroke="T"/>
+<path d="m10.3 8-1.4 8M15.1 8l-1.4 8M7.6 10.6h9.4M7 13.4h9.4" stroke="T"/>''',
+  KipuIcono.ficha: '''
+<rect x="3" y="5" width="18" height="14" rx="3" fill="R"/>
+<rect x="3" y="5" width="18" height="14" rx="3" stroke="T"/>
+<circle cx="9" cy="11" r="2" stroke="T"/>
+<path d="M6 16c.8-1.5 1.8-2 3-2s2.2.5 3 2M15 10h3M15 13h3" stroke="T"/>''',
+  KipuIcono.apuntes: '''
+<path d="M5 4h10l4 4v12H5V4Z" fill="R"/>
+<path d="M5 4h10l4 4v12H5V4Z" stroke="T"/>
+<path d="M9 11h6M9 15h4" stroke="T"/>''',
+  KipuIcono.familia: '''
+<circle cx="8" cy="7" r="3" fill="R"/>
+<circle cx="17" cy="9" r="2.4" fill="R"/>
+<circle cx="8" cy="7" r="3" stroke="T"/>
+<circle cx="17" cy="9" r="2.4" stroke="T"/>
+<path d="M2.5 19c.7-3.5 2.8-5.5 5.5-5.5s4.8 2 5.5 5.5M14 15c.6-1.5 1.7-2.3 3-2.3 2 0 3.5 1.8 4 4.5" stroke="T"/>''',
+  KipuIcono.enviar: '''
+<path d="M3.5 11.5 20.5 4l-6 16.5-3.2-6.8-7.8-2.2Z" fill="R"/>
+<path d="M3.5 11.5 20.5 4l-6 16.5-3.2-6.8-7.8-2.2ZM11.3 13.7 20.5 4" stroke="T"/>''',
+  KipuIcono.copiar: '''
+<rect x="8" y="8" width="12" height="12" rx="3" fill="R"/>
+<rect x="8" y="8" width="12" height="12" rx="3" stroke="T"/>
+<path d="M16 8V6.5A2.5 2.5 0 0 0 13.5 4h-7A2.5 2.5 0 0 0 4 6.5v7A2.5 2.5 0 0 0 6.5 16H8" stroke="T"/>''',
+  KipuIcono.dado: '''
+<rect x="3.5" y="3.5" width="17" height="17" rx="4.5" fill="R"/>
+<rect x="3.5" y="3.5" width="17" height="17" rx="4.5" stroke="T"/>
+<path d="M8.5 8.5h.01M15.5 8.5h.01M12 12h.01M8.5 15.5h.01M15.5 15.5h.01" stroke="T" stroke-width="3"/>''',
 };
 
 String _hex(Color c) =>

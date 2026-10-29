@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 
@@ -31,6 +33,9 @@ class Cursos extends Table {
   TextColumn get seccion => text()(); // A, B, C...
   TextColumn get nombre => text().withLength(min: 1, max: 120)();
   TextColumn get area => text().nullable()(); // Ciencia y Tecnología...
+  // Tutor/a del aula: se guarda igual en todos los cursos de la misma sección.
+  TextColumn get tutor => text().nullable()();
+  TextColumn get tutorCelular => text().nullable()();
   DateTimeColumn get creado => dateTime().withDefault(currentDateAndTime)();
 }
 
@@ -42,7 +47,16 @@ class Estudiantes extends Table {
   TextColumn get nombres => text()();
   TextColumn get dni => text().nullable()();
   TextColumn get apoderado => text().nullable()();
+  TextColumn get parentesco => text().nullable()(); // Madre, Padre...
   TextColumn get telefono => text().nullable()();
+  TextColumn get apoderado2 => text().nullable()();
+  TextColumn get parentesco2 => text().nullable()();
+  TextColumn get telefono2 => text().nullable()();
+  TextColumn get nacimiento => text().nullable()(); // yyyy-MM-dd
+  TextColumn get observaciones => text().nullable()();
+  // Acceso a la app de estudio: ID solo de números y contraseña inicial.
+  TextColumn get codigo => text().nullable()();
+  TextColumn get clave => text().nullable()();
   BlobColumn get foto => blob().nullable()(); // JPG o PNG pequeño
   // Periodo en que entró al curso y, si se retiró, desde cuál ya no está.
   IntColumn get desde => integer().withDefault(const Constant(1))();
@@ -85,6 +99,9 @@ class RegistroColumnas extends Table {
   TextColumn get tipo => text().withDefault(const Constant('nota'))();
   TextColumn get escala => text().nullable()(); // id de la escala
   BoolColumn get enEquipo => boolean().withDefault(const Constant(false))();
+
+  /// Qué equipos usa una columna en equipo (id del grupo de equipos del curso).
+  IntColumn get grupo => integer().nullable()();
 
   /// Queda fija a la derecha al deslizar (solo una por curso y periodo).
   BoolColumn get fijada => boolean().withDefault(const Constant(false))();
@@ -134,6 +151,19 @@ class Horarios extends Table {
   IntColumn get dia => integer()(); // 1 = lunes ... 7 = domingo
   TextColumn get inicio => text()(); // HH:mm
   TextColumn get fin => text()(); // HH:mm
+}
+
+final _azar = Random.secure();
+
+/// Contraseña inicial fácil de dictar: dos letras y cuatro cifras, sin las
+/// que se confunden (I, O, 0, 1).
+String nuevaClave() {
+  const letras = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  String l() => letras[_azar.nextInt(letras.length)];
+  return '${l()}${l()}-${2000 + _azar.nextInt(8000)}'.replaceAllMapped(
+    RegExp(r'[01]'),
+    (_) => '${2 + _azar.nextInt(8)}',
+  );
 }
 
 class IndicadoresCurso {
@@ -194,7 +224,7 @@ class KipuDb extends _$KipuDb {
   KipuDb([QueryExecutor? executor]) : super(executor ?? _abrir());
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -217,9 +247,27 @@ class KipuDb extends _$KipuDb {
         await m.addColumn(estudiantes, estudiantes.desde);
         await m.addColumn(estudiantes, estudiantes.hasta);
       }
+      if (from < 9) {
+        await m.addColumn(cursos, cursos.tutor);
+        await m.addColumn(cursos, cursos.tutorCelular);
+        await m.addColumn(registroColumnas, registroColumnas.grupo);
+        for (final c in [
+          estudiantes.parentesco,
+          estudiantes.apoderado2,
+          estudiantes.parentesco2,
+          estudiantes.telefono2,
+          estudiantes.nacimiento,
+          estudiantes.observaciones,
+          estudiantes.codigo,
+          estudiantes.clave,
+        ]) {
+          await m.addColumn(estudiantes, c);
+        }
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
+      await completarAccesos();
     },
   );
 
@@ -364,8 +412,79 @@ class KipuDb extends _$KipuDb {
             ]))
           .watch();
 
-  Future<int> guardarEstudiante(EstudiantesCompanion e) =>
-      into(estudiantes).insertOnConflictUpdate(e);
+  /// Guarda el estudiante. Si es nuevo y no trae ID o contraseña, se los
+  /// genera para la app de estudio.
+  Future<int> guardarEstudiante(EstudiantesCompanion e) async {
+    if (!e.id.present) {
+      final codigo = e.codigo.present ? e.codigo.value : null;
+      e = e.copyWith(
+        codigo: Value(codigo ?? await nuevoCodigo()),
+        clave: e.clave.present && e.clave.value != null
+            ? e.clave
+            : Value(nuevaClave()),
+      );
+    }
+    return into(estudiantes).insertOnConflictUpdate(e);
+  }
+
+  /// ID de 6 cifras que ningún otro estudiante tiene.
+  Future<String> nuevoCodigo({Set<String> ocupados = const {}}) async {
+    final usados = {
+      ...ocupados,
+      for (final f
+          in await (selectOnly(estudiantes)
+                ..addColumns([estudiantes.codigo])
+                ..where(estudiantes.codigo.isNotNull()))
+              .get())
+        f.read(estudiantes.codigo)!,
+    };
+    while (true) {
+      final c = '${100000 + _azar.nextInt(900000)}';
+      if (!usados.contains(c)) return c;
+    }
+  }
+
+  /// ¿Otro estudiante ya usa este ID?
+  Future<bool> codigoOcupado(String codigo, {int? salvo}) async {
+    final q = select(estudiantes)..where((e) => e.codigo.equals(codigo));
+    if (salvo != null) q.where((e) => e.id.equals(salvo).not());
+    return (await q.get()).isNotEmpty;
+  }
+
+  /// Da ID y contraseña a los estudiantes que aún no los tienen.
+  Future<void> completarAccesos() async {
+    final faltan = await (select(
+      estudiantes,
+    )..where((e) => e.codigo.isNull() | e.clave.isNull())).get();
+    if (faltan.isEmpty) return;
+    final nuevos = <String>{};
+    for (final e in faltan) {
+      final codigo = e.codigo ?? await nuevoCodigo(ocupados: nuevos);
+      nuevos.add(codigo);
+      await (update(estudiantes)..where((x) => x.id.equals(e.id))).write(
+        EstudiantesCompanion(
+          codigo: Value(codigo),
+          clave: Value(e.clave ?? nuevaClave()),
+        ),
+      );
+    }
+  }
+
+  /// Guarda el tutor/a en todos los cursos de la misma sección.
+  Future<void> guardarTutor(Curso c, String? tutor, String? celular) =>
+      (update(cursos)..where(
+            (x) =>
+                x.colegioId.equals(c.colegioId) &
+                x.nivel.equals(c.nivel) &
+                x.grado.equals(c.grado) &
+                x.seccion.equals(c.seccion),
+          ))
+          .write(
+            CursosCompanion(tutor: Value(tutor), tutorCelular: Value(celular)),
+          );
+
+  Stream<Curso> verCurso(int id) =>
+      (select(cursos)..where((c) => c.id.equals(id))).watchSingle();
 
   Future<void> borrarEstudiante(int id) =>
       (delete(estudiantes)..where((e) => e.id.equals(id))).go();
@@ -548,18 +667,80 @@ class KipuDb extends _$KipuDb {
 
   // Eventos
 
-  Stream<List<Evento>> verEventos(String fecha) =>
-      (select(eventos)
-            ..where((e) => e.fecha.equals(fecha))
-            ..orderBy([(e) => OrderingTerm.asc(e.hora)]))
-          .watch();
+  /// Eventos del día y, al inicio, los cumpleaños de los estudiantes (salen
+  /// solos de su fecha de nacimiento, cada año).
+  Stream<List<Evento>> verEventos(String fecha) {
+    return customSelect(
+      'SELECT 1',
+      readsFrom: {eventos, estudiantes, cursos},
+    ).watch().asyncMap((_) async {
+      final cumples = await _cumpleanos(fecha.substring(5));
+      return [
+        for (final (e, c) in cumples)
+          Evento(
+            id: -e.id,
+            fecha: fecha,
+            titulo:
+                '${e.apellidos.split(' ').first} ${e.nombres.split(' ').first}',
+            etiqueta: '${c.grado} ${c.seccion} · ${c.nombre}',
+            tipo: 'cumple',
+          ),
+        ...await (select(eventos)
+              ..where((e) => e.fecha.equals(fecha))
+              ..orderBy([(e) => OrderingTerm.asc(e.hora)]))
+            .get(),
+      ];
+    });
+  }
+
+  Future<List<(Estudiante, Curso)>> _cumpleanos(String mesDia) async {
+    final q =
+        select(estudiantes).join([
+          innerJoin(cursos, cursos.id.equalsExp(estudiantes.cursoId)),
+        ])..where(
+          estudiantes.nacimiento.like('%-$mesDia') & estudiantes.hasta.isNull(),
+        );
+    return [
+      for (final r in await q.get())
+        (r.readTable(estudiantes), r.readTable(cursos)),
+    ];
+  }
 
   Stream<Set<String>> verFechasConEventos(String desde, String hasta) =>
-      (selectOnly(eventos, distinct: true)
-            ..addColumns([eventos.fecha])
-            ..where(eventos.fecha.isBetweenValues(desde, hasta)))
-          .watch()
-          .map((f) => {for (final r in f) r.read(eventos.fecha)!});
+      customSelect(
+        'SELECT 1',
+        readsFrom: {eventos, estudiantes},
+      ).watch().asyncMap((_) async {
+        final fechas = {
+          for (final r
+              in await (selectOnly(eventos, distinct: true)
+                    ..addColumns([eventos.fecha])
+                    ..where(eventos.fecha.isBetweenValues(desde, hasta)))
+                  .get())
+            r.read(eventos.fecha)!,
+        };
+        final cumples = {
+          for (final r
+              in await (selectOnly(estudiantes)
+                    ..addColumns([estudiantes.nacimiento])
+                    ..where(
+                      estudiantes.nacimiento.isNotNull() &
+                          estudiantes.hasta.isNull(),
+                    ))
+                  .get())
+            r.read(estudiantes.nacimiento)!.substring(5),
+        };
+        for (
+          var d = DateTime.parse(desde);
+          !d.isAfter(DateTime.parse(hasta));
+          d = d.add(const Duration(days: 1))
+        ) {
+          final k =
+              '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+          if (cumples.contains(k.substring(5))) fechas.add(k);
+        }
+        return fechas;
+      });
 
   // Búsqueda
 

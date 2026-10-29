@@ -41,6 +41,32 @@ Future<(String, String)?> elegirRango(
   );
 }
 
+/// El mismo calendario para elegir un solo día (por ejemplo, el cumpleaños).
+/// Se abre mostrando los meses del año para saltar rápido entre años.
+Future<String?> elegirFecha(
+  BuildContext context, {
+  required KipuIcono icono,
+  required String titulo,
+  required int anio,
+  String? fecha,
+}) async {
+  final r = await showDialog<(String, String)>(
+    context: context,
+    builder: (_) => _CalendarioRango(
+      icono: icono,
+      titulo: titulo,
+      anio: anio,
+      inicio: fecha,
+      fin: fecha,
+      empezarPorFin: false,
+      feriados: const {},
+      otros: const [],
+      unico: true,
+    ),
+  );
+  return r?.$1;
+}
+
 class _CalendarioRango extends StatefulWidget {
   final KipuIcono icono;
   final String titulo;
@@ -50,6 +76,7 @@ class _CalendarioRango extends StatefulWidget {
   final bool empezarPorFin;
   final Map<String, String> feriados;
   final List<(String, String)> otros;
+  final bool unico;
 
   const _CalendarioRango({
     required this.icono,
@@ -60,6 +87,7 @@ class _CalendarioRango extends StatefulWidget {
     required this.empezarPorFin,
     required this.feriados,
     required this.otros,
+    this.unico = false,
   });
 
   @override
@@ -71,7 +99,7 @@ class _CalendarioRangoState extends State<_CalendarioRango> {
   late String? _fin = widget.fin;
   late bool _tocaFin = widget.empezarPorFin;
   late DateTime _mes;
-  bool _verMeses = false;
+  late bool _verMeses = widget.unico && widget.inicio == null;
 
   @override
   void initState() {
@@ -85,7 +113,9 @@ class _CalendarioRangoState extends State<_CalendarioRango> {
   String _primerDia() => _clave(DateTime(widget.anio, 3));
 
   void _tocar(String dia) => setState(() {
-    if (!_tocaFin || _inicio == null || dia.compareTo(_inicio!) < 0) {
+    if (widget.unico) {
+      _inicio = _fin = dia;
+    } else if (!_tocaFin || _inicio == null || dia.compareTo(_inicio!) < 0) {
       _inicio = dia;
       if (_fin != null && _fin!.compareTo(dia) < 0) _fin = null;
       _tocaFin = true;
@@ -124,33 +154,40 @@ class _CalendarioRangoState extends State<_CalendarioRango> {
       compacta: true,
       icono: widget.icono,
       titulo: widget.titulo,
-      subtitulo: _tocaFin ? 'Ahora toca el día final' : 'Toca el día de inicio',
+      subtitulo: widget.unico
+          ? 'Elige el año, el mes y luego el día'
+          : _tocaFin
+          ? 'Ahora toca el día final'
+          : 'Toca el día de inicio',
       contenido: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: _Caja(
-                  'INICIO',
-                  _inicio,
-                  activa: !_tocaFin,
-                  onTap: () => setState(() => _tocaFin = false),
+          if (widget.unico)
+            _Caja('FECHA', _inicio, activa: true, conAnio: true)
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: _Caja(
+                    'INICIO',
+                    _inicio,
+                    activa: !_tocaFin,
+                    onTap: () => setState(() => _tocaFin = false),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _Caja(
-                  'FIN',
-                  _fin,
-                  activa: _tocaFin,
-                  onTap: _inicio == null
-                      ? null
-                      : () => setState(() => _tocaFin = true),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _Caja(
+                    'FIN',
+                    _fin,
+                    activa: _tocaFin,
+                    onTap: _inicio == null
+                        ? null
+                        : () => setState(() => _tocaFin = true),
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -229,7 +266,7 @@ class _CalendarioRangoState extends State<_CalendarioRango> {
               ),
             ),
           ],
-          if (resumen != null) ...[
+          if (resumen != null && !widget.unico) ...[
             const SizedBox(height: 6),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -470,8 +507,15 @@ class _Caja extends StatelessWidget {
   final String? valor;
   final bool activa;
   final VoidCallback? onTap;
+  final bool conAnio;
 
-  const _Caja(this.etiqueta, this.valor, {required this.activa, this.onTap});
+  const _Caja(
+    this.etiqueta,
+    this.valor, {
+    required this.activa,
+    this.onTap,
+    this.conAnio = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -507,7 +551,7 @@ class _Caja extends StatelessWidget {
                   ? 'Elegir'
                   : _mayuscula(
                       DateFormat(
-                        'EEE d MMM',
+                        conAnio ? 'EEE d MMM yyyy' : 'EEE d MMM',
                         'es_PE',
                       ).format(DateTime.parse(valor!)).replaceAll('.', ''),
                     ),

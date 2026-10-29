@@ -17,6 +17,7 @@ import '../widgets/kipu_icono.dart';
 import 'asistencia.dart';
 import 'cursos.dart' show colorColegio, confirmar;
 import 'estudiantes.dart';
+import 'ficha_estudiante.dart';
 import 'shell.dart' show MenuCajon;
 
 const _rojo = Color(0xFFC2334A);
@@ -42,7 +43,7 @@ class _RegistroCursoState extends State<RegistroCurso> {
   late final _colegios = db.verColegios();
   late final _estudiantes = db.verEstudiantes(_cursoId);
   late final _colores = db.verColoresRegistro(_cursoId);
-  late final _equipos = db.verEquipos(_cursoId);
+  late final _grupos = db.verGruposEquipos(_cursoId);
   late final _conducta = db.verConductaDelDia(_cursoId, _hoy);
   late final _asistencia = db.verAsistencia(_cursoId, _hoy);
   late final _config = db.verAnioActivo().asyncExpand(db.verConfigAcademica);
@@ -91,9 +92,9 @@ class _RegistroCursoState extends State<RegistroCurso> {
                 _notas,
                 (notas) => _Escucha<Map<int, (int, int)>>(
                   _conducta,
-                  (conducta) => _Escucha<Map<int, int>>(
-                    _equipos,
-                    (equipos) => _Escucha<Map<int, String>>(
+                  (conducta) => _Escucha<List<GrupoEquipos>>(
+                    _grupos,
+                    (grupos) => _Escucha<Map<int, String>>(
                       _asistencia,
                       (asistencia) => _pantalla(
                         context,
@@ -104,7 +105,7 @@ class _RegistroCursoState extends State<RegistroCurso> {
                         columnas: columnas ?? const [],
                         notas: notas ?? const {},
                         conducta: conducta ?? const {},
-                        equipos: equipos ?? const {},
+                        grupos: grupos ?? const [],
                         asistencia: asistencia ?? const {},
                       ),
                     ),
@@ -127,7 +128,7 @@ class _RegistroCursoState extends State<RegistroCurso> {
     required List<RegistroColumna> columnas,
     required Map<int, Map<int, String>> notas,
     required Map<int, (int, int)> conducta,
-    required Map<int, int> equipos,
+    required List<GrupoEquipos> grupos,
     required Map<int, String> asistencia,
   }) {
     final cur = widget.datos.curso;
@@ -165,6 +166,7 @@ class _RegistroCursoState extends State<RegistroCurso> {
       escalaDefecto: escalaDefecto,
       colores: colores,
       codigoSugerido: 'N${columnas.where((c) => c.tipo == 'nota').length + 1}',
+      grupos: grupos,
     );
 
     Future<void> accion(String v) => _accionRegistro(
@@ -175,7 +177,7 @@ class _RegistroCursoState extends State<RegistroCurso> {
       periodos: periodos,
       colores: colores,
       estudiantes: delPeriodo,
-      equipos: equipos,
+      grupos: grupos,
       nuevaColumna: nuevaColumna,
     );
 
@@ -221,17 +223,26 @@ class _RegistroCursoState extends State<RegistroCurso> {
         columnas: columnas,
         notas: notas,
         conducta: conducta,
-        equipos: equipos,
         colores: colores,
         escalaDe: escalaDe,
         onNueva: nuevaColumna,
-        onEstudiante: (e) =>
-            editarEstudiante(context, _cursoId, e, _periodo, nombrePeriodo),
+        onEstudiante: (e) => abrirFicha(
+          context,
+          datos: widget.datos,
+          estudiante: e,
+          periodo: _periodo,
+          periodos: periodos,
+          color: colores.base,
+          escalaDe: escalaDe,
+          onAnotar: (e) => _anotarConducta(context, e, colores),
+        ),
         onConducta: (e) => _anotarConducta(context, e, colores),
         onColumna: (c) => _menuColumna(
           context,
           c,
           columnas,
+          grupos: grupos,
+          estudiantes: lista,
           colores: colores,
           escalas: escalas.values.toList(),
           escalaDefecto: escalaDefecto,
@@ -254,7 +265,7 @@ class _RegistroCursoState extends State<RegistroCurso> {
             estudiantes: lista,
             inicio: lista.indexOf(e),
             notas: notas[c.id] ?? const {},
-            equipos: equipos,
+            equipos: grupoDe(grupos, c)?.equipos ?? const {},
             colores: colores,
           );
         },
@@ -658,19 +669,23 @@ Future<void> _accionRegistro(
   required List<Periodo> periodos,
   required ColoresRegistro colores,
   required List<Estudiante> estudiantes,
-  required Map<int, int> equipos,
+  required List<GrupoEquipos> grupos,
   required VoidCallback nuevaColumna,
 }) async {
   final id = datos.curso.id;
-  String nombre(int p) =>
-      p >= 1 && p <= periodos.length ? periodos[p - 1].nombre : '$p.° periodo';
   switch (v) {
     case 'columna':
       nuevaColumna();
     case 'azar':
       await _alumnoAlAzar(context, estudiantes, colores);
     case 'estudiante':
-      await editarEstudiante(context, id, null, periodo, nombre);
+      await abrirFicha(
+        context,
+        datos: datos,
+        periodo: periodo,
+        periodos: periodos,
+        color: colores.base,
+      );
     case 'importar':
       await importarEstudiantes(
         context,
@@ -681,7 +696,7 @@ Future<void> _accionRegistro(
     case 'columnas':
       await _importarColumnas(context, datos, periodo, periodos, colores);
     case 'equipos':
-      await _editarEquipos(context, id, estudiantes, equipos, colores);
+      await _editarEquipos(context, id, estudiantes, grupos, colores);
     case 'colores':
       await _editarColores(context, id, colores);
   }
@@ -704,7 +719,7 @@ class _BotonMas extends StatelessWidget {
     ('columnas', KipuIcono.copia, 'Importar columnas'),
     ('importar', KipuIcono.pegar, 'Importar estudiantes'),
     ('estudiante', KipuIcono.secciones, 'Nuevo estudiante'),
-    ('azar', KipuIcono.participa, 'Alumno al azar'),
+    ('azar', KipuIcono.dado, 'Alumno al azar'),
     ('columna', KipuIcono.columna, 'Nueva columna'),
   ];
 
@@ -928,7 +943,6 @@ class _Tabla extends StatefulWidget {
   final List<RegistroColumna> columnas;
   final Map<int, Map<int, String>> notas;
   final Map<int, (int, int)> conducta;
-  final Map<int, int> equipos;
   final ColoresRegistro colores;
   final Escala? Function(RegistroColumna) escalaDe;
   final VoidCallback onNueva;
@@ -944,7 +958,6 @@ class _Tabla extends StatefulWidget {
     required this.columnas,
     required this.notas,
     required this.conducta,
-    required this.equipos,
     required this.colores,
     required this.escalaDe,
     required this.onNueva,
@@ -1939,7 +1952,7 @@ class _AlAzarState extends State<_AlAzar> {
                 ),
                 onPressed: () => setState(_siguiente),
                 icon: const KipuIcon(
-                  KipuIcono.participa,
+                  KipuIcono.dado,
                   size: 20,
                   color: Colors.white,
                 ),
@@ -2037,23 +2050,29 @@ Future<void> _importarColumnas(
   await db.copiarColumnas(grupos[elegido]!, destino.curso.id, periodo);
 }
 
-Future<T?> _hoja<T>(BuildContext context, Widget contenido) =>
-    showModalBottomSheet<T>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      backgroundColor: Colors.white,
-      constraints: const BoxConstraints(maxWidth: 480),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.fromLTRB(
-          20,
-          0,
-          20,
-          MediaQuery.viewInsetsOf(ctx).bottom + 20,
-        ),
-        child: SingleChildScrollView(child: contenido),
+/// Ventana centrada del registro (nota, conducta, equipos, colores...).
+Future<T?> _hoja<T>(
+  BuildContext context,
+  Widget contenido, {
+  double ancho = 480,
+}) => showDialog<T>(
+  context: context,
+  barrierColor: const Color(0x661F1B2E),
+  builder: (ctx) => Dialog(
+    backgroundColor: Colors.white,
+    surfaceTintColor: Colors.transparent,
+    clipBehavior: Clip.antiAlias,
+    insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 24),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+    child: ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: ancho),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(22, 20, 22, 22),
+        child: contenido,
       ),
-    );
+    ),
+  ),
+);
 
 class _CabezaHoja extends StatelessWidget {
   final Widget? avatar;
@@ -2086,10 +2105,11 @@ class _CabezaHoja extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                fontSize: 18.5,
+                fontSize: 19.5,
                 fontWeight: FontWeight.w600,
               ),
             ),
+            const SizedBox(height: 1),
             Text(
               subtitulo,
               maxLines: 2,
@@ -2100,6 +2120,26 @@ class _CabezaHoja extends StatelessWidget {
         ),
       ),
       ?cola,
+      const SizedBox(width: 6),
+      Material(
+        color: KipuColores.fondo,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: () => Navigator.pop(context),
+          child: const SizedBox(
+            width: 36,
+            height: 36,
+            child: Center(
+              child: KipuIcon(
+                KipuIcono.cerrar,
+                size: 18,
+                color: KipuColores.gris,
+              ),
+            ),
+          ),
+        ),
+      ),
     ],
   );
 }
@@ -2603,9 +2643,11 @@ Future<void> _formColumna(
   required ColoresRegistro colores,
   String codigoSugerido = '',
   RegistroColumna? columna,
+  required List<GrupoEquipos> grupos,
 }) => _hoja(
   context,
   _FormColumna(
+    grupos: grupos,
     cursoId: cursoId,
     periodo: periodo,
     escalas: escalas,
@@ -2624,8 +2666,10 @@ class _FormColumna extends StatefulWidget {
   final ColoresRegistro colores;
   final String codigoSugerido;
   final RegistroColumna? columna;
+  final List<GrupoEquipos> grupos;
 
   const _FormColumna({
+    required this.grupos,
     required this.cursoId,
     required this.periodo,
     required this.escalas,
@@ -2650,6 +2694,9 @@ class _FormColumnaState extends State<_FormColumna> {
       (widget.columna == null ? claveFecha(DateTime.now()) : null);
   late String _escala = widget.columna?.escala ?? widget.escalaDefecto;
   late bool _enEquipo = widget.columna?.enEquipo ?? false;
+  late int? _grupo = widget.columna == null || !widget.columna!.enEquipo
+      ? widget.grupos.lastOrNull?.id
+      : grupoDe(widget.grupos, widget.columna!)?.id;
   String? _error;
 
   Future<void> _guardar() async {
@@ -2669,6 +2716,7 @@ class _FormColumnaState extends State<_FormColumna> {
       tipo: Value(_tipo),
       escala: Value(nota ? _escala : null),
       enEquipo: Value(nota && _enEquipo),
+      grupo: Value(nota && _enEquipo ? _grupo : null),
     );
     if (widget.columna == null) {
       await db.crearColumna(datos.copyWith(orden: const Value(0)));
@@ -2944,6 +2992,45 @@ class _FormColumnaState extends State<_FormColumna> {
               ],
             ),
           ),
+          if (_enEquipo) ...[
+            etiqueta('¿CON QUÉ EQUIPOS?'),
+            if (widget.grupos.isEmpty)
+              const Text(
+                'Aún no armas equipos. Hazlo en el botón + → Equipos y '
+                'luego elígelos aquí.',
+                style: TextStyle(fontSize: 13, color: KipuColores.gris),
+              )
+            else
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final g in widget.grupos.reversed)
+                    ChoiceChip(
+                      label: Text('${g.nombre} · ${g.cantidad} eq.'),
+                      selected: g.id == _grupo,
+                      showCheckmark: false,
+                      selectedColor: base,
+                      labelStyle: TextStyle(
+                        color: g.id == _grupo
+                            ? Colors.white
+                            : KipuColores.tinta,
+                        fontWeight: g.id == _grupo
+                            ? FontWeight.w600
+                            : FontWeight.w400,
+                      ),
+                      side: BorderSide(
+                        color: g.id == _grupo ? base : const Color(0xFFE6E7F0),
+                      ),
+                      backgroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      onSelected: (_) => setState(() => _grupo = g.id),
+                    ),
+                ],
+              ),
+          ],
         ],
         const SizedBox(height: 18),
         Row(
@@ -2976,11 +3063,14 @@ Future<void> _menuColumna(
   BuildContext context,
   RegistroColumna col,
   List<RegistroColumna> columnas, {
+  required List<GrupoEquipos> grupos,
+  required List<Estudiante> estudiantes,
   required ColoresRegistro colores,
   required List<Escala> escalas,
   required String escalaDefecto,
 }) async {
   final base = colores.calculadas;
+  final grupo = grupoDe(grupos, col);
   // Orden de pantalla: las libres y al final la fijada.
   final orden = [
     ...columnas.where((c) => !c.fijada),
@@ -3013,6 +3103,8 @@ Future<void> _menuColumna(
           ].join(' · '),
         ),
         const SizedBox(height: 10),
+        if (grupo != null)
+          opcion(KipuIcono.equipo, 'Ver integrantes de los equipos', 'equipos'),
         opcion(KipuIcono.editar, 'Editar columna', 'editar'),
         opcion(
           KipuIcono.chincheta,
@@ -3038,6 +3130,18 @@ Future<void> _menuColumna(
         escalaDefecto: escalaDefecto,
         colores: colores,
         columna: col,
+        grupos: grupos,
+      );
+    case 'equipos':
+      await _hoja(
+        context,
+        _VerEquipos(
+          grupo: grupo!,
+          estudiantes: estudiantes,
+          colores: colores,
+          columna: col,
+        ),
+        ancho: 600,
       );
     case 'fijar':
       await db.fijarColumna(col, !col.fijada);
@@ -3220,27 +3324,36 @@ Future<void> _editarEquipos(
   BuildContext context,
   int cursoId,
   List<Estudiante> estudiantes,
-  Map<int, int> equipos,
+  List<GrupoEquipos> grupos,
   ColoresRegistro colores,
 ) => _hoja(
   context,
   _Equipos(
     cursoId: cursoId,
     estudiantes: estudiantes,
-    equipos: equipos,
+    grupos: grupos,
     colores: colores,
   ),
+  ancho: 600,
 );
 
+String _nombreCorto(Estudiante e) =>
+    '${tituloNombre(e.apellidos)}, ${tituloNombre(e.nombres).split(' ').first}';
+
+String _fechaCorta(String f) =>
+    DateFormat('d MMM', 'es_PE').format(DateTime.parse(f)).replaceAll('.', '');
+
+/// Equipos del curso: los de cada tema quedan guardados para volver a verlos
+/// y para elegirlos en las columnas en equipo.
 class _Equipos extends StatefulWidget {
   final int cursoId;
   final List<Estudiante> estudiantes;
-  final Map<int, int> equipos;
+  final List<GrupoEquipos> grupos;
   final ColoresRegistro colores;
   const _Equipos({
     required this.cursoId,
     required this.estudiantes,
-    required this.equipos,
+    required this.grupos,
     required this.colores,
   });
 
@@ -3249,8 +3362,40 @@ class _Equipos extends StatefulWidget {
 }
 
 class _EquiposState extends State<_Equipos> {
-  late final Map<int, int> _eq = {...widget.equipos};
-  late int _cantidad = max(4, _eq.values.fold(0, max));
+  late var _grupos = [...widget.grupos];
+  late final _usos = db.todasLasColumnas().then(
+    (cs) => [
+      for (final c in cs)
+        if (c.cursoId == widget.cursoId && c.enEquipo) c,
+    ],
+  );
+
+  // Editor: null = lista de equipos anteriores.
+  GrupoEquipos? _editando;
+  GrupoEquipos? _viendo;
+  final _nombre = TextEditingController();
+  final Map<int, int> _eq = {};
+  int _cantidad = 4;
+
+  Color get base => widget.colores.calculadas;
+
+  void _editar(GrupoEquipos? g) => setState(() {
+    final id = _grupos.fold(0, (a, x) => max(a, x.id)) + 1;
+    _editando =
+        g ??
+        GrupoEquipos(
+          id: id,
+          nombre: '',
+          creado: claveFecha(DateTime.now()),
+          equipos: const {},
+        );
+    _viendo = null;
+    _nombre.text = g?.nombre ?? '';
+    _eq
+      ..clear()
+      ..addAll(g?.equipos ?? const {});
+    _cantidad = max(g?.cantidad ?? 4, 2);
+  });
 
   void _alAzar() => setState(() {
     final l = [...widget.estudiantes]..shuffle();
@@ -3260,9 +3405,138 @@ class _EquiposState extends State<_Equipos> {
     }
   });
 
+  Future<void> _guardar() async {
+    final g = _editando!;
+    _eq.removeWhere((_, v) => v > _cantidad);
+    final nombre = _nombre.text.trim().isEmpty
+        ? 'Equipos ${_fechaCorta(g.creado)}'
+        : _nombre.text.trim();
+    final nuevo = g.copiar(nombre: nombre, equipos: {..._eq});
+    final i = _grupos.indexWhere((x) => x.id == g.id);
+    _grupos = [..._grupos];
+    if (i < 0) {
+      _grupos.add(nuevo);
+    } else {
+      _grupos[i] = nuevo;
+    }
+    await db.guardarGruposEquipos(widget.cursoId, _grupos);
+    setState(() {
+      _editando = null;
+      _viendo = nuevo;
+    });
+  }
+
+  Future<void> _borrar(GrupoEquipos g) async {
+    if (!await confirmar(
+      context,
+      '¿Eliminar "${g.nombre}"?',
+      'Las notas no se borran. Las columnas que los usaban pasan a usar los '
+          'equipos más nuevos.',
+    )) {
+      return;
+    }
+    _grupos = _grupos.where((x) => x.id != g.id).toList();
+    await db.guardarGruposEquipos(widget.cursoId, _grupos);
+    setState(() {
+      _editando = null;
+      _viendo = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final base = widget.colores.calculadas;
+    if (_editando != null) return _editor();
+    if (_viendo != null) {
+      return _VerEquipos(
+        grupo: _viendo!,
+        estudiantes: widget.estudiantes,
+        colores: widget.colores,
+        onAtras: () => setState(() => _viendo = null),
+        onEditar: () => _editar(_viendo),
+      );
+    }
+    return _lista();
+  }
+
+  Widget _lista() => Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      _CabezaHoja(
+        icono: KipuIcono.equipo,
+        color: base,
+        titulo: 'Equipos',
+        subtitulo: 'Arma equipos por tema y elígelos en cada columna en equipo',
+      ),
+      const SizedBox(height: 16),
+      if (_grupos.isEmpty)
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: KipuColores.fondo,
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: const Text(
+            'Aún no hay equipos. Arma los primeros: quedan guardados con su '
+            'tema para volver a verlos cuando quieras.',
+            style: TextStyle(fontSize: 13.5, color: KipuColores.gris),
+          ),
+        )
+      else ...[
+        const Text(
+          'EQUIPOS ANTERIORES',
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+            letterSpacing: .4,
+            color: KipuColores.gris,
+          ),
+        ),
+        const SizedBox(height: 8),
+        FutureBuilder<List<RegistroColumna>>(
+          future: _usos,
+          builder: (context, snap) {
+            final usos = snap.data ?? const <RegistroColumna>[];
+            return Column(
+              children: [
+                for (final g in _grupos.reversed)
+                  _TarjetaGrupo(
+                    grupo: g,
+                    usos: [
+                      for (final c in usos)
+                        if (grupoDe(_grupos, c)?.id == g.id) c,
+                    ],
+                    color: base,
+                    onTap: () => setState(() => _viendo = g),
+                  ),
+              ],
+            );
+          },
+        ),
+      ],
+      const SizedBox(height: 12),
+      FilledButton.icon(
+        style: FilledButton.styleFrom(
+          backgroundColor: base,
+          minimumSize: const Size(0, 50),
+        ),
+        onPressed: () => _editar(null),
+        icon: const KipuIcon(KipuIcono.agregar, size: 20, color: Colors.white),
+        label: const Text('Armar nuevos equipos'),
+      ),
+    ],
+  );
+
+  Widget _editor() {
+    final g = _editando!;
+    final nuevo = !_grupos.any((x) => x.id == g.id);
+    final conteo = <int, int>{};
+    for (final v in _eq.values) {
+      if (v <= _cantidad) conteo[v] = (conteo[v] ?? 0) + 1;
+    }
+    final sinEquipo = widget.estudiantes
+        .where((e) => _eq[e.id] == null || _eq[e.id]! > _cantidad)
+        .length;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -3270,58 +3544,96 @@ class _EquiposState extends State<_Equipos> {
         _CabezaHoja(
           icono: KipuIcono.equipo,
           color: base,
-          titulo: 'Equipos',
-          subtitulo: 'En las columnas "En equipo" la nota va a todo el equipo',
+          titulo: nuevo ? 'Nuevos equipos' : 'Editar equipos',
+          subtitulo: 'Ponles el tema o la actividad para ubicarlos después',
         ),
-        const SizedBox(height: 14),
-        Row(
-          children: [
-            const Text('Cantidad de equipos', style: TextStyle(fontSize: 14)),
-            const Spacer(),
-            IconButton(
-              onPressed: _cantidad > 2
-                  ? () => setState(() => _cantidad--)
-                  : null,
-              icon: KipuIcon(KipuIcono.izquierda, size: 20, color: base),
-            ),
-            Text(
-              '$_cantidad',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-            ),
-            IconButton(
-              onPressed: _cantidad < 12
-                  ? () => setState(() => _cantidad++)
-                  : null,
-              icon: KipuIcon(KipuIcono.derecha, size: 20, color: base),
-            ),
-            const SizedBox(width: 6),
-            OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 14),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _nombre,
+          autofocus: nuevo,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(
+            labelText: 'Tema o actividad',
+            hintText: 'Ej.: Exposición de enlaces químicos',
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.fromLTRB(14, 4, 6, 4),
+          decoration: BoxDecoration(
+            color: KipuColores.fondo,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Cantidad de equipos',
+                  style: TextStyle(fontSize: 14),
+                ),
               ),
-              onPressed: _alAzar,
-              child: const Text('Al azar'),
-            ),
+              IconButton(
+                onPressed: _cantidad > 2
+                    ? () => setState(() => _cantidad--)
+                    : null,
+                icon: KipuIcon(KipuIcono.izquierda, size: 20, color: base),
+              ),
+              Text(
+                '$_cantidad',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              IconButton(
+                onPressed: _cantidad < 12
+                    ? () => setState(() => _cantidad++)
+                    : null,
+                icon: KipuIcon(KipuIcono.derecha, size: 20, color: base),
+              ),
+              const SizedBox(width: 4),
+              FilledButton.tonalIcon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: base,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                ),
+                onPressed: _alAzar,
+                icon: KipuIcon(KipuIcono.dado, size: 18, color: base),
+                label: const Text('Al azar'),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            for (var k = 1; k <= _cantidad; k++)
+              _Pildora('Eq. $k · ${conteo[k] ?? 0}', _colorEquipo(k)),
+            if (sinEquipo > 0)
+              _Pildora('Sin equipo · $sinEquipo', KipuColores.gris),
           ],
         ),
         const SizedBox(height: 6),
         ConstrainedBox(
           constraints: BoxConstraints(
-            maxHeight: MediaQuery.sizeOf(context).height * .45,
+            maxHeight: MediaQuery.sizeOf(context).height * .4,
           ),
           child: ListView(
             shrinkWrap: true,
             children: [
               for (final e in widget.estudiantes)
                 Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  padding: const EdgeInsets.symmetric(vertical: 3),
                   child: Row(
                     children: [
                       AvatarEstudiante(e, tam: 30),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          '${tituloNombre(e.apellidos)}, ${tituloNombre(e.nombres).split(' ').first}',
+                          _nombreCorto(e),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(fontSize: 14),
@@ -3344,7 +3656,13 @@ class _EquiposState extends State<_Equipos> {
                           for (var k = 1; k <= _cantidad; k++)
                             DropdownMenuItem(
                               value: k,
-                              child: Text('Equipo $k'),
+                              child: Text(
+                                'Equipo $k',
+                                style: TextStyle(
+                                  color: _colorEquipo(k),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
                         ],
                         onChanged: (v) => setState(() {
@@ -3364,24 +3682,262 @@ class _EquiposState extends State<_Equipos> {
         const SizedBox(height: 14),
         Row(
           children: [
+            if (!nuevo) ...[
+              IconButton.outlined(
+                tooltip: 'Eliminar estos equipos',
+                onPressed: () => _borrar(g),
+                icon: const KipuIcon(KipuIcono.borrar, size: 21, color: _rojo),
+              ),
+              const SizedBox(width: 10),
+            ],
             Expanded(
               child: OutlinedButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancelar'),
+                onPressed: () => setState(() {
+                  _editando = null;
+                  if (!nuevo) _viendo = g;
+                }),
+                child: const Text('Volver'),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: FilledButton(
                 style: FilledButton.styleFrom(backgroundColor: base),
-                onPressed: () async {
-                  _eq.removeWhere((_, v) => v > _cantidad);
-                  await db.guardarEquipos(widget.cursoId, _eq);
-                  if (context.mounted) Navigator.pop(context);
-                },
+                onPressed: _guardar,
                 child: const Text('Guardar'),
               ),
             ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+const _tonosEquipo = [
+  Color(0xFF5B4BD6),
+  Color(0xFF2557C7),
+  Color(0xFF0E7A5F),
+  Color(0xFFB8336C),
+  Color(0xFFC25A16),
+  Color(0xFF7A5A12),
+];
+
+Color _colorEquipo(int k) => _tonosEquipo[(k - 1) % _tonosEquipo.length];
+
+class _Pildora extends StatelessWidget {
+  final String texto;
+  final Color color;
+  const _Pildora(this.texto, this.color);
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    decoration: BoxDecoration(
+      color: Color.lerp(color, Colors.white, .88),
+      borderRadius: BorderRadius.circular(999),
+    ),
+    child: Text(
+      texto,
+      style: TextStyle(
+        fontSize: 12.5,
+        fontWeight: FontWeight.w600,
+        color: color,
+      ),
+    ),
+  );
+}
+
+class _TarjetaGrupo extends StatelessWidget {
+  final GrupoEquipos grupo;
+  final List<RegistroColumna> usos;
+  final Color color;
+  final VoidCallback onTap;
+  const _TarjetaGrupo({
+    required this.grupo,
+    required this.usos,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: const BorderSide(color: Color(0xFFE6E7F0), width: 1.5),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+          child: Row(
+            children: [
+              KipuIcon(KipuIcono.equipo, size: 26, color: color),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      grupo.nombre,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${grupo.cantidad} equipos · ${grupo.equipos.length} '
+                      'estudiantes · ${_fechaCorta(grupo.creado)}',
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: KipuColores.gris,
+                      ),
+                    ),
+                    if (usos.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 5,
+                        runSpacing: 5,
+                        children: [
+                          for (final c in usos)
+                            _Pildora(
+                              '${c.codigo} · ${c.periodo}.° per.',
+                              color,
+                            ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const KipuIcon(
+                KipuIcono.derecha,
+                size: 18,
+                color: KipuColores.gris,
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// Quiénes integran cada equipo de un grupo, para llamarlos en clase.
+class _VerEquipos extends StatelessWidget {
+  final GrupoEquipos grupo;
+  final List<Estudiante> estudiantes;
+  final ColoresRegistro colores;
+  final RegistroColumna? columna;
+  final VoidCallback? onAtras;
+  final VoidCallback? onEditar;
+  const _VerEquipos({
+    required this.grupo,
+    required this.estudiantes,
+    required this.colores,
+    this.columna,
+    this.onAtras,
+    this.onEditar,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final porId = {for (final e in estudiantes) e.id: e};
+    final col = columna;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _CabezaHoja(
+          icono: KipuIcono.equipo,
+          color: colores.calculadas,
+          titulo: grupo.nombre,
+          subtitulo: [
+            if (col != null) 'Columna ${col.codigo}',
+            '${grupo.cantidad} equipos',
+            'armados el ${_fechaCorta(grupo.creado)}',
+          ].join(' · '),
+        ),
+        const SizedBox(height: 14),
+        LayoutBuilder(
+          builder: (context, c) {
+            final dos = c.maxWidth >= 400;
+            final tarjetas = [
+              for (final MapEntry(key: k, value: ids)
+                  in grupo.integrantes.entries)
+                Container(
+                  width: dos ? (c.maxWidth - 8) / 2 : c.maxWidth,
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                  decoration: BoxDecoration(
+                    color: Color.lerp(_colorEquipo(k), Colors.white, .93),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Equipo $k',
+                        style: TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w700,
+                          color: _colorEquipo(k),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      for (final id in ids)
+                        if (porId[id] != null)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 2),
+                            child: Row(
+                              children: [
+                                AvatarEstudiante(porId[id]!, tam: 24),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _nombreCorto(porId[id]!),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 13.5),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                    ],
+                  ),
+                ),
+            ];
+            return Wrap(spacing: 8, runSpacing: 8, children: tarjetas);
+          },
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: onAtras ?? () => Navigator.pop(context),
+                child: Text(onAtras == null ? 'Cerrar' : 'Volver'),
+              ),
+            ),
+            if (onEditar != null) ...[
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: colores.calculadas,
+                  ),
+                  onPressed: onEditar,
+                  child: const Text('Editar equipos'),
+                ),
+              ),
+            ],
           ],
         ),
       ],

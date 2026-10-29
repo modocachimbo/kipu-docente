@@ -105,3 +105,28 @@ class Ventana extends StatelessWidget {
     );
   }
 }
+
+/// Muestra [builder] en una ventana blanca centrada, en vez de una hoja que
+/// sube desde abajo.
+Future<T?> ventanaCentrada<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  double ancho = 480,
+}) => showDialog<T>(
+  context: context,
+  barrierColor: const Color(0x661F1B2E),
+  builder: (ctx) => Dialog(
+    backgroundColor: Colors.white,
+    surfaceTintColor: Colors.transparent,
+    clipBehavior: Clip.antiAlias,
+    insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 24),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+    child: ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: ancho),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.only(top: 18, bottom: 8),
+        child: builder(ctx),
+      ),
+    ),
+  ),
+);

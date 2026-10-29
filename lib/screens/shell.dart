@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme.dart';
 import '../widgets/kipu_icono.dart';
+import '../widgets/ventana.dart';
 import 'asistencia.dart';
 import 'config_academica.dart';
 import 'configuracion.dart';
@@ -217,11 +218,8 @@ class _ShellState extends State<Shell> {
   }
 
   void _mostrarMas(BuildContext context) {
-    showModalBottomSheet(
+    ventanaCentrada(
       context: context,
-      showDragHandle: true,
-      backgroundColor: Colors.white,
-      isScrollControlled: true,
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
