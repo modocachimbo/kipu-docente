@@ -10,12 +10,16 @@ class Ventana extends StatelessWidget {
   final String subtitulo;
   final Widget contenido;
 
+  /// Cabecera y márgenes más bajos, para contenido alto como el calendario.
+  final bool compacta;
+
   const Ventana({
     super.key,
     required this.icono,
     required this.titulo,
     required this.subtitulo,
     required this.contenido,
+    this.compacta = false,
   });
 
   @override
@@ -32,7 +36,9 @@ class Ventana extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Container(
-              padding: const EdgeInsets.fromLTRB(20, 18, 14, 18),
+              padding: compacta
+                  ? const EdgeInsets.fromLTRB(20, 11, 14, 11)
+                  : const EdgeInsets.fromLTRB(20, 18, 14, 18),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [KipuColores.morado, KipuColores.moradoOscuro],
@@ -96,7 +102,9 @@ class Ventana extends StatelessWidget {
             ),
             Flexible(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(22, 20, 22, 22),
+                padding: compacta
+                    ? const EdgeInsets.fromLTRB(22, 14, 22, 16)
+                    : const EdgeInsets.fromLTRB(22, 20, 22, 22),
                 child: contenido,
               ),
             ),

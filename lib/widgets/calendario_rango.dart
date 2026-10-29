@@ -71,6 +71,7 @@ class _CalendarioRangoState extends State<_CalendarioRango> {
   late String? _fin = widget.fin;
   late bool _tocaFin = widget.empezarPorFin;
   late DateTime _mes;
+  bool _verMeses = false;
 
   @override
   void initState() {
@@ -120,6 +121,7 @@ class _CalendarioRangoState extends State<_CalendarioRango> {
         .toList();
     final resumen = _resumen;
     return Ventana(
+      compacta: true,
       icono: widget.icono,
       titulo: widget.titulo,
       subtitulo: _tocaFin ? 'Ahora toca el día final' : 'Toca el día de inicio',
@@ -149,38 +151,72 @@ class _CalendarioRangoState extends State<_CalendarioRango> {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 8),
           Row(
             children: [
               _BotonMes(
                 KipuIcono.flecha,
                 atras: true,
-                onTap: () =>
-                    setState(() => _mes = DateTime(_mes.year, _mes.month - 1)),
+                onTap: () => setState(
+                  () => _mes = DateTime(
+                    _mes.year,
+                    _mes.month - (_verMeses ? 12 : 1),
+                  ),
+                ),
               ),
               Expanded(
-                child: Text(
-                  _mayuscula(nombreMes),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                child: Center(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: () => setState(() => _verMeses = !_verMeses),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _verMeses ? '${_mes.year}' : _mayuscula(nombreMes),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          AnimatedRotation(
+                            turns: _verMeses ? .5 : 0,
+                            duration: const Duration(milliseconds: 150),
+                            child: KipuIcon(
+                              KipuIcono.abajo,
+                              size: 18,
+                              color: KipuColores.morado,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
               _BotonMes(
                 KipuIcono.flecha,
-                onTap: () =>
-                    setState(() => _mes = DateTime(_mes.year, _mes.month + 1)),
+                onTap: () => setState(
+                  () => _mes = DateTime(
+                    _mes.year,
+                    _mes.month + (_verMeses ? 12 : 1),
+                  ),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          _grilla(),
+          const SizedBox(height: 4),
+          _verMeses ? _meses() : _grilla(),
           if (feriadosMes.isNotEmpty) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 6),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: const Color(0xFFFDECEF),
                 borderRadius: BorderRadius.circular(12),
@@ -188,15 +224,15 @@ class _CalendarioRangoState extends State<_CalendarioRango> {
               child: Text(
                 feriadosMes
                     .map((e) => '${_corta(e.key)} · ${e.value}')
-                    .join('\n'),
+                    .join('   ·   '),
                 style: const TextStyle(fontSize: 13, color: _rojo),
               ),
             ),
           ],
           if (resumen != null) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 6),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: KipuColores.moradoClaro,
                 borderRadius: BorderRadius.circular(12),
@@ -210,7 +246,7 @@ class _CalendarioRangoState extends State<_CalendarioRango> {
               ),
             ),
           ],
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
@@ -239,29 +275,102 @@ class _CalendarioRangoState extends State<_CalendarioRango> {
     final hoy = _clave(DateTime.now());
     final vacios = DateTime(_mes.year, _mes.month).weekday - 1;
     final dias = DateTime(_mes.year, _mes.month + 1, 0).day;
-    final celdas = <Widget>[
-      for (final l in 'LMXJVSD'.split(''))
-        Center(
-          child: Text(
-            l,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: KipuColores.gris,
-            ),
-          ),
+    return Column(
+      children: [
+        Row(
+          children: [
+            for (final l in 'LMXJVSD'.split(''))
+              Expanded(
+                child: Center(
+                  child: Text(
+                    l,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: KipuColores.gris,
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
-      for (var i = 0; i < vacios; i++) const SizedBox(),
-      for (var d = 1; d <= dias; d++)
-        _dia(DateTime(_mes.year, _mes.month, d), hoy),
-    ];
+        const SizedBox(height: 4),
+        GridView.count(
+          crossAxisCount: 7,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 2,
+          // Celdas bajas para que la ventana entre sin scroll en una laptop.
+          childAspectRatio: 1.85,
+          children: [
+            for (var i = 0; i < vacios; i++) const SizedBox(),
+            for (var d = 1; d <= dias; d++)
+              _dia(DateTime(_mes.year, _mes.month, d), hoy),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// Los 12 meses del año para saltar directo a uno.
+  Widget _meses() {
+    final conFecha = {
+      for (final f in [_inicio, _fin])
+        if (f != null) f.substring(0, 7),
+    };
     return GridView.count(
-      crossAxisCount: 7,
+      crossAxisCount: 4,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 4,
-      childAspectRatio: 1.25,
-      children: celdas,
+      mainAxisSpacing: 8,
+      crossAxisSpacing: 8,
+      childAspectRatio: 2.1,
+      children: [
+        for (var m = 1; m <= 12; m++)
+          Builder(
+            builder: (context) {
+              final fecha = DateTime(_mes.year, m);
+              final actual = m == _mes.month;
+              final marcado = conFecha.contains(
+                DateFormat('yyyy-MM').format(fecha),
+              );
+              return Material(
+                color: actual
+                    ? KipuColores.morado
+                    : marcado
+                    ? KipuColores.moradoClaro
+                    : KipuColores.fondo,
+                borderRadius: BorderRadius.circular(13),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(13),
+                  onTap: () => setState(() {
+                    _mes = fecha;
+                    _verMeses = false;
+                  }),
+                  child: Center(
+                    child: Text(
+                      _mayuscula(
+                        DateFormat(
+                          'MMM',
+                          'es_PE',
+                        ).format(fecha).replaceAll('.', ''),
+                      ),
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: actual
+                            ? Colors.white
+                            : marcado
+                            ? KipuColores.moradoOscuro
+                            : KipuColores.tinta,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+      ],
     );
   }
 
@@ -331,7 +440,7 @@ class _CalendarioRangoState extends State<_CalendarioRango> {
               ),
               if (punto != null && !elegido)
                 Positioned(
-                  bottom: 4,
+                  bottom: 2,
                   child: Container(
                     width: 5,
                     height: 5,
@@ -371,7 +480,7 @@ class _Caja extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 6),
         decoration: BoxDecoration(
           color: activa ? KipuColores.fondo : Colors.white,
           borderRadius: BorderRadius.circular(15),
@@ -431,8 +540,8 @@ class _BotonMes extends StatelessWidget {
         borderRadius: BorderRadius.circular(11),
         onTap: onTap,
         child: SizedBox(
-          width: 36,
-          height: 36,
+          width: 32,
+          height: 32,
           child: Center(
             child: Transform.flip(
               flipX: atras,
