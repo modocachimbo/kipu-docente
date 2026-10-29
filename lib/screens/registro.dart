@@ -264,9 +264,11 @@ class _RegistroCursoState extends State<RegistroCurso> {
     return Scaffold(
       drawer: const MenuCajon(),
       backgroundColor: KipuColores.fondo,
+      // Sube un poco para no tapar la fila de medias.
       floatingActionButton: _BotonMas(
         colores: colores,
         sinEstudiantes: total == 0,
+        elevar: total == 0 ? 0 : (ancho ? 54 : 46),
         onAccion: accion,
       ),
       body: SafeArea(
@@ -691,10 +693,12 @@ Future<void> _accionRegistro(
 class _BotonMas extends StatelessWidget {
   final ColoresRegistro colores;
   final bool sinEstudiantes;
+  final double elevar;
   final ValueChanged<String> onAccion;
   const _BotonMas({
     required this.colores,
     required this.sinEstudiantes,
+    required this.elevar,
     required this.onAccion,
   });
 
@@ -720,7 +724,7 @@ class _BotonMas extends StatelessWidget {
         child: Align(
           alignment: Alignment.bottomRight,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+            padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + elevar),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.end,
@@ -792,12 +796,15 @@ class _BotonMas extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => FloatingActionButton(
-    tooltip: 'Más opciones',
-    backgroundColor: colores.calculadas,
-    shape: const CircleBorder(),
-    onPressed: () => _abrir(context),
-    child: const KipuIcon(KipuIcono.agregar, size: 28, color: Colors.white),
+  Widget build(BuildContext context) => Padding(
+    padding: EdgeInsets.only(bottom: elevar),
+    child: FloatingActionButton(
+      tooltip: 'Más opciones',
+      backgroundColor: colores.calculadas,
+      shape: const CircleBorder(),
+      onPressed: () => _abrir(context),
+      child: const KipuIcon(KipuIcono.agregar, size: 28, color: Colors.white),
+    ),
   );
 }
 
@@ -1005,6 +1012,20 @@ class _TablaState extends State<_Tabla> {
     final fija = w.columnas.where((c) => c.fijada).firstOrNull;
     final libres = w.columnas.where((c) => !c.fijada).toList();
     final c = w.colores;
+    final pieH = ancho ? 50.0 : 44.0;
+
+    Widget pie(RegistroColumna col, double ancho, {bool fijada = false}) =>
+        _CeldaMedia(
+          texto: col.tipo == 'nota'
+              ? mediaColumna([
+                  for (final e in w.estudiantes) ?w.notas[col.id]?[e.id],
+                ], w.escalaDe(col))
+              : null,
+          escala: w.escalaDe(col),
+          ancho: ancho,
+          alto: pieH,
+          fijada: fijada,
+        );
 
     Widget lista(int i, Widget Function(Estudiante e, int i) fila) =>
         ListView.builder(
@@ -1059,6 +1080,23 @@ class _TablaState extends State<_Tabla> {
                 conducta: w.conducta[e.id] ?? (0, 0),
                 onTap: () => w.onEstudiante(e),
                 onConducta: () => w.onConducta(e),
+              ),
+            ),
+          ),
+          Container(
+            height: pieH,
+            alignment: Alignment.centerLeft,
+            padding: EdgeInsets.only(left: ancho ? 18 : 12),
+            decoration: BoxDecoration(
+              color: c.cabecera,
+              border: const Border(top: BorderSide(color: _linea)),
+            ),
+            child: Text(
+              ancho ? 'Media de la columna' : 'Media',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: c.tintaCabecera,
               ),
             ),
           ),
@@ -1126,6 +1164,19 @@ class _TablaState extends State<_Tabla> {
                   ),
                 ),
               ),
+              Container(
+                height: pieH,
+                decoration: BoxDecoration(
+                  color: c.cabecera,
+                  border: const Border(top: BorderSide(color: _linea)),
+                ),
+                child: Row(
+                  children: [
+                    for (final col in libres) pie(col, celdaW),
+                    SizedBox(width: agregarW),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
@@ -1173,6 +1224,15 @@ class _TablaState extends State<_Tabla> {
                 ),
               ),
             ),
+            Container(
+              height: pieH,
+              decoration: BoxDecoration(
+                border: Border(
+                  top: BorderSide(color: Colors.white.withValues(alpha: .15)),
+                ),
+              ),
+              child: pie(fija, fijaW, fijada: true),
+            ),
           ],
         ),
       );
@@ -1200,6 +1260,18 @@ class _TablaState extends State<_Tabla> {
                       top: 0,
                       height: cabH,
                       child: ColoredBox(color: c.cabecera),
+                    ),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      height: pieH,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: c.cabecera,
+                          border: const Border(top: BorderSide(color: _linea)),
+                        ),
+                      ),
                     ),
                     Positioned.fill(child: notas),
                   ],
@@ -1630,6 +1702,80 @@ class VistaNota extends StatelessWidget {
     return i == 0
         ? _Pastilla(v, color, Colors.white)
         : _Pastilla(v, Color.lerp(color, Colors.white, .86)!, color);
+  }
+}
+
+/// Media de una columna: promedio con un decimal si es numérica, la letra
+/// más repetida si es por letras y "9 de 11" si es Logrado / No logrado.
+String? mediaColumna(List<String> valores, Escala? e) {
+  if (valores.isEmpty) return null;
+  if (e == null || e.numerica) {
+    final n = [
+      for (final v in valores) ?double.tryParse(v.replaceAll(',', '.')),
+    ];
+    if (n.isEmpty) return null;
+    final m = n.reduce((a, b) => a + b) / n.length;
+    return m.toStringAsFixed(1).replaceAll('.', ',');
+  }
+  if (esSiNo(e)) {
+    final si = valores.where((v) => v == e.valores.first.codigo).length;
+    return '$si de ${valores.length}';
+  }
+  final cuenta = <String, int>{};
+  for (final v in valores) {
+    cuenta[v] = (cuenta[v] ?? 0) + 1;
+  }
+  // Ante empate gana la letra más alta de la escala.
+  final orden = [for (final x in e.valores) x.codigo];
+  return (cuenta.keys.toList()..sort((a, b) {
+        final d = cuenta[b]!.compareTo(cuenta[a]!);
+        return d != 0 ? d : orden.indexOf(a).compareTo(orden.indexOf(b));
+      }))
+      .first;
+}
+
+class _CeldaMedia extends StatelessWidget {
+  final String? texto;
+  final Escala? escala;
+  final double ancho;
+  final double alto;
+  final bool fijada;
+  const _CeldaMedia({
+    required this.texto,
+    required this.escala,
+    required this.ancho,
+    required this.alto,
+    required this.fijada,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final t = texto;
+    final e = escala;
+    var color = fijada ? Colors.white : KipuColores.tinta;
+    if (t != null && !fijada && (e == null || e.numerica)) {
+      final n = double.tryParse(t.replaceAll(',', '.'));
+      if (n != null && e?.aprueba != null && n < e!.aprueba!) color = _rojo;
+    }
+    return SizedBox(
+      width: ancho,
+      height: alto,
+      child: Center(
+        child: Text(
+          t ?? '—',
+          style: TextStyle(
+            fontSize: 14.5,
+            fontWeight: FontWeight.w600,
+            color: t == null
+                ? (fijada
+                      ? Colors.white.withValues(alpha: .45)
+                      : const Color(0xFFB0B4D0))
+                : color,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      ),
+    );
   }
 }
 
