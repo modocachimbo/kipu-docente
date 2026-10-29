@@ -199,14 +199,27 @@ Future<void> cargarDatosDeEjemplo(KipuDb db) async {
           }
           for (final d in dias.skip(1)) {
             final r = azar.nextDouble();
+            final estado = r < 0.86
+                ? 'P'
+                : (r < 0.93 ? 'T' : (r < 0.97 ? 'F' : 'J'));
+            // Algunas faltas y tardanzas llevan su notita.
+            final (motivo, nota) = switch (estado) {
+              'J' => ('Salud', 'Trajo certificado médico'),
+              'F' when azar.nextBool() => (
+                'Cita médica',
+                'Avisó la mamá por WhatsApp',
+              ),
+              'T' when azar.nextBool() => (null, 'Llegó 8:15, tráfico'),
+              _ => (null, null),
+            };
             b.insert(
               db.asistencias,
               AsistenciasCompanion.insert(
                 estudianteId: id,
                 fecha: fecha(d),
-                estado: r < 0.86
-                    ? 'P'
-                    : (r < 0.93 ? 'T' : (r < 0.97 ? 'F' : 'J')),
+                estado: estado,
+                motivo: Value(motivo),
+                nota: Value(nota),
               ),
             );
           }

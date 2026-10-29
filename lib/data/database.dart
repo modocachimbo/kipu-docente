@@ -70,6 +70,8 @@ class Asistencias extends Table {
       integer().references(Estudiantes, #id, onDelete: KeyAction.cascade)();
   TextColumn get fecha => text()(); // yyyy-MM-dd
   TextColumn get estado => text().withLength(min: 1, max: 1)();
+  TextColumn get motivo => text().nullable()(); // Salud, Viaje...
+  TextColumn get nota => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {estudianteId, fecha};
@@ -224,7 +226,7 @@ class KipuDb extends _$KipuDb {
   KipuDb([QueryExecutor? executor]) : super(executor ?? _abrir());
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -246,6 +248,10 @@ class KipuDb extends _$KipuDb {
       if (from < 8) {
         await m.addColumn(estudiantes, estudiantes.desde);
         await m.addColumn(estudiantes, estudiantes.hasta);
+      }
+      if (from < 10) {
+        await m.addColumn(asistencias, asistencias.motivo);
+        await m.addColumn(asistencias, asistencias.nota);
       }
       if (from < 9) {
         await m.addColumn(cursos, cursos.tutor);
@@ -523,13 +529,59 @@ class KipuDb extends _$KipuDb {
           ))
           .go();
     }
-    return into(asistencias).insertOnConflictUpdate(
+    // Cambiar el estado no borra la nota que ya tenía.
+    return into(asistencias).insert(
       AsistenciasCompanion.insert(
         estudianteId: estudianteId,
         fecha: fecha,
         estado: estado,
       ),
+      onConflict: DoUpdate((_) => AsistenciasCompanion(estado: Value(estado))),
     );
+  }
+
+  /// Estado, motivo y nota de una asistencia, de una vez.
+  Future<void> guardarAsistencia(
+    int estudianteId,
+    String fecha,
+    String estado, {
+    String? motivo,
+    String? nota,
+  }) => into(asistencias).insertOnConflictUpdate(
+    AsistenciasCompanion.insert(
+      estudianteId: estudianteId,
+      fecha: fecha,
+      estado: estado,
+      motivo: Value(motivo),
+      nota: Value(nota),
+    ),
+  );
+
+  /// Asistencias del curso en un día, con su nota: {estudianteId: fila}.
+  Stream<Map<int, Asistencia>> verAsistenciaDelDia(int cursoId, String fecha) =>
+      verAsistenciaCurso(
+        cursoId,
+        fecha,
+        fecha,
+      ).map((l) => {for (final a in l) a.estudianteId: a});
+
+  /// Todas las asistencias del curso entre dos fechas (incluidas).
+  Stream<List<Asistencia>> verAsistenciaCurso(
+    int cursoId,
+    String desde,
+    String hasta,
+  ) {
+    final q =
+        select(asistencias).join([
+          innerJoin(
+            estudiantes,
+            estudiantes.id.equalsExp(asistencias.estudianteId),
+          ),
+        ])..where(
+          estudiantes.cursoId.equals(cursoId) &
+              asistencias.fecha.isBetweenValues(desde, hasta),
+        );
+    return q.watch().map((f) => [for (final r in f) r.readTable(asistencias)]);
   }
 
   Future<void> marcarTodos(
@@ -537,14 +589,18 @@ class KipuDb extends _$KipuDb {
     String fecha,
     String estado,
   ) => batch(
-    (b) => b.insertAllOnConflictUpdate(asistencias, [
-      for (final id in estudianteIds)
-        AsistenciasCompanion.insert(
-          estudianteId: id,
-          fecha: fecha,
-          estado: estado,
-        ),
-    ]),
+    (b) => b.insertAll(
+      asistencias,
+      [
+        for (final id in estudianteIds)
+          AsistenciasCompanion.insert(
+            estudianteId: id,
+            fecha: fecha,
+            estado: estado,
+          ),
+      ],
+      onConflict: DoUpdate((_) => AsistenciasCompanion(estado: Value(estado))),
+    ),
   );
 
   // Notas y estadística

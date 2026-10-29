@@ -2280,8 +2280,32 @@ class $AsistenciasTable extends Asistencias
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _motivoMeta = const VerificationMeta('motivo');
   @override
-  List<GeneratedColumn> get $columns => [estudianteId, fecha, estado];
+  late final GeneratedColumn<String> motivo = GeneratedColumn<String>(
+    'motivo',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _notaMeta = const VerificationMeta('nota');
+  @override
+  late final GeneratedColumn<String> nota = GeneratedColumn<String>(
+    'nota',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    estudianteId,
+    fecha,
+    estado,
+    motivo,
+    nota,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -2321,6 +2345,18 @@ class $AsistenciasTable extends Asistencias
     } else if (isInserting) {
       context.missing(_estadoMeta);
     }
+    if (data.containsKey('motivo')) {
+      context.handle(
+        _motivoMeta,
+        motivo.isAcceptableOrUnknown(data['motivo']!, _motivoMeta),
+      );
+    }
+    if (data.containsKey('nota')) {
+      context.handle(
+        _notaMeta,
+        nota.isAcceptableOrUnknown(data['nota']!, _notaMeta),
+      );
+    }
     return context;
   }
 
@@ -2342,6 +2378,14 @@ class $AsistenciasTable extends Asistencias
         DriftSqlType.string,
         data['${effectivePrefix}estado'],
       )!,
+      motivo: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}motivo'],
+      ),
+      nota: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}nota'],
+      ),
     );
   }
 
@@ -2355,10 +2399,14 @@ class Asistencia extends DataClass implements Insertable<Asistencia> {
   final int estudianteId;
   final String fecha;
   final String estado;
+  final String? motivo;
+  final String? nota;
   const Asistencia({
     required this.estudianteId,
     required this.fecha,
     required this.estado,
+    this.motivo,
+    this.nota,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2366,6 +2414,12 @@ class Asistencia extends DataClass implements Insertable<Asistencia> {
     map['estudiante_id'] = Variable<int>(estudianteId);
     map['fecha'] = Variable<String>(fecha);
     map['estado'] = Variable<String>(estado);
+    if (!nullToAbsent || motivo != null) {
+      map['motivo'] = Variable<String>(motivo);
+    }
+    if (!nullToAbsent || nota != null) {
+      map['nota'] = Variable<String>(nota);
+    }
     return map;
   }
 
@@ -2374,6 +2428,10 @@ class Asistencia extends DataClass implements Insertable<Asistencia> {
       estudianteId: Value(estudianteId),
       fecha: Value(fecha),
       estado: Value(estado),
+      motivo: motivo == null && nullToAbsent
+          ? const Value.absent()
+          : Value(motivo),
+      nota: nota == null && nullToAbsent ? const Value.absent() : Value(nota),
     );
   }
 
@@ -2386,6 +2444,8 @@ class Asistencia extends DataClass implements Insertable<Asistencia> {
       estudianteId: serializer.fromJson<int>(json['estudianteId']),
       fecha: serializer.fromJson<String>(json['fecha']),
       estado: serializer.fromJson<String>(json['estado']),
+      motivo: serializer.fromJson<String?>(json['motivo']),
+      nota: serializer.fromJson<String?>(json['nota']),
     );
   }
   @override
@@ -2395,15 +2455,24 @@ class Asistencia extends DataClass implements Insertable<Asistencia> {
       'estudianteId': serializer.toJson<int>(estudianteId),
       'fecha': serializer.toJson<String>(fecha),
       'estado': serializer.toJson<String>(estado),
+      'motivo': serializer.toJson<String?>(motivo),
+      'nota': serializer.toJson<String?>(nota),
     };
   }
 
-  Asistencia copyWith({int? estudianteId, String? fecha, String? estado}) =>
-      Asistencia(
-        estudianteId: estudianteId ?? this.estudianteId,
-        fecha: fecha ?? this.fecha,
-        estado: estado ?? this.estado,
-      );
+  Asistencia copyWith({
+    int? estudianteId,
+    String? fecha,
+    String? estado,
+    Value<String?> motivo = const Value.absent(),
+    Value<String?> nota = const Value.absent(),
+  }) => Asistencia(
+    estudianteId: estudianteId ?? this.estudianteId,
+    fecha: fecha ?? this.fecha,
+    estado: estado ?? this.estado,
+    motivo: motivo.present ? motivo.value : this.motivo,
+    nota: nota.present ? nota.value : this.nota,
+  );
   Asistencia copyWithCompanion(AsistenciasCompanion data) {
     return Asistencia(
       estudianteId: data.estudianteId.present
@@ -2411,6 +2480,8 @@ class Asistencia extends DataClass implements Insertable<Asistencia> {
           : this.estudianteId,
       fecha: data.fecha.present ? data.fecha.value : this.fecha,
       estado: data.estado.present ? data.estado.value : this.estado,
+      motivo: data.motivo.present ? data.motivo.value : this.motivo,
+      nota: data.nota.present ? data.nota.value : this.nota,
     );
   }
 
@@ -2419,37 +2490,47 @@ class Asistencia extends DataClass implements Insertable<Asistencia> {
     return (StringBuffer('Asistencia(')
           ..write('estudianteId: $estudianteId, ')
           ..write('fecha: $fecha, ')
-          ..write('estado: $estado')
+          ..write('estado: $estado, ')
+          ..write('motivo: $motivo, ')
+          ..write('nota: $nota')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(estudianteId, fecha, estado);
+  int get hashCode => Object.hash(estudianteId, fecha, estado, motivo, nota);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is Asistencia &&
           other.estudianteId == this.estudianteId &&
           other.fecha == this.fecha &&
-          other.estado == this.estado);
+          other.estado == this.estado &&
+          other.motivo == this.motivo &&
+          other.nota == this.nota);
 }
 
 class AsistenciasCompanion extends UpdateCompanion<Asistencia> {
   final Value<int> estudianteId;
   final Value<String> fecha;
   final Value<String> estado;
+  final Value<String?> motivo;
+  final Value<String?> nota;
   final Value<int> rowid;
   const AsistenciasCompanion({
     this.estudianteId = const Value.absent(),
     this.fecha = const Value.absent(),
     this.estado = const Value.absent(),
+    this.motivo = const Value.absent(),
+    this.nota = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   AsistenciasCompanion.insert({
     required int estudianteId,
     required String fecha,
     required String estado,
+    this.motivo = const Value.absent(),
+    this.nota = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : estudianteId = Value(estudianteId),
        fecha = Value(fecha),
@@ -2458,12 +2539,16 @@ class AsistenciasCompanion extends UpdateCompanion<Asistencia> {
     Expression<int>? estudianteId,
     Expression<String>? fecha,
     Expression<String>? estado,
+    Expression<String>? motivo,
+    Expression<String>? nota,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (estudianteId != null) 'estudiante_id': estudianteId,
       if (fecha != null) 'fecha': fecha,
       if (estado != null) 'estado': estado,
+      if (motivo != null) 'motivo': motivo,
+      if (nota != null) 'nota': nota,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2472,12 +2557,16 @@ class AsistenciasCompanion extends UpdateCompanion<Asistencia> {
     Value<int>? estudianteId,
     Value<String>? fecha,
     Value<String>? estado,
+    Value<String?>? motivo,
+    Value<String?>? nota,
     Value<int>? rowid,
   }) {
     return AsistenciasCompanion(
       estudianteId: estudianteId ?? this.estudianteId,
       fecha: fecha ?? this.fecha,
       estado: estado ?? this.estado,
+      motivo: motivo ?? this.motivo,
+      nota: nota ?? this.nota,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2494,6 +2583,12 @@ class AsistenciasCompanion extends UpdateCompanion<Asistencia> {
     if (estado.present) {
       map['estado'] = Variable<String>(estado.value);
     }
+    if (motivo.present) {
+      map['motivo'] = Variable<String>(motivo.value);
+    }
+    if (nota.present) {
+      map['nota'] = Variable<String>(nota.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2506,6 +2601,8 @@ class AsistenciasCompanion extends UpdateCompanion<Asistencia> {
           ..write('estudianteId: $estudianteId, ')
           ..write('fecha: $fecha, ')
           ..write('estado: $estado, ')
+          ..write('motivo: $motivo, ')
+          ..write('nota: $nota, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -7125,6 +7222,8 @@ typedef $$AsistenciasTableCreateCompanionBuilder =
       required int estudianteId,
       required String fecha,
       required String estado,
+      Value<String?> motivo,
+      Value<String?> nota,
       Value<int> rowid,
     });
 typedef $$AsistenciasTableUpdateCompanionBuilder =
@@ -7132,6 +7231,8 @@ typedef $$AsistenciasTableUpdateCompanionBuilder =
       Value<int> estudianteId,
       Value<String> fecha,
       Value<String> estado,
+      Value<String?> motivo,
+      Value<String?> nota,
       Value<int> rowid,
     });
 
@@ -7173,6 +7274,16 @@ class $$AsistenciasTableFilterComposer
 
   ColumnFilters<String> get estado => $composableBuilder(
     column: $table.estado,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get motivo => $composableBuilder(
+    column: $table.motivo,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get nota => $composableBuilder(
+    column: $table.nota,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7219,6 +7330,16 @@ class $$AsistenciasTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get motivo => $composableBuilder(
+    column: $table.motivo,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get nota => $composableBuilder(
+    column: $table.nota,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$EstudiantesTableOrderingComposer get estudianteId {
     final $$EstudiantesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -7257,6 +7378,12 @@ class $$AsistenciasTableAnnotationComposer
 
   GeneratedColumn<String> get estado =>
       $composableBuilder(column: $table.estado, builder: (column) => column);
+
+  GeneratedColumn<String> get motivo =>
+      $composableBuilder(column: $table.motivo, builder: (column) => column);
+
+  GeneratedColumn<String> get nota =>
+      $composableBuilder(column: $table.nota, builder: (column) => column);
 
   $$EstudiantesTableAnnotationComposer get estudianteId {
     final $$EstudiantesTableAnnotationComposer composer = $composerBuilder(
@@ -7313,11 +7440,15 @@ class $$AsistenciasTableTableManager
                 Value<int> estudianteId = const Value.absent(),
                 Value<String> fecha = const Value.absent(),
                 Value<String> estado = const Value.absent(),
+                Value<String?> motivo = const Value.absent(),
+                Value<String?> nota = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AsistenciasCompanion(
                 estudianteId: estudianteId,
                 fecha: fecha,
                 estado: estado,
+                motivo: motivo,
+                nota: nota,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -7325,11 +7456,15 @@ class $$AsistenciasTableTableManager
                 required int estudianteId,
                 required String fecha,
                 required String estado,
+                Value<String?> motivo = const Value.absent(),
+                Value<String?> nota = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AsistenciasCompanion.insert(
                 estudianteId: estudianteId,
                 fecha: fecha,
                 estado: estado,
+                motivo: motivo,
+                nota: nota,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

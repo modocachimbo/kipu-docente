@@ -39,7 +39,7 @@ final _secciones = <_Seccion>[
   _Seccion(
     'Asistencia',
     KipuIcono.asistencia,
-    () => const Asistencia(),
+    () => const PantallaAsistencia(),
     enBarra: true,
   ),
   _Seccion(
