@@ -39,6 +39,24 @@ enum KipuIcono {
   engranaje,
   diana,
   promedio,
+  menu,
+  sonrisa,
+  equipo,
+  calculadora,
+  columna,
+  chincheta,
+  camara,
+  pegar,
+  participa,
+  corazon,
+  mochila,
+  charla,
+  celular,
+  libro,
+  deshacer,
+  izquierda,
+  derecha,
+  obras,
 }
 
 // R = relleno suave, T = trazo. Ambos se reemplazan por el color al dibujar.
@@ -181,6 +199,64 @@ const _svg = <KipuIcono, String>{
 <rect x="3" y="3" width="18" height="18" rx="4" fill="R"/>
 <rect x="3" y="3" width="18" height="18" rx="4" stroke="T"/>
 <path d="M8 16v-3M12 16V8M16 16v-5" stroke="T"/>''',
+  KipuIcono.menu: '''
+<path d="M4 7h16M4 12h16M4 17h10" stroke="T"/>''',
+  KipuIcono.sonrisa: '''
+<circle cx="12" cy="12" r="9" fill="R"/>
+<circle cx="12" cy="12" r="9" stroke="T"/>
+<path d="M8.5 14c.9 1.3 2.1 2 3.5 2s2.6-.7 3.5-2M9.3 9.6v.4M14.7 9.6v.4" stroke="T"/>''',
+  KipuIcono.equipo: '''
+<circle cx="12" cy="8" r="3" fill="R"/>
+<circle cx="12" cy="8" r="3" stroke="T"/>
+<path d="M7 19.5c.6-3 2.6-4.8 5-4.8s4.4 1.8 5 4.8M5.5 7.7a2.3 2.3 0 1 0 .1 4.6M18.5 7.7a2.3 2.3 0 1 1-.1 4.6M2.5 18c.3-1.8 1.4-3 3-3.3M21.5 18c-.3-1.8-1.4-3-3-3.3" stroke="T"/>''',
+  KipuIcono.calculadora: '''
+<rect x="5" y="3" width="14" height="18" rx="3" fill="R"/>
+<rect x="5" y="3" width="14" height="18" rx="3" stroke="T"/>
+<path d="M8.5 7.5h7M9 12h.01M12 12h.01M15 12h.01M9 16h.01M12 16h.01M15 16h.01" stroke="T"/>''',
+  KipuIcono.columna: '''
+<rect x="3.5" y="4" width="7" height="16" rx="2.5" fill="R"/>
+<rect x="3.5" y="4" width="7" height="16" rx="2.5" stroke="T"/>
+<path d="M14.5 8h6M17.5 5v6M14.5 16h6" stroke="T"/>''',
+  KipuIcono.chincheta: '''
+<path d="M9 3.5h6l-1 5.5 3 3H7l3-3-1-5.5Z" fill="R"/>
+<path d="M9 3.5h6l-1 5.5 3 3H7l3-3-1-5.5ZM12 12v8.5" stroke="T"/>''',
+  KipuIcono.camara: '''
+<path d="M4 8.5A2 2 0 0 1 6 6.5h2l1.5-2h5l1.5 2h2a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8.5Z" fill="R"/>
+<path d="M4 8.5A2 2 0 0 1 6 6.5h2l1.5-2h5l1.5 2h2a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8.5Z" stroke="T"/>
+<circle cx="12" cy="13" r="3.3" stroke="T"/>''',
+  KipuIcono.pegar: '''
+<rect x="5.5" y="5" width="13" height="16" rx="3" fill="R"/>
+<rect x="5.5" y="5" width="13" height="16" rx="3" stroke="T"/>
+<path d="M9 5V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1M9 11h6M9 15h4" stroke="T"/>''',
+  KipuIcono.participa: '''
+<path d="M8 13V6.5a1.5 1.5 0 0 1 3 0V12M11 11V5a1.5 1.5 0 0 1 3 0v6M14 11V6.5a1.5 1.5 0 0 1 3 0V14c0 4-2.5 6.5-6 6.5-2.7 0-4.3-1.4-5.6-3.6L4 13.8a1.5 1.5 0 0 1 2.6-1.5L8 14" fill="R"/>
+<path d="M8 13V6.5a1.5 1.5 0 0 1 3 0V12M11 11V5a1.5 1.5 0 0 1 3 0v6M14 11V6.5a1.5 1.5 0 0 1 3 0V14c0 4-2.5 6.5-6 6.5-2.7 0-4.3-1.4-5.6-3.6L4 13.8a1.5 1.5 0 0 1 2.6-1.5L8 14" stroke="T"/>''',
+  KipuIcono.corazon: '''
+<path d="M12 20s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.3 4.3 4.3 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10Z" fill="R"/>
+<path d="M12 20s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.3 4.3 4.3 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10Z" stroke="T"/>''',
+  KipuIcono.mochila: '''
+<rect x="5" y="7" width="14" height="14" rx="3.5" fill="R"/>
+<rect x="5" y="7" width="14" height="14" rx="3.5" stroke="T"/>
+<path d="M9 7V5.5a3 3 0 0 1 6 0V7M8.5 13h7M12 13v2" stroke="T"/>''',
+  KipuIcono.charla: '''
+<path d="M4.5 6.5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H11l-4 3.5v-3.5h-.5a2 2 0 0 1-2-2v-7Z" fill="R"/>
+<path d="M4.5 6.5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H11l-4 3.5v-3.5h-.5a2 2 0 0 1-2-2v-7ZM9 9.5h6M9 12h3.5" stroke="T"/>''',
+  KipuIcono.celular: '''
+<rect x="7" y="3" width="10" height="18" rx="2.5" fill="R"/>
+<rect x="7" y="3" width="10" height="18" rx="2.5" stroke="T"/>
+<path d="M11 17.5h2" stroke="T"/>''',
+  KipuIcono.libro: '''
+<path d="M5 5a2 2 0 0 1 2-2h11v15H7a2 2 0 0 0-2 2V5Z" fill="R"/>
+<path d="M5 20V5a2 2 0 0 1 2-2h11v15H7a2 2 0 0 0-2 2Zm0 0a2 2 0 0 0 2 1h11v-3M9 7.5h5" stroke="T"/>''',
+  KipuIcono.deshacer: '''
+<path d="M8 7 4 11l4 4M4 11h10a5 5 0 0 1 0 10h-3" stroke="T"/>''',
+  KipuIcono.izquierda: '''
+<path d="m15 5-7 7 7 7" stroke="T"/>''',
+  KipuIcono.derecha: '''
+<path d="m9 5 7 7-7 7" stroke="T"/>''',
+  KipuIcono.obras: '''
+<path d="M4 20h16l-8-15-8 15Z" fill="R"/>
+<path d="M4 20h16l-8-15-8 15ZM7.5 14h9M6 17h12" stroke="T"/>''',
 };
 
 String _hex(Color c) =>

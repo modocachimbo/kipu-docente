@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:intl/intl.dart';
 
 import 'database.dart';
+import 'registro.dart';
 
 /// Datos inventados para probar la app sin tener que llenar nada.
 Future<void> cargarDatosDeEjemplo(KipuDb db) async {
@@ -149,6 +150,7 @@ Future<void> cargarDatosDeEjemplo(KipuDb db) async {
         ),
       );
       idCursos.add(cursoId);
+      final alumnos = <(int, double)>[];
       final cantidad = 22 + azar.nextInt(10);
       for (var i = 0; i < cantidad; i++) {
         final id = await db
@@ -163,6 +165,7 @@ Future<void> cargarDatosDeEjemplo(KipuDb db) async {
         idEstudiantes.add(id);
         // Cada estudiante tiene su propio nivel para que las notas sean coherentes.
         final nivel = azar.nextDouble() * 0.5 - 0.15;
+        alumnos.add((id, nivel));
         await db.batch((b) {
           for (var p = 1; p <= 3; p++) {
             for (final comp in competencias) {
@@ -192,6 +195,7 @@ Future<void> cargarDatosDeEjemplo(KipuDb db) async {
           }
         });
       }
+      await _registroDeEjemplo(db, cursoId, alumnos, azar, fecha(hoy));
     }
 
     await db.batch(
@@ -259,4 +263,88 @@ Future<void> cargarDatosDeEjemplo(KipuDb db) async {
     }
     await db.batch((b) => b.insertAll(db.eventos, eventos));
   });
+}
+
+/// Registro auxiliar del 1.° bimestre: columnas mezcladas, una en equipo, un
+/// promedio (calculada, aún vacía) y algo de conducta de hoy.
+Future<void> _registroDeEjemplo(
+  KipuDb db,
+  int cursoId,
+  List<(int, double)> alumnos,
+  Random azar,
+  String hoy,
+) async {
+  final inicio = DateTime(DateTime.now().year, 3, 16);
+  String dia(int n) =>
+      DateFormat('yyyy-MM-dd').format(inicio.add(Duration(days: n)));
+  final columnas = [
+    ('F1', 'Materia y energía', 'vigesimal', false, 'nota', 2),
+    ('T1', 'Informe de laboratorio', 'cneb', false, 'nota', 6),
+    ('F2', 'Tabla periódica', 'vigesimal', false, 'nota', 13),
+    ('FB', 'Feedback de la práctica', 'logrado', false, 'nota', 15),
+    ('Exp.', 'Exposición', 'vigesimal', true, 'nota', 20),
+    ('F3', 'Enlaces químicos', 'vigesimal', false, 'nota', 27),
+    ('Prom.', null, null, false, 'calculada', null),
+  ];
+  // Equipos de cuatro en el orden de la lista.
+  final equipos = {
+    for (var i = 0; i < alumnos.length; i++) alumnos[i].$1: i ~/ 4 + 1,
+  };
+  await db.guardarEquipos(cursoId, equipos);
+  final notaEquipo = <int, String>{};
+  for (final (codigo, tema, escala, enEquipo, tipo, d) in columnas) {
+    final col = await db.crearColumna(
+      RegistroColumnasCompanion.insert(
+        cursoId: cursoId,
+        periodo: 1,
+        orden: 0,
+        codigo: codigo,
+        tema: Value(tema),
+        fecha: Value(d == null ? null : dia(d)),
+        tipo: Value(tipo),
+        escala: Value(escala),
+        enEquipo: Value(enEquipo),
+      ),
+    );
+    if (tipo != 'nota') continue;
+    await db.batch((b) {
+      for (final (id, nivel) in alumnos) {
+        // F3 todavía se está calificando: quedan varias vacías.
+        if (codigo == 'F3' && azar.nextDouble() < .45) continue;
+        final puntaje = 13 + nivel * 11 + azar.nextDouble() * 6 - 3;
+        final String valor;
+        switch (escala) {
+          case 'cneb':
+            valor = puntaje >= 17.5
+                ? 'AD'
+                : (puntaje >= 13.5 ? 'A' : (puntaje >= 10.5 ? 'B' : 'C'));
+          case 'logrado':
+            valor = puntaje >= 11 ? 'Logrado' : 'No logrado';
+          default:
+            final n = puntaje.clamp(5, 20).round();
+            valor = enEquipo
+                ? notaEquipo.putIfAbsent(equipos[id]!, () => '$n')
+                : '$n';
+        }
+        b.insert(
+          db.registroNotas,
+          RegistroNotasCompanion.insert(
+            columnaId: col,
+            estudianteId: id,
+            valor: valor,
+          ),
+        );
+      }
+    });
+  }
+  const buenas = ['Participa', 'Ayuda a un compañero', 'Trabaja en equipo'];
+  const malas = ['No trae material', 'Interrumpe', 'Sin tarea'];
+  for (final (id, _) in alumnos) {
+    final r = azar.nextDouble();
+    if (r < .22) {
+      await db.anotarConducta(id, hoy, true, buenas[azar.nextInt(3)]);
+    } else if (r < .3) {
+      await db.anotarConducta(id, hoy, false, malas[azar.nextInt(3)]);
+    }
+  }
 }

@@ -532,18 +532,7 @@ class _Contadores extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(5),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: KipuIcon(
-                            items[i].$1,
-                            size: 22,
-                            color: KipuColores.tarjetas[i][0],
-                          ),
-                        ),
+                        KipuIcon(items[i].$1, size: 28, color: Colors.white),
                         const Spacer(),
                         Text(
                           '${items[i].$2}',
@@ -631,7 +620,7 @@ class _Filtro<T> extends StatelessWidget {
                 ),
               ),
             ),
-            const Icon(Icons.arrow_drop_down, color: Colors.white),
+            const KipuIcon(KipuIcono.abajo, size: 18, color: Colors.white),
           ],
         ),
       ),

@@ -48,16 +48,7 @@ class Ventana extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Container(
-                    width: 46,
-                    height: 46,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: .18),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: KipuIcon(icono, color: Colors.white, size: 26),
-                  ),
+                  KipuIcon(icono, color: Colors.white, size: 32),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(

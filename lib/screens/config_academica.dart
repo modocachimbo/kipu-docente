@@ -330,15 +330,9 @@ class _Tarjeta extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 46,
-                  height: 46,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: KipuColores.moradoClaro,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: KipuIcon(icono, color: KipuColores.morado),
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: KipuIcon(icono, size: 32, color: KipuColores.morado),
                 ),
                 const SizedBox(width: 14),
                 Expanded(

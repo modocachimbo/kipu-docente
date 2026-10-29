@@ -104,6 +104,35 @@ final _secciones = <_Seccion>[
   ),
 ];
 
+/// Sección abierta del menú; las pantallas a pantalla completa (como el
+/// registro) la cambian desde su menú ☰.
+final seccionShell = ValueNotifier<int>(0);
+
+/// Menú de la app que se desliza encima de una pantalla completa.
+class MenuCajon extends StatelessWidget {
+  const MenuCajon({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      width: 280,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.horizontal(right: Radius.circular(28)),
+      ),
+      child: SafeArea(
+        child: _MenuLateral(
+          actual: seccionShell.value,
+          onTap: (i) {
+            Navigator.of(context).popUntil((r) => r.isFirst);
+            seccionShell.value = i;
+          },
+        ),
+      ),
+    );
+  }
+}
+
 class Shell extends StatefulWidget {
   const Shell({super.key});
 
@@ -112,9 +141,23 @@ class Shell extends StatefulWidget {
 }
 
 class _ShellState extends State<Shell> {
-  int _actual = 0;
+  int get _actual => seccionShell.value;
 
-  void _ir(int i) => setState(() => _actual = i);
+  void _ir(int i) => seccionShell.value = i;
+
+  void _cambio() => setState(() {});
+
+  @override
+  void initState() {
+    super.initState();
+    seccionShell.addListener(_cambio);
+  }
+
+  @override
+  void dispose() {
+    seccionShell.removeListener(_cambio);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

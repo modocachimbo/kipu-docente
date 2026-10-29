@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/demo.dart';
 import '../main.dart';
 import '../theme.dart';
+import '../widgets/kipu_icono.dart';
 
 /// Primer ingreso: sin cuenta ni internet, solo el nombre del docente.
 class Bienvenida extends StatefulWidget {
@@ -151,7 +152,9 @@ class _Logo extends StatelessWidget {
             color: KipuColores.morado,
             borderRadius: BorderRadius.circular(14),
           ),
-          child: const Icon(Icons.auto_stories, color: Colors.white),
+          child: const Center(
+            child: KipuIcon(KipuIcono.cursos, size: 26, color: Colors.white),
+          ),
         ),
         const SizedBox(width: 12),
         const Text(

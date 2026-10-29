@@ -30,8 +30,8 @@ class Configuracion extends StatelessWidget {
                 ),
                 const Divider(height: 1),
                 ListTile(
-                  leading: Icon(
-                    Icons.palette_outlined,
+                  leading: KipuIcon(
+                    KipuIcono.paleta,
                     color: KipuColores.morado,
                   ),
                   title: const Text('Color de la app'),
@@ -68,8 +68,8 @@ class Configuracion extends StatelessWidget {
                 ),
                 const Divider(height: 1),
                 ListTile(
-                  leading: const Icon(
-                    Icons.delete_outline,
+                  leading: const KipuIcon(
+                    KipuIcono.borrar,
                     color: Color(0xFFE5566B),
                   ),
                   title: const Text('Borrar todos mis datos'),
@@ -184,7 +184,7 @@ Future<void> elegirEstilo(BuildContext context) async {
                             : null,
                       ),
                       child: e.id == estiloActual.value.id
-                          ? const Icon(Icons.check, color: Colors.white)
+                          ? const KipuIcon(KipuIcono.check, color: Colors.white)
                           : null,
                     ),
                     const SizedBox(height: 6),

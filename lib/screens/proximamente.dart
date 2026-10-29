@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
+import '../widgets/kipu_icono.dart';
 
 class Proximamente extends StatelessWidget {
   final String titulo;
@@ -18,18 +19,7 @@ class Proximamente extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                padding: const EdgeInsets.all(22),
-                decoration: BoxDecoration(
-                  color: KipuColores.moradoClaro,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.construction,
-                  size: 40,
-                  color: KipuColores.morado,
-                ),
-              ),
+              KipuIcon(KipuIcono.obras, size: 64, color: KipuColores.morado),
               const SizedBox(height: 18),
               const Text(
                 'En construcción',

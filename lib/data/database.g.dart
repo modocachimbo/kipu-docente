@@ -1173,6 +1173,15 @@ class $EstudiantesTable extends Estudiantes
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _fotoMeta = const VerificationMeta('foto');
+  @override
+  late final GeneratedColumn<Uint8List> foto = GeneratedColumn<Uint8List>(
+    'foto',
+    aliasedName,
+    true,
+    type: DriftSqlType.blob,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _creadoMeta = const VerificationMeta('creado');
   @override
   late final GeneratedColumn<DateTime> creado = GeneratedColumn<DateTime>(
@@ -1192,6 +1201,7 @@ class $EstudiantesTable extends Estudiantes
     dni,
     apoderado,
     telefono,
+    foto,
     creado,
   ];
   @override
@@ -1251,6 +1261,12 @@ class $EstudiantesTable extends Estudiantes
         telefono.isAcceptableOrUnknown(data['telefono']!, _telefonoMeta),
       );
     }
+    if (data.containsKey('foto')) {
+      context.handle(
+        _fotoMeta,
+        foto.isAcceptableOrUnknown(data['foto']!, _fotoMeta),
+      );
+    }
     if (data.containsKey('creado')) {
       context.handle(
         _creadoMeta,
@@ -1294,6 +1310,10 @@ class $EstudiantesTable extends Estudiantes
         DriftSqlType.string,
         data['${effectivePrefix}telefono'],
       ),
+      foto: attachedDatabase.typeMapping.read(
+        DriftSqlType.blob,
+        data['${effectivePrefix}foto'],
+      ),
       creado: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}creado'],
@@ -1315,6 +1335,7 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
   final String? dni;
   final String? apoderado;
   final String? telefono;
+  final Uint8List? foto;
   final DateTime creado;
   const Estudiante({
     required this.id,
@@ -1324,6 +1345,7 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
     this.dni,
     this.apoderado,
     this.telefono,
+    this.foto,
     required this.creado,
   });
   @override
@@ -1342,6 +1364,9 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
     if (!nullToAbsent || telefono != null) {
       map['telefono'] = Variable<String>(telefono);
     }
+    if (!nullToAbsent || foto != null) {
+      map['foto'] = Variable<Uint8List>(foto);
+    }
     map['creado'] = Variable<DateTime>(creado);
     return map;
   }
@@ -1359,6 +1384,7 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
       telefono: telefono == null && nullToAbsent
           ? const Value.absent()
           : Value(telefono),
+      foto: foto == null && nullToAbsent ? const Value.absent() : Value(foto),
       creado: Value(creado),
     );
   }
@@ -1376,6 +1402,7 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
       dni: serializer.fromJson<String?>(json['dni']),
       apoderado: serializer.fromJson<String?>(json['apoderado']),
       telefono: serializer.fromJson<String?>(json['telefono']),
+      foto: serializer.fromJson<Uint8List?>(json['foto']),
       creado: serializer.fromJson<DateTime>(json['creado']),
     );
   }
@@ -1390,6 +1417,7 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
       'dni': serializer.toJson<String?>(dni),
       'apoderado': serializer.toJson<String?>(apoderado),
       'telefono': serializer.toJson<String?>(telefono),
+      'foto': serializer.toJson<Uint8List?>(foto),
       'creado': serializer.toJson<DateTime>(creado),
     };
   }
@@ -1402,6 +1430,7 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
     Value<String?> dni = const Value.absent(),
     Value<String?> apoderado = const Value.absent(),
     Value<String?> telefono = const Value.absent(),
+    Value<Uint8List?> foto = const Value.absent(),
     DateTime? creado,
   }) => Estudiante(
     id: id ?? this.id,
@@ -1411,6 +1440,7 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
     dni: dni.present ? dni.value : this.dni,
     apoderado: apoderado.present ? apoderado.value : this.apoderado,
     telefono: telefono.present ? telefono.value : this.telefono,
+    foto: foto.present ? foto.value : this.foto,
     creado: creado ?? this.creado,
   );
   Estudiante copyWithCompanion(EstudiantesCompanion data) {
@@ -1422,6 +1452,7 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
       dni: data.dni.present ? data.dni.value : this.dni,
       apoderado: data.apoderado.present ? data.apoderado.value : this.apoderado,
       telefono: data.telefono.present ? data.telefono.value : this.telefono,
+      foto: data.foto.present ? data.foto.value : this.foto,
       creado: data.creado.present ? data.creado.value : this.creado,
     );
   }
@@ -1436,6 +1467,7 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
           ..write('dni: $dni, ')
           ..write('apoderado: $apoderado, ')
           ..write('telefono: $telefono, ')
+          ..write('foto: $foto, ')
           ..write('creado: $creado')
           ..write(')'))
         .toString();
@@ -1450,6 +1482,7 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
     dni,
     apoderado,
     telefono,
+    $driftBlobEquality.hash(foto),
     creado,
   );
   @override
@@ -1463,6 +1496,7 @@ class Estudiante extends DataClass implements Insertable<Estudiante> {
           other.dni == this.dni &&
           other.apoderado == this.apoderado &&
           other.telefono == this.telefono &&
+          $driftBlobEquality.equals(other.foto, this.foto) &&
           other.creado == this.creado);
 }
 
@@ -1474,6 +1508,7 @@ class EstudiantesCompanion extends UpdateCompanion<Estudiante> {
   final Value<String?> dni;
   final Value<String?> apoderado;
   final Value<String?> telefono;
+  final Value<Uint8List?> foto;
   final Value<DateTime> creado;
   const EstudiantesCompanion({
     this.id = const Value.absent(),
@@ -1483,6 +1518,7 @@ class EstudiantesCompanion extends UpdateCompanion<Estudiante> {
     this.dni = const Value.absent(),
     this.apoderado = const Value.absent(),
     this.telefono = const Value.absent(),
+    this.foto = const Value.absent(),
     this.creado = const Value.absent(),
   });
   EstudiantesCompanion.insert({
@@ -1493,6 +1529,7 @@ class EstudiantesCompanion extends UpdateCompanion<Estudiante> {
     this.dni = const Value.absent(),
     this.apoderado = const Value.absent(),
     this.telefono = const Value.absent(),
+    this.foto = const Value.absent(),
     this.creado = const Value.absent(),
   }) : cursoId = Value(cursoId),
        apellidos = Value(apellidos),
@@ -1505,6 +1542,7 @@ class EstudiantesCompanion extends UpdateCompanion<Estudiante> {
     Expression<String>? dni,
     Expression<String>? apoderado,
     Expression<String>? telefono,
+    Expression<Uint8List>? foto,
     Expression<DateTime>? creado,
   }) {
     return RawValuesInsertable({
@@ -1515,6 +1553,7 @@ class EstudiantesCompanion extends UpdateCompanion<Estudiante> {
       if (dni != null) 'dni': dni,
       if (apoderado != null) 'apoderado': apoderado,
       if (telefono != null) 'telefono': telefono,
+      if (foto != null) 'foto': foto,
       if (creado != null) 'creado': creado,
     });
   }
@@ -1527,6 +1566,7 @@ class EstudiantesCompanion extends UpdateCompanion<Estudiante> {
     Value<String?>? dni,
     Value<String?>? apoderado,
     Value<String?>? telefono,
+    Value<Uint8List?>? foto,
     Value<DateTime>? creado,
   }) {
     return EstudiantesCompanion(
@@ -1537,6 +1577,7 @@ class EstudiantesCompanion extends UpdateCompanion<Estudiante> {
       dni: dni ?? this.dni,
       apoderado: apoderado ?? this.apoderado,
       telefono: telefono ?? this.telefono,
+      foto: foto ?? this.foto,
       creado: creado ?? this.creado,
     );
   }
@@ -1565,6 +1606,9 @@ class EstudiantesCompanion extends UpdateCompanion<Estudiante> {
     if (telefono.present) {
       map['telefono'] = Variable<String>(telefono.value);
     }
+    if (foto.present) {
+      map['foto'] = Variable<Uint8List>(foto.value);
+    }
     if (creado.present) {
       map['creado'] = Variable<DateTime>(creado.value);
     }
@@ -1581,6 +1625,7 @@ class EstudiantesCompanion extends UpdateCompanion<Estudiante> {
           ..write('dni: $dni, ')
           ..write('apoderado: $apoderado, ')
           ..write('telefono: $telefono, ')
+          ..write('foto: $foto, ')
           ..write('creado: $creado')
           ..write(')'))
         .toString();
@@ -2953,6 +2998,1278 @@ class HorariosCompanion extends UpdateCompanion<Horario> {
   }
 }
 
+class $RegistroColumnasTable extends RegistroColumnas
+    with TableInfo<$RegistroColumnasTable, RegistroColumna> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $RegistroColumnasTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _cursoIdMeta = const VerificationMeta(
+    'cursoId',
+  );
+  @override
+  late final GeneratedColumn<int> cursoId = GeneratedColumn<int>(
+    'curso_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES cursos (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _periodoMeta = const VerificationMeta(
+    'periodo',
+  );
+  @override
+  late final GeneratedColumn<int> periodo = GeneratedColumn<int>(
+    'periodo',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _ordenMeta = const VerificationMeta('orden');
+  @override
+  late final GeneratedColumn<int> orden = GeneratedColumn<int>(
+    'orden',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _codigoMeta = const VerificationMeta('codigo');
+  @override
+  late final GeneratedColumn<String> codigo = GeneratedColumn<String>(
+    'codigo',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _temaMeta = const VerificationMeta('tema');
+  @override
+  late final GeneratedColumn<String> tema = GeneratedColumn<String>(
+    'tema',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _fechaMeta = const VerificationMeta('fecha');
+  @override
+  late final GeneratedColumn<String> fecha = GeneratedColumn<String>(
+    'fecha',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _tipoMeta = const VerificationMeta('tipo');
+  @override
+  late final GeneratedColumn<String> tipo = GeneratedColumn<String>(
+    'tipo',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('nota'),
+  );
+  static const VerificationMeta _escalaMeta = const VerificationMeta('escala');
+  @override
+  late final GeneratedColumn<String> escala = GeneratedColumn<String>(
+    'escala',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _enEquipoMeta = const VerificationMeta(
+    'enEquipo',
+  );
+  @override
+  late final GeneratedColumn<bool> enEquipo = GeneratedColumn<bool>(
+    'en_equipo',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("en_equipo" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _fijadaMeta = const VerificationMeta('fijada');
+  @override
+  late final GeneratedColumn<bool> fijada = GeneratedColumn<bool>(
+    'fijada',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("fijada" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    cursoId,
+    periodo,
+    orden,
+    codigo,
+    tema,
+    fecha,
+    tipo,
+    escala,
+    enEquipo,
+    fijada,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'registro_columnas';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<RegistroColumna> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('curso_id')) {
+      context.handle(
+        _cursoIdMeta,
+        cursoId.isAcceptableOrUnknown(data['curso_id']!, _cursoIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_cursoIdMeta);
+    }
+    if (data.containsKey('periodo')) {
+      context.handle(
+        _periodoMeta,
+        periodo.isAcceptableOrUnknown(data['periodo']!, _periodoMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_periodoMeta);
+    }
+    if (data.containsKey('orden')) {
+      context.handle(
+        _ordenMeta,
+        orden.isAcceptableOrUnknown(data['orden']!, _ordenMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_ordenMeta);
+    }
+    if (data.containsKey('codigo')) {
+      context.handle(
+        _codigoMeta,
+        codigo.isAcceptableOrUnknown(data['codigo']!, _codigoMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_codigoMeta);
+    }
+    if (data.containsKey('tema')) {
+      context.handle(
+        _temaMeta,
+        tema.isAcceptableOrUnknown(data['tema']!, _temaMeta),
+      );
+    }
+    if (data.containsKey('fecha')) {
+      context.handle(
+        _fechaMeta,
+        fecha.isAcceptableOrUnknown(data['fecha']!, _fechaMeta),
+      );
+    }
+    if (data.containsKey('tipo')) {
+      context.handle(
+        _tipoMeta,
+        tipo.isAcceptableOrUnknown(data['tipo']!, _tipoMeta),
+      );
+    }
+    if (data.containsKey('escala')) {
+      context.handle(
+        _escalaMeta,
+        escala.isAcceptableOrUnknown(data['escala']!, _escalaMeta),
+      );
+    }
+    if (data.containsKey('en_equipo')) {
+      context.handle(
+        _enEquipoMeta,
+        enEquipo.isAcceptableOrUnknown(data['en_equipo']!, _enEquipoMeta),
+      );
+    }
+    if (data.containsKey('fijada')) {
+      context.handle(
+        _fijadaMeta,
+        fijada.isAcceptableOrUnknown(data['fijada']!, _fijadaMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  RegistroColumna map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return RegistroColumna(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      cursoId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}curso_id'],
+      )!,
+      periodo: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}periodo'],
+      )!,
+      orden: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}orden'],
+      )!,
+      codigo: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}codigo'],
+      )!,
+      tema: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tema'],
+      ),
+      fecha: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}fecha'],
+      ),
+      tipo: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tipo'],
+      )!,
+      escala: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}escala'],
+      ),
+      enEquipo: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}en_equipo'],
+      )!,
+      fijada: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}fijada'],
+      )!,
+    );
+  }
+
+  @override
+  $RegistroColumnasTable createAlias(String alias) {
+    return $RegistroColumnasTable(attachedDatabase, alias);
+  }
+}
+
+class RegistroColumna extends DataClass implements Insertable<RegistroColumna> {
+  final int id;
+  final int cursoId;
+  final int periodo;
+  final int orden;
+  final String codigo;
+  final String? tema;
+  final String? fecha;
+  final String tipo;
+  final String? escala;
+  final bool enEquipo;
+
+  /// Queda fija a la derecha al deslizar (solo una por curso y periodo).
+  final bool fijada;
+  const RegistroColumna({
+    required this.id,
+    required this.cursoId,
+    required this.periodo,
+    required this.orden,
+    required this.codigo,
+    this.tema,
+    this.fecha,
+    required this.tipo,
+    this.escala,
+    required this.enEquipo,
+    required this.fijada,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['curso_id'] = Variable<int>(cursoId);
+    map['periodo'] = Variable<int>(periodo);
+    map['orden'] = Variable<int>(orden);
+    map['codigo'] = Variable<String>(codigo);
+    if (!nullToAbsent || tema != null) {
+      map['tema'] = Variable<String>(tema);
+    }
+    if (!nullToAbsent || fecha != null) {
+      map['fecha'] = Variable<String>(fecha);
+    }
+    map['tipo'] = Variable<String>(tipo);
+    if (!nullToAbsent || escala != null) {
+      map['escala'] = Variable<String>(escala);
+    }
+    map['en_equipo'] = Variable<bool>(enEquipo);
+    map['fijada'] = Variable<bool>(fijada);
+    return map;
+  }
+
+  RegistroColumnasCompanion toCompanion(bool nullToAbsent) {
+    return RegistroColumnasCompanion(
+      id: Value(id),
+      cursoId: Value(cursoId),
+      periodo: Value(periodo),
+      orden: Value(orden),
+      codigo: Value(codigo),
+      tema: tema == null && nullToAbsent ? const Value.absent() : Value(tema),
+      fecha: fecha == null && nullToAbsent
+          ? const Value.absent()
+          : Value(fecha),
+      tipo: Value(tipo),
+      escala: escala == null && nullToAbsent
+          ? const Value.absent()
+          : Value(escala),
+      enEquipo: Value(enEquipo),
+      fijada: Value(fijada),
+    );
+  }
+
+  factory RegistroColumna.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return RegistroColumna(
+      id: serializer.fromJson<int>(json['id']),
+      cursoId: serializer.fromJson<int>(json['cursoId']),
+      periodo: serializer.fromJson<int>(json['periodo']),
+      orden: serializer.fromJson<int>(json['orden']),
+      codigo: serializer.fromJson<String>(json['codigo']),
+      tema: serializer.fromJson<String?>(json['tema']),
+      fecha: serializer.fromJson<String?>(json['fecha']),
+      tipo: serializer.fromJson<String>(json['tipo']),
+      escala: serializer.fromJson<String?>(json['escala']),
+      enEquipo: serializer.fromJson<bool>(json['enEquipo']),
+      fijada: serializer.fromJson<bool>(json['fijada']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'cursoId': serializer.toJson<int>(cursoId),
+      'periodo': serializer.toJson<int>(periodo),
+      'orden': serializer.toJson<int>(orden),
+      'codigo': serializer.toJson<String>(codigo),
+      'tema': serializer.toJson<String?>(tema),
+      'fecha': serializer.toJson<String?>(fecha),
+      'tipo': serializer.toJson<String>(tipo),
+      'escala': serializer.toJson<String?>(escala),
+      'enEquipo': serializer.toJson<bool>(enEquipo),
+      'fijada': serializer.toJson<bool>(fijada),
+    };
+  }
+
+  RegistroColumna copyWith({
+    int? id,
+    int? cursoId,
+    int? periodo,
+    int? orden,
+    String? codigo,
+    Value<String?> tema = const Value.absent(),
+    Value<String?> fecha = const Value.absent(),
+    String? tipo,
+    Value<String?> escala = const Value.absent(),
+    bool? enEquipo,
+    bool? fijada,
+  }) => RegistroColumna(
+    id: id ?? this.id,
+    cursoId: cursoId ?? this.cursoId,
+    periodo: periodo ?? this.periodo,
+    orden: orden ?? this.orden,
+    codigo: codigo ?? this.codigo,
+    tema: tema.present ? tema.value : this.tema,
+    fecha: fecha.present ? fecha.value : this.fecha,
+    tipo: tipo ?? this.tipo,
+    escala: escala.present ? escala.value : this.escala,
+    enEquipo: enEquipo ?? this.enEquipo,
+    fijada: fijada ?? this.fijada,
+  );
+  RegistroColumna copyWithCompanion(RegistroColumnasCompanion data) {
+    return RegistroColumna(
+      id: data.id.present ? data.id.value : this.id,
+      cursoId: data.cursoId.present ? data.cursoId.value : this.cursoId,
+      periodo: data.periodo.present ? data.periodo.value : this.periodo,
+      orden: data.orden.present ? data.orden.value : this.orden,
+      codigo: data.codigo.present ? data.codigo.value : this.codigo,
+      tema: data.tema.present ? data.tema.value : this.tema,
+      fecha: data.fecha.present ? data.fecha.value : this.fecha,
+      tipo: data.tipo.present ? data.tipo.value : this.tipo,
+      escala: data.escala.present ? data.escala.value : this.escala,
+      enEquipo: data.enEquipo.present ? data.enEquipo.value : this.enEquipo,
+      fijada: data.fijada.present ? data.fijada.value : this.fijada,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RegistroColumna(')
+          ..write('id: $id, ')
+          ..write('cursoId: $cursoId, ')
+          ..write('periodo: $periodo, ')
+          ..write('orden: $orden, ')
+          ..write('codigo: $codigo, ')
+          ..write('tema: $tema, ')
+          ..write('fecha: $fecha, ')
+          ..write('tipo: $tipo, ')
+          ..write('escala: $escala, ')
+          ..write('enEquipo: $enEquipo, ')
+          ..write('fijada: $fijada')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    cursoId,
+    periodo,
+    orden,
+    codigo,
+    tema,
+    fecha,
+    tipo,
+    escala,
+    enEquipo,
+    fijada,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is RegistroColumna &&
+          other.id == this.id &&
+          other.cursoId == this.cursoId &&
+          other.periodo == this.periodo &&
+          other.orden == this.orden &&
+          other.codigo == this.codigo &&
+          other.tema == this.tema &&
+          other.fecha == this.fecha &&
+          other.tipo == this.tipo &&
+          other.escala == this.escala &&
+          other.enEquipo == this.enEquipo &&
+          other.fijada == this.fijada);
+}
+
+class RegistroColumnasCompanion extends UpdateCompanion<RegistroColumna> {
+  final Value<int> id;
+  final Value<int> cursoId;
+  final Value<int> periodo;
+  final Value<int> orden;
+  final Value<String> codigo;
+  final Value<String?> tema;
+  final Value<String?> fecha;
+  final Value<String> tipo;
+  final Value<String?> escala;
+  final Value<bool> enEquipo;
+  final Value<bool> fijada;
+  const RegistroColumnasCompanion({
+    this.id = const Value.absent(),
+    this.cursoId = const Value.absent(),
+    this.periodo = const Value.absent(),
+    this.orden = const Value.absent(),
+    this.codigo = const Value.absent(),
+    this.tema = const Value.absent(),
+    this.fecha = const Value.absent(),
+    this.tipo = const Value.absent(),
+    this.escala = const Value.absent(),
+    this.enEquipo = const Value.absent(),
+    this.fijada = const Value.absent(),
+  });
+  RegistroColumnasCompanion.insert({
+    this.id = const Value.absent(),
+    required int cursoId,
+    required int periodo,
+    required int orden,
+    required String codigo,
+    this.tema = const Value.absent(),
+    this.fecha = const Value.absent(),
+    this.tipo = const Value.absent(),
+    this.escala = const Value.absent(),
+    this.enEquipo = const Value.absent(),
+    this.fijada = const Value.absent(),
+  }) : cursoId = Value(cursoId),
+       periodo = Value(periodo),
+       orden = Value(orden),
+       codigo = Value(codigo);
+  static Insertable<RegistroColumna> custom({
+    Expression<int>? id,
+    Expression<int>? cursoId,
+    Expression<int>? periodo,
+    Expression<int>? orden,
+    Expression<String>? codigo,
+    Expression<String>? tema,
+    Expression<String>? fecha,
+    Expression<String>? tipo,
+    Expression<String>? escala,
+    Expression<bool>? enEquipo,
+    Expression<bool>? fijada,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (cursoId != null) 'curso_id': cursoId,
+      if (periodo != null) 'periodo': periodo,
+      if (orden != null) 'orden': orden,
+      if (codigo != null) 'codigo': codigo,
+      if (tema != null) 'tema': tema,
+      if (fecha != null) 'fecha': fecha,
+      if (tipo != null) 'tipo': tipo,
+      if (escala != null) 'escala': escala,
+      if (enEquipo != null) 'en_equipo': enEquipo,
+      if (fijada != null) 'fijada': fijada,
+    });
+  }
+
+  RegistroColumnasCompanion copyWith({
+    Value<int>? id,
+    Value<int>? cursoId,
+    Value<int>? periodo,
+    Value<int>? orden,
+    Value<String>? codigo,
+    Value<String?>? tema,
+    Value<String?>? fecha,
+    Value<String>? tipo,
+    Value<String?>? escala,
+    Value<bool>? enEquipo,
+    Value<bool>? fijada,
+  }) {
+    return RegistroColumnasCompanion(
+      id: id ?? this.id,
+      cursoId: cursoId ?? this.cursoId,
+      periodo: periodo ?? this.periodo,
+      orden: orden ?? this.orden,
+      codigo: codigo ?? this.codigo,
+      tema: tema ?? this.tema,
+      fecha: fecha ?? this.fecha,
+      tipo: tipo ?? this.tipo,
+      escala: escala ?? this.escala,
+      enEquipo: enEquipo ?? this.enEquipo,
+      fijada: fijada ?? this.fijada,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (cursoId.present) {
+      map['curso_id'] = Variable<int>(cursoId.value);
+    }
+    if (periodo.present) {
+      map['periodo'] = Variable<int>(periodo.value);
+    }
+    if (orden.present) {
+      map['orden'] = Variable<int>(orden.value);
+    }
+    if (codigo.present) {
+      map['codigo'] = Variable<String>(codigo.value);
+    }
+    if (tema.present) {
+      map['tema'] = Variable<String>(tema.value);
+    }
+    if (fecha.present) {
+      map['fecha'] = Variable<String>(fecha.value);
+    }
+    if (tipo.present) {
+      map['tipo'] = Variable<String>(tipo.value);
+    }
+    if (escala.present) {
+      map['escala'] = Variable<String>(escala.value);
+    }
+    if (enEquipo.present) {
+      map['en_equipo'] = Variable<bool>(enEquipo.value);
+    }
+    if (fijada.present) {
+      map['fijada'] = Variable<bool>(fijada.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RegistroColumnasCompanion(')
+          ..write('id: $id, ')
+          ..write('cursoId: $cursoId, ')
+          ..write('periodo: $periodo, ')
+          ..write('orden: $orden, ')
+          ..write('codigo: $codigo, ')
+          ..write('tema: $tema, ')
+          ..write('fecha: $fecha, ')
+          ..write('tipo: $tipo, ')
+          ..write('escala: $escala, ')
+          ..write('enEquipo: $enEquipo, ')
+          ..write('fijada: $fijada')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $RegistroNotasTable extends RegistroNotas
+    with TableInfo<$RegistroNotasTable, RegistroNota> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $RegistroNotasTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _columnaIdMeta = const VerificationMeta(
+    'columnaId',
+  );
+  @override
+  late final GeneratedColumn<int> columnaId = GeneratedColumn<int>(
+    'columna_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES registro_columnas (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _estudianteIdMeta = const VerificationMeta(
+    'estudianteId',
+  );
+  @override
+  late final GeneratedColumn<int> estudianteId = GeneratedColumn<int>(
+    'estudiante_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES estudiantes (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _valorMeta = const VerificationMeta('valor');
+  @override
+  late final GeneratedColumn<String> valor = GeneratedColumn<String>(
+    'valor',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [columnaId, estudianteId, valor];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'registro_notas';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<RegistroNota> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('columna_id')) {
+      context.handle(
+        _columnaIdMeta,
+        columnaId.isAcceptableOrUnknown(data['columna_id']!, _columnaIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_columnaIdMeta);
+    }
+    if (data.containsKey('estudiante_id')) {
+      context.handle(
+        _estudianteIdMeta,
+        estudianteId.isAcceptableOrUnknown(
+          data['estudiante_id']!,
+          _estudianteIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_estudianteIdMeta);
+    }
+    if (data.containsKey('valor')) {
+      context.handle(
+        _valorMeta,
+        valor.isAcceptableOrUnknown(data['valor']!, _valorMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_valorMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {columnaId, estudianteId};
+  @override
+  RegistroNota map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return RegistroNota(
+      columnaId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}columna_id'],
+      )!,
+      estudianteId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}estudiante_id'],
+      )!,
+      valor: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}valor'],
+      )!,
+    );
+  }
+
+  @override
+  $RegistroNotasTable createAlias(String alias) {
+    return $RegistroNotasTable(attachedDatabase, alias);
+  }
+}
+
+class RegistroNota extends DataClass implements Insertable<RegistroNota> {
+  final int columnaId;
+  final int estudianteId;
+  final String valor;
+  const RegistroNota({
+    required this.columnaId,
+    required this.estudianteId,
+    required this.valor,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['columna_id'] = Variable<int>(columnaId);
+    map['estudiante_id'] = Variable<int>(estudianteId);
+    map['valor'] = Variable<String>(valor);
+    return map;
+  }
+
+  RegistroNotasCompanion toCompanion(bool nullToAbsent) {
+    return RegistroNotasCompanion(
+      columnaId: Value(columnaId),
+      estudianteId: Value(estudianteId),
+      valor: Value(valor),
+    );
+  }
+
+  factory RegistroNota.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return RegistroNota(
+      columnaId: serializer.fromJson<int>(json['columnaId']),
+      estudianteId: serializer.fromJson<int>(json['estudianteId']),
+      valor: serializer.fromJson<String>(json['valor']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'columnaId': serializer.toJson<int>(columnaId),
+      'estudianteId': serializer.toJson<int>(estudianteId),
+      'valor': serializer.toJson<String>(valor),
+    };
+  }
+
+  RegistroNota copyWith({int? columnaId, int? estudianteId, String? valor}) =>
+      RegistroNota(
+        columnaId: columnaId ?? this.columnaId,
+        estudianteId: estudianteId ?? this.estudianteId,
+        valor: valor ?? this.valor,
+      );
+  RegistroNota copyWithCompanion(RegistroNotasCompanion data) {
+    return RegistroNota(
+      columnaId: data.columnaId.present ? data.columnaId.value : this.columnaId,
+      estudianteId: data.estudianteId.present
+          ? data.estudianteId.value
+          : this.estudianteId,
+      valor: data.valor.present ? data.valor.value : this.valor,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RegistroNota(')
+          ..write('columnaId: $columnaId, ')
+          ..write('estudianteId: $estudianteId, ')
+          ..write('valor: $valor')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(columnaId, estudianteId, valor);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is RegistroNota &&
+          other.columnaId == this.columnaId &&
+          other.estudianteId == this.estudianteId &&
+          other.valor == this.valor);
+}
+
+class RegistroNotasCompanion extends UpdateCompanion<RegistroNota> {
+  final Value<int> columnaId;
+  final Value<int> estudianteId;
+  final Value<String> valor;
+  final Value<int> rowid;
+  const RegistroNotasCompanion({
+    this.columnaId = const Value.absent(),
+    this.estudianteId = const Value.absent(),
+    this.valor = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  RegistroNotasCompanion.insert({
+    required int columnaId,
+    required int estudianteId,
+    required String valor,
+    this.rowid = const Value.absent(),
+  }) : columnaId = Value(columnaId),
+       estudianteId = Value(estudianteId),
+       valor = Value(valor);
+  static Insertable<RegistroNota> custom({
+    Expression<int>? columnaId,
+    Expression<int>? estudianteId,
+    Expression<String>? valor,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (columnaId != null) 'columna_id': columnaId,
+      if (estudianteId != null) 'estudiante_id': estudianteId,
+      if (valor != null) 'valor': valor,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  RegistroNotasCompanion copyWith({
+    Value<int>? columnaId,
+    Value<int>? estudianteId,
+    Value<String>? valor,
+    Value<int>? rowid,
+  }) {
+    return RegistroNotasCompanion(
+      columnaId: columnaId ?? this.columnaId,
+      estudianteId: estudianteId ?? this.estudianteId,
+      valor: valor ?? this.valor,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (columnaId.present) {
+      map['columna_id'] = Variable<int>(columnaId.value);
+    }
+    if (estudianteId.present) {
+      map['estudiante_id'] = Variable<int>(estudianteId.value);
+    }
+    if (valor.present) {
+      map['valor'] = Variable<String>(valor.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RegistroNotasCompanion(')
+          ..write('columnaId: $columnaId, ')
+          ..write('estudianteId: $estudianteId, ')
+          ..write('valor: $valor, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ConductasTable extends Conductas
+    with TableInfo<$ConductasTable, Conducta> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ConductasTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _estudianteIdMeta = const VerificationMeta(
+    'estudianteId',
+  );
+  @override
+  late final GeneratedColumn<int> estudianteId = GeneratedColumn<int>(
+    'estudiante_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES estudiantes (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _fechaMeta = const VerificationMeta('fecha');
+  @override
+  late final GeneratedColumn<String> fecha = GeneratedColumn<String>(
+    'fecha',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _positivaMeta = const VerificationMeta(
+    'positiva',
+  );
+  @override
+  late final GeneratedColumn<bool> positiva = GeneratedColumn<bool>(
+    'positiva',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("positiva" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _motivoMeta = const VerificationMeta('motivo');
+  @override
+  late final GeneratedColumn<String> motivo = GeneratedColumn<String>(
+    'motivo',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    estudianteId,
+    fecha,
+    positiva,
+    motivo,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'conductas';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Conducta> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('estudiante_id')) {
+      context.handle(
+        _estudianteIdMeta,
+        estudianteId.isAcceptableOrUnknown(
+          data['estudiante_id']!,
+          _estudianteIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_estudianteIdMeta);
+    }
+    if (data.containsKey('fecha')) {
+      context.handle(
+        _fechaMeta,
+        fecha.isAcceptableOrUnknown(data['fecha']!, _fechaMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_fechaMeta);
+    }
+    if (data.containsKey('positiva')) {
+      context.handle(
+        _positivaMeta,
+        positiva.isAcceptableOrUnknown(data['positiva']!, _positivaMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_positivaMeta);
+    }
+    if (data.containsKey('motivo')) {
+      context.handle(
+        _motivoMeta,
+        motivo.isAcceptableOrUnknown(data['motivo']!, _motivoMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_motivoMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Conducta map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Conducta(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      estudianteId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}estudiante_id'],
+      )!,
+      fecha: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}fecha'],
+      )!,
+      positiva: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}positiva'],
+      )!,
+      motivo: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}motivo'],
+      )!,
+    );
+  }
+
+  @override
+  $ConductasTable createAlias(String alias) {
+    return $ConductasTable(attachedDatabase, alias);
+  }
+}
+
+class Conducta extends DataClass implements Insertable<Conducta> {
+  final int id;
+  final int estudianteId;
+  final String fecha;
+  final bool positiva;
+  final String motivo;
+  const Conducta({
+    required this.id,
+    required this.estudianteId,
+    required this.fecha,
+    required this.positiva,
+    required this.motivo,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['estudiante_id'] = Variable<int>(estudianteId);
+    map['fecha'] = Variable<String>(fecha);
+    map['positiva'] = Variable<bool>(positiva);
+    map['motivo'] = Variable<String>(motivo);
+    return map;
+  }
+
+  ConductasCompanion toCompanion(bool nullToAbsent) {
+    return ConductasCompanion(
+      id: Value(id),
+      estudianteId: Value(estudianteId),
+      fecha: Value(fecha),
+      positiva: Value(positiva),
+      motivo: Value(motivo),
+    );
+  }
+
+  factory Conducta.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Conducta(
+      id: serializer.fromJson<int>(json['id']),
+      estudianteId: serializer.fromJson<int>(json['estudianteId']),
+      fecha: serializer.fromJson<String>(json['fecha']),
+      positiva: serializer.fromJson<bool>(json['positiva']),
+      motivo: serializer.fromJson<String>(json['motivo']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'estudianteId': serializer.toJson<int>(estudianteId),
+      'fecha': serializer.toJson<String>(fecha),
+      'positiva': serializer.toJson<bool>(positiva),
+      'motivo': serializer.toJson<String>(motivo),
+    };
+  }
+
+  Conducta copyWith({
+    int? id,
+    int? estudianteId,
+    String? fecha,
+    bool? positiva,
+    String? motivo,
+  }) => Conducta(
+    id: id ?? this.id,
+    estudianteId: estudianteId ?? this.estudianteId,
+    fecha: fecha ?? this.fecha,
+    positiva: positiva ?? this.positiva,
+    motivo: motivo ?? this.motivo,
+  );
+  Conducta copyWithCompanion(ConductasCompanion data) {
+    return Conducta(
+      id: data.id.present ? data.id.value : this.id,
+      estudianteId: data.estudianteId.present
+          ? data.estudianteId.value
+          : this.estudianteId,
+      fecha: data.fecha.present ? data.fecha.value : this.fecha,
+      positiva: data.positiva.present ? data.positiva.value : this.positiva,
+      motivo: data.motivo.present ? data.motivo.value : this.motivo,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Conducta(')
+          ..write('id: $id, ')
+          ..write('estudianteId: $estudianteId, ')
+          ..write('fecha: $fecha, ')
+          ..write('positiva: $positiva, ')
+          ..write('motivo: $motivo')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, estudianteId, fecha, positiva, motivo);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Conducta &&
+          other.id == this.id &&
+          other.estudianteId == this.estudianteId &&
+          other.fecha == this.fecha &&
+          other.positiva == this.positiva &&
+          other.motivo == this.motivo);
+}
+
+class ConductasCompanion extends UpdateCompanion<Conducta> {
+  final Value<int> id;
+  final Value<int> estudianteId;
+  final Value<String> fecha;
+  final Value<bool> positiva;
+  final Value<String> motivo;
+  const ConductasCompanion({
+    this.id = const Value.absent(),
+    this.estudianteId = const Value.absent(),
+    this.fecha = const Value.absent(),
+    this.positiva = const Value.absent(),
+    this.motivo = const Value.absent(),
+  });
+  ConductasCompanion.insert({
+    this.id = const Value.absent(),
+    required int estudianteId,
+    required String fecha,
+    required bool positiva,
+    required String motivo,
+  }) : estudianteId = Value(estudianteId),
+       fecha = Value(fecha),
+       positiva = Value(positiva),
+       motivo = Value(motivo);
+  static Insertable<Conducta> custom({
+    Expression<int>? id,
+    Expression<int>? estudianteId,
+    Expression<String>? fecha,
+    Expression<bool>? positiva,
+    Expression<String>? motivo,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (estudianteId != null) 'estudiante_id': estudianteId,
+      if (fecha != null) 'fecha': fecha,
+      if (positiva != null) 'positiva': positiva,
+      if (motivo != null) 'motivo': motivo,
+    });
+  }
+
+  ConductasCompanion copyWith({
+    Value<int>? id,
+    Value<int>? estudianteId,
+    Value<String>? fecha,
+    Value<bool>? positiva,
+    Value<String>? motivo,
+  }) {
+    return ConductasCompanion(
+      id: id ?? this.id,
+      estudianteId: estudianteId ?? this.estudianteId,
+      fecha: fecha ?? this.fecha,
+      positiva: positiva ?? this.positiva,
+      motivo: motivo ?? this.motivo,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (estudianteId.present) {
+      map['estudiante_id'] = Variable<int>(estudianteId.value);
+    }
+    if (fecha.present) {
+      map['fecha'] = Variable<String>(fecha.value);
+    }
+    if (positiva.present) {
+      map['positiva'] = Variable<bool>(positiva.value);
+    }
+    if (motivo.present) {
+      map['motivo'] = Variable<String>(motivo.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ConductasCompanion(')
+          ..write('id: $id, ')
+          ..write('estudianteId: $estudianteId, ')
+          ..write('fecha: $fecha, ')
+          ..write('positiva: $positiva, ')
+          ..write('motivo: $motivo')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$KipuDb extends GeneratedDatabase {
   _$KipuDb(QueryExecutor e) : super(e);
   $KipuDbManager get managers => $KipuDbManager(this);
@@ -2964,6 +4281,11 @@ abstract class _$KipuDb extends GeneratedDatabase {
   late final $NotasTable notas = $NotasTable(this);
   late final $EventosTable eventos = $EventosTable(this);
   late final $HorariosTable horarios = $HorariosTable(this);
+  late final $RegistroColumnasTable registroColumnas = $RegistroColumnasTable(
+    this,
+  );
+  late final $RegistroNotasTable registroNotas = $RegistroNotasTable(this);
+  late final $ConductasTable conductas = $ConductasTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2977,6 +4299,9 @@ abstract class _$KipuDb extends GeneratedDatabase {
     notas,
     eventos,
     horarios,
+    registroColumnas,
+    registroNotas,
+    conductas,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -3014,6 +4339,34 @@ abstract class _$KipuDb extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('horarios', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'cursos',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('registro_columnas', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'registro_columnas',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('registro_notas', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'estudiantes',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('registro_notas', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'estudiantes',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('conductas', kind: UpdateKind.delete)],
     ),
   ]);
 }
@@ -3538,6 +4891,26 @@ final class $$CursosTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$RegistroColumnasTable, List<RegistroColumna>>
+  _registroColumnasRefsTable(_$KipuDb db) => MultiTypedResultKey.fromTable(
+    db.registroColumnas,
+    aliasName: 'cursos__id__registro_columnas__curso_id',
+  );
+
+  $$RegistroColumnasTableProcessedTableManager get registroColumnasRefs {
+    final manager = $$RegistroColumnasTableTableManager(
+      $_db,
+      $_db.registroColumnas,
+    ).filter((f) => f.cursoId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _registroColumnasRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$CursosTableFilterComposer extends Composer<_$KipuDb, $CursosTable> {
@@ -3647,6 +5020,31 @@ class $$CursosTableFilterComposer extends Composer<_$KipuDb, $CursosTable> {
           }) => $$HorariosTableFilterComposer(
             $db: $db,
             $table: $db.horarios,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> registroColumnasRefs(
+    Expression<bool> Function($$RegistroColumnasTableFilterComposer f) f,
+  ) {
+    final $$RegistroColumnasTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.registroColumnas,
+      getReferencedColumn: (t) => t.cursoId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RegistroColumnasTableFilterComposer(
+            $db: $db,
+            $table: $db.registroColumnas,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -3825,6 +5223,31 @@ class $$CursosTableAnnotationComposer extends Composer<_$KipuDb, $CursosTable> {
     );
     return f(composer);
   }
+
+  Expression<T> registroColumnasRefs<T extends Object>(
+    Expression<T> Function($$RegistroColumnasTableAnnotationComposer a) f,
+  ) {
+    final $$RegistroColumnasTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.registroColumnas,
+      getReferencedColumn: (t) => t.cursoId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RegistroColumnasTableAnnotationComposer(
+            $db: $db,
+            $table: $db.registroColumnas,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$CursosTableTableManager
@@ -3844,6 +5267,7 @@ class $$CursosTableTableManager
             bool colegioId,
             bool estudiantesRefs,
             bool horariosRefs,
+            bool registroColumnasRefs,
           })
         > {
   $$CursosTableTableManager(_$KipuDb db, $CursosTable table)
@@ -3910,12 +5334,14 @@ class $$CursosTableTableManager
                 colegioId = false,
                 estudiantesRefs = false,
                 horariosRefs = false,
+                registroColumnasRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
                     if (estudiantesRefs) db.estudiantes,
                     if (horariosRefs) db.horarios,
+                    if (registroColumnasRefs) db.registroColumnas,
                   ],
                   addJoins:
                       <
@@ -3989,6 +5415,26 @@ class $$CursosTableTableManager
                           referencedColumn: 'curso_id',
                           typedResults: items,
                         ),
+                      if (registroColumnasRefs)
+                        await $_getPrefetchedDataByColumns<
+                          Curso,
+                          $CursosTable,
+                          RegistroColumna,
+                          $RegistroColumnasTable
+                        >(
+                          currentTable: table,
+                          referencedTable: $$CursosTableReferences
+                              ._registroColumnasRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$CursosTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).registroColumnasRefs,
+                          currentColumn: 'id',
+                          referencedColumn: 'curso_id',
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -4013,6 +5459,7 @@ typedef $$CursosTableProcessedTableManager =
         bool colegioId,
         bool estudiantesRefs,
         bool horariosRefs,
+        bool registroColumnasRefs,
       })
     >;
 typedef $$EstudiantesTableCreateCompanionBuilder =
@@ -4024,6 +5471,7 @@ typedef $$EstudiantesTableCreateCompanionBuilder =
       Value<String?> dni,
       Value<String?> apoderado,
       Value<String?> telefono,
+      Value<Uint8List?> foto,
       Value<DateTime> creado,
     });
 typedef $$EstudiantesTableUpdateCompanionBuilder =
@@ -4035,6 +5483,7 @@ typedef $$EstudiantesTableUpdateCompanionBuilder =
       Value<String?> dni,
       Value<String?> apoderado,
       Value<String?> telefono,
+      Value<Uint8List?> foto,
       Value<DateTime> creado,
     });
 
@@ -4095,6 +5544,42 @@ final class $$EstudiantesTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$RegistroNotasTable, List<RegistroNota>>
+  _registroNotasRefsTable(_$KipuDb db) => MultiTypedResultKey.fromTable(
+    db.registroNotas,
+    aliasName: 'estudiantes__id__registro_notas__estudiante_id',
+  );
+
+  $$RegistroNotasTableProcessedTableManager get registroNotasRefs {
+    final manager = $$RegistroNotasTableTableManager(
+      $_db,
+      $_db.registroNotas,
+    ).filter((f) => f.estudianteId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_registroNotasRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$ConductasTable, List<Conducta>>
+  _conductasRefsTable(_$KipuDb db) => MultiTypedResultKey.fromTable(
+    db.conductas,
+    aliasName: 'estudiantes__id__conductas__estudiante_id',
+  );
+
+  $$ConductasTableProcessedTableManager get conductasRefs {
+    final manager = $$ConductasTableTableManager(
+      $_db,
+      $_db.conductas,
+    ).filter((f) => f.estudianteId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_conductasRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$EstudiantesTableFilterComposer
@@ -4133,6 +5618,11 @@ class $$EstudiantesTableFilterComposer
 
   ColumnFilters<String> get telefono => $composableBuilder(
     column: $table.telefono,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<Uint8List> get foto => $composableBuilder(
+    column: $table.foto,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4213,6 +5703,56 @@ class $$EstudiantesTableFilterComposer
     );
     return f(composer);
   }
+
+  Expression<bool> registroNotasRefs(
+    Expression<bool> Function($$RegistroNotasTableFilterComposer f) f,
+  ) {
+    final $$RegistroNotasTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.registroNotas,
+      getReferencedColumn: (t) => t.estudianteId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RegistroNotasTableFilterComposer(
+            $db: $db,
+            $table: $db.registroNotas,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> conductasRefs(
+    Expression<bool> Function($$ConductasTableFilterComposer f) f,
+  ) {
+    final $$ConductasTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.conductas,
+      getReferencedColumn: (t) => t.estudianteId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ConductasTableFilterComposer(
+            $db: $db,
+            $table: $db.conductas,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$EstudiantesTableOrderingComposer
@@ -4251,6 +5791,11 @@ class $$EstudiantesTableOrderingComposer
 
   ColumnOrderings<String> get telefono => $composableBuilder(
     column: $table.telefono,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<Uint8List> get foto => $composableBuilder(
+    column: $table.foto,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -4309,6 +5854,9 @@ class $$EstudiantesTableAnnotationComposer
 
   GeneratedColumn<String> get telefono =>
       $composableBuilder(column: $table.telefono, builder: (column) => column);
+
+  GeneratedColumn<Uint8List> get foto =>
+      $composableBuilder(column: $table.foto, builder: (column) => column);
 
   GeneratedColumn<DateTime> get creado =>
       $composableBuilder(column: $table.creado, builder: (column) => column);
@@ -4385,6 +5933,56 @@ class $$EstudiantesTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> registroNotasRefs<T extends Object>(
+    Expression<T> Function($$RegistroNotasTableAnnotationComposer a) f,
+  ) {
+    final $$RegistroNotasTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.registroNotas,
+      getReferencedColumn: (t) => t.estudianteId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RegistroNotasTableAnnotationComposer(
+            $db: $db,
+            $table: $db.registroNotas,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> conductasRefs<T extends Object>(
+    Expression<T> Function($$ConductasTableAnnotationComposer a) f,
+  ) {
+    final $$ConductasTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.conductas,
+      getReferencedColumn: (t) => t.estudianteId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ConductasTableAnnotationComposer(
+            $db: $db,
+            $table: $db.conductas,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$EstudiantesTableTableManager
@@ -4404,6 +6002,8 @@ class $$EstudiantesTableTableManager
             bool cursoId,
             bool asistenciasRefs,
             bool notasRefs,
+            bool registroNotasRefs,
+            bool conductasRefs,
           })
         > {
   $$EstudiantesTableTableManager(_$KipuDb db, $EstudiantesTable table)
@@ -4426,6 +6026,7 @@ class $$EstudiantesTableTableManager
                 Value<String?> dni = const Value.absent(),
                 Value<String?> apoderado = const Value.absent(),
                 Value<String?> telefono = const Value.absent(),
+                Value<Uint8List?> foto = const Value.absent(),
                 Value<DateTime> creado = const Value.absent(),
               }) => EstudiantesCompanion(
                 id: id,
@@ -4435,6 +6036,7 @@ class $$EstudiantesTableTableManager
                 dni: dni,
                 apoderado: apoderado,
                 telefono: telefono,
+                foto: foto,
                 creado: creado,
               ),
           createCompanionCallback:
@@ -4446,6 +6048,7 @@ class $$EstudiantesTableTableManager
                 Value<String?> dni = const Value.absent(),
                 Value<String?> apoderado = const Value.absent(),
                 Value<String?> telefono = const Value.absent(),
+                Value<Uint8List?> foto = const Value.absent(),
                 Value<DateTime> creado = const Value.absent(),
               }) => EstudiantesCompanion.insert(
                 id: id,
@@ -4455,6 +6058,7 @@ class $$EstudiantesTableTableManager
                 dni: dni,
                 apoderado: apoderado,
                 telefono: telefono,
+                foto: foto,
                 creado: creado,
               ),
           withReferenceMapper: (p0) => p0
@@ -4466,12 +6070,20 @@ class $$EstudiantesTableTableManager
               )
               .toList(),
           prefetchHooksCallback:
-              ({cursoId = false, asistenciasRefs = false, notasRefs = false}) {
+              ({
+                cursoId = false,
+                asistenciasRefs = false,
+                notasRefs = false,
+                registroNotasRefs = false,
+                conductasRefs = false,
+              }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
                     if (asistenciasRefs) db.asistencias,
                     if (notasRefs) db.notas,
+                    if (registroNotasRefs) db.registroNotas,
+                    if (conductasRefs) db.conductas,
                   ],
                   addJoins:
                       <
@@ -4545,6 +6157,46 @@ class $$EstudiantesTableTableManager
                           referencedColumn: 'estudiante_id',
                           typedResults: items,
                         ),
+                      if (registroNotasRefs)
+                        await $_getPrefetchedDataByColumns<
+                          Estudiante,
+                          $EstudiantesTable,
+                          RegistroNota,
+                          $RegistroNotasTable
+                        >(
+                          currentTable: table,
+                          referencedTable: $$EstudiantesTableReferences
+                              ._registroNotasRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$EstudiantesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).registroNotasRefs,
+                          currentColumn: 'id',
+                          referencedColumn: 'estudiante_id',
+                          typedResults: items,
+                        ),
+                      if (conductasRefs)
+                        await $_getPrefetchedDataByColumns<
+                          Estudiante,
+                          $EstudiantesTable,
+                          Conducta,
+                          $ConductasTable
+                        >(
+                          currentTable: table,
+                          referencedTable: $$EstudiantesTableReferences
+                              ._conductasRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$EstudiantesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).conductasRefs,
+                          currentColumn: 'id',
+                          referencedColumn: 'estudiante_id',
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -4569,6 +6221,8 @@ typedef $$EstudiantesTableProcessedTableManager =
         bool cursoId,
         bool asistenciasRefs,
         bool notasRefs,
+        bool registroNotasRefs,
+        bool conductasRefs,
       })
     >;
 typedef $$AsistenciasTableCreateCompanionBuilder =
@@ -5668,6 +7322,1198 @@ typedef $$HorariosTableProcessedTableManager =
       Horario,
       PrefetchHooks Function({bool cursoId})
     >;
+typedef $$RegistroColumnasTableCreateCompanionBuilder =
+    RegistroColumnasCompanion Function({
+      Value<int> id,
+      required int cursoId,
+      required int periodo,
+      required int orden,
+      required String codigo,
+      Value<String?> tema,
+      Value<String?> fecha,
+      Value<String> tipo,
+      Value<String?> escala,
+      Value<bool> enEquipo,
+      Value<bool> fijada,
+    });
+typedef $$RegistroColumnasTableUpdateCompanionBuilder =
+    RegistroColumnasCompanion Function({
+      Value<int> id,
+      Value<int> cursoId,
+      Value<int> periodo,
+      Value<int> orden,
+      Value<String> codigo,
+      Value<String?> tema,
+      Value<String?> fecha,
+      Value<String> tipo,
+      Value<String?> escala,
+      Value<bool> enEquipo,
+      Value<bool> fijada,
+    });
+
+final class $$RegistroColumnasTableReferences
+    extends BaseReferences<_$KipuDb, $RegistroColumnasTable, RegistroColumna> {
+  $$RegistroColumnasTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $CursosTable _cursoIdTable(_$KipuDb db) =>
+      db.cursos.createAlias('registro_columnas__curso_id__cursos__id');
+
+  $$CursosTableProcessedTableManager get cursoId {
+    final $_column = $_itemColumn<int>('curso_id')!;
+
+    final manager = $$CursosTableTableManager(
+      $_db,
+      $_db.cursos,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_cursoIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static MultiTypedResultKey<$RegistroNotasTable, List<RegistroNota>>
+  _registroNotasRefsTable(_$KipuDb db) => MultiTypedResultKey.fromTable(
+    db.registroNotas,
+    aliasName: 'registro_columnas__id__registro_notas__columna_id',
+  );
+
+  $$RegistroNotasTableProcessedTableManager get registroNotasRefs {
+    final manager = $$RegistroNotasTableTableManager(
+      $_db,
+      $_db.registroNotas,
+    ).filter((f) => f.columnaId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_registroNotasRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$RegistroColumnasTableFilterComposer
+    extends Composer<_$KipuDb, $RegistroColumnasTable> {
+  $$RegistroColumnasTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get periodo => $composableBuilder(
+    column: $table.periodo,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get orden => $composableBuilder(
+    column: $table.orden,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get codigo => $composableBuilder(
+    column: $table.codigo,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tema => $composableBuilder(
+    column: $table.tema,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fecha => $composableBuilder(
+    column: $table.fecha,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tipo => $composableBuilder(
+    column: $table.tipo,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get escala => $composableBuilder(
+    column: $table.escala,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get enEquipo => $composableBuilder(
+    column: $table.enEquipo,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get fijada => $composableBuilder(
+    column: $table.fijada,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$CursosTableFilterComposer get cursoId {
+    final $$CursosTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.cursoId,
+      referencedTable: $db.cursos,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CursosTableFilterComposer(
+            $db: $db,
+            $table: $db.cursos,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<bool> registroNotasRefs(
+    Expression<bool> Function($$RegistroNotasTableFilterComposer f) f,
+  ) {
+    final $$RegistroNotasTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.registroNotas,
+      getReferencedColumn: (t) => t.columnaId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RegistroNotasTableFilterComposer(
+            $db: $db,
+            $table: $db.registroNotas,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$RegistroColumnasTableOrderingComposer
+    extends Composer<_$KipuDb, $RegistroColumnasTable> {
+  $$RegistroColumnasTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get periodo => $composableBuilder(
+    column: $table.periodo,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get orden => $composableBuilder(
+    column: $table.orden,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get codigo => $composableBuilder(
+    column: $table.codigo,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get tema => $composableBuilder(
+    column: $table.tema,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fecha => $composableBuilder(
+    column: $table.fecha,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get tipo => $composableBuilder(
+    column: $table.tipo,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get escala => $composableBuilder(
+    column: $table.escala,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get enEquipo => $composableBuilder(
+    column: $table.enEquipo,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get fijada => $composableBuilder(
+    column: $table.fijada,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$CursosTableOrderingComposer get cursoId {
+    final $$CursosTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.cursoId,
+      referencedTable: $db.cursos,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CursosTableOrderingComposer(
+            $db: $db,
+            $table: $db.cursos,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$RegistroColumnasTableAnnotationComposer
+    extends Composer<_$KipuDb, $RegistroColumnasTable> {
+  $$RegistroColumnasTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get periodo =>
+      $composableBuilder(column: $table.periodo, builder: (column) => column);
+
+  GeneratedColumn<int> get orden =>
+      $composableBuilder(column: $table.orden, builder: (column) => column);
+
+  GeneratedColumn<String> get codigo =>
+      $composableBuilder(column: $table.codigo, builder: (column) => column);
+
+  GeneratedColumn<String> get tema =>
+      $composableBuilder(column: $table.tema, builder: (column) => column);
+
+  GeneratedColumn<String> get fecha =>
+      $composableBuilder(column: $table.fecha, builder: (column) => column);
+
+  GeneratedColumn<String> get tipo =>
+      $composableBuilder(column: $table.tipo, builder: (column) => column);
+
+  GeneratedColumn<String> get escala =>
+      $composableBuilder(column: $table.escala, builder: (column) => column);
+
+  GeneratedColumn<bool> get enEquipo =>
+      $composableBuilder(column: $table.enEquipo, builder: (column) => column);
+
+  GeneratedColumn<bool> get fijada =>
+      $composableBuilder(column: $table.fijada, builder: (column) => column);
+
+  $$CursosTableAnnotationComposer get cursoId {
+    final $$CursosTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.cursoId,
+      referencedTable: $db.cursos,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CursosTableAnnotationComposer(
+            $db: $db,
+            $table: $db.cursos,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<T> registroNotasRefs<T extends Object>(
+    Expression<T> Function($$RegistroNotasTableAnnotationComposer a) f,
+  ) {
+    final $$RegistroNotasTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.registroNotas,
+      getReferencedColumn: (t) => t.columnaId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RegistroNotasTableAnnotationComposer(
+            $db: $db,
+            $table: $db.registroNotas,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$RegistroColumnasTableTableManager
+    extends
+        RootTableManager<
+          _$KipuDb,
+          $RegistroColumnasTable,
+          RegistroColumna,
+          $$RegistroColumnasTableFilterComposer,
+          $$RegistroColumnasTableOrderingComposer,
+          $$RegistroColumnasTableAnnotationComposer,
+          $$RegistroColumnasTableCreateCompanionBuilder,
+          $$RegistroColumnasTableUpdateCompanionBuilder,
+          (RegistroColumna, $$RegistroColumnasTableReferences),
+          RegistroColumna,
+          PrefetchHooks Function({bool cursoId, bool registroNotasRefs})
+        > {
+  $$RegistroColumnasTableTableManager(_$KipuDb db, $RegistroColumnasTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$RegistroColumnasTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$RegistroColumnasTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$RegistroColumnasTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> cursoId = const Value.absent(),
+                Value<int> periodo = const Value.absent(),
+                Value<int> orden = const Value.absent(),
+                Value<String> codigo = const Value.absent(),
+                Value<String?> tema = const Value.absent(),
+                Value<String?> fecha = const Value.absent(),
+                Value<String> tipo = const Value.absent(),
+                Value<String?> escala = const Value.absent(),
+                Value<bool> enEquipo = const Value.absent(),
+                Value<bool> fijada = const Value.absent(),
+              }) => RegistroColumnasCompanion(
+                id: id,
+                cursoId: cursoId,
+                periodo: periodo,
+                orden: orden,
+                codigo: codigo,
+                tema: tema,
+                fecha: fecha,
+                tipo: tipo,
+                escala: escala,
+                enEquipo: enEquipo,
+                fijada: fijada,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int cursoId,
+                required int periodo,
+                required int orden,
+                required String codigo,
+                Value<String?> tema = const Value.absent(),
+                Value<String?> fecha = const Value.absent(),
+                Value<String> tipo = const Value.absent(),
+                Value<String?> escala = const Value.absent(),
+                Value<bool> enEquipo = const Value.absent(),
+                Value<bool> fijada = const Value.absent(),
+              }) => RegistroColumnasCompanion.insert(
+                id: id,
+                cursoId: cursoId,
+                periodo: periodo,
+                orden: orden,
+                codigo: codigo,
+                tema: tema,
+                fecha: fecha,
+                tipo: tipo,
+                escala: escala,
+                enEquipo: enEquipo,
+                fijada: fijada,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$RegistroColumnasTable, RegistroColumna>(table),
+                  $$RegistroColumnasTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback:
+              ({cursoId = false, registroNotasRefs = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (registroNotasRefs) db.registroNotas,
+                  ],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (cursoId) {
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.cursoId,
+                            referencedTable: $$RegistroColumnasTableReferences
+                                ._cursoIdTable(db),
+                            referencedColumn: $$RegistroColumnasTableReferences
+                                ._cursoIdTable(db)
+                                .id,
+                          ) as T;
+                        }
+
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (registroNotasRefs)
+                        await $_getPrefetchedDataByColumns<
+                          RegistroColumna,
+                          $RegistroColumnasTable,
+                          RegistroNota,
+                          $RegistroNotasTable
+                        >(
+                          currentTable: table,
+                          referencedTable: $$RegistroColumnasTableReferences
+                              ._registroNotasRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$RegistroColumnasTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).registroNotasRefs,
+                          currentColumn: 'id',
+                          referencedColumn: 'columna_id',
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
+              },
+        ),
+      );
+}
+
+typedef $$RegistroColumnasTableProcessedTableManager =
+    ProcessedTableManager<
+      _$KipuDb,
+      $RegistroColumnasTable,
+      RegistroColumna,
+      $$RegistroColumnasTableFilterComposer,
+      $$RegistroColumnasTableOrderingComposer,
+      $$RegistroColumnasTableAnnotationComposer,
+      $$RegistroColumnasTableCreateCompanionBuilder,
+      $$RegistroColumnasTableUpdateCompanionBuilder,
+      (RegistroColumna, $$RegistroColumnasTableReferences),
+      RegistroColumna,
+      PrefetchHooks Function({bool cursoId, bool registroNotasRefs})
+    >;
+typedef $$RegistroNotasTableCreateCompanionBuilder =
+    RegistroNotasCompanion Function({
+      required int columnaId,
+      required int estudianteId,
+      required String valor,
+      Value<int> rowid,
+    });
+typedef $$RegistroNotasTableUpdateCompanionBuilder =
+    RegistroNotasCompanion Function({
+      Value<int> columnaId,
+      Value<int> estudianteId,
+      Value<String> valor,
+      Value<int> rowid,
+    });
+
+final class $$RegistroNotasTableReferences
+    extends BaseReferences<_$KipuDb, $RegistroNotasTable, RegistroNota> {
+  $$RegistroNotasTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $RegistroColumnasTable _columnaIdTable(_$KipuDb db) => db
+      .registroColumnas
+      .createAlias('registro_notas__columna_id__registro_columnas__id');
+
+  $$RegistroColumnasTableProcessedTableManager get columnaId {
+    final $_column = $_itemColumn<int>('columna_id')!;
+
+    final manager = $$RegistroColumnasTableTableManager(
+      $_db,
+      $_db.registroColumnas,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_columnaIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $EstudiantesTable _estudianteIdTable(_$KipuDb db) => db.estudiantes
+      .createAlias('registro_notas__estudiante_id__estudiantes__id');
+
+  $$EstudiantesTableProcessedTableManager get estudianteId {
+    final $_column = $_itemColumn<int>('estudiante_id')!;
+
+    final manager = $$EstudiantesTableTableManager(
+      $_db,
+      $_db.estudiantes,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_estudianteIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$RegistroNotasTableFilterComposer
+    extends Composer<_$KipuDb, $RegistroNotasTable> {
+  $$RegistroNotasTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get valor => $composableBuilder(
+    column: $table.valor,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$RegistroColumnasTableFilterComposer get columnaId {
+    final $$RegistroColumnasTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.columnaId,
+      referencedTable: $db.registroColumnas,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RegistroColumnasTableFilterComposer(
+            $db: $db,
+            $table: $db.registroColumnas,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$EstudiantesTableFilterComposer get estudianteId {
+    final $$EstudiantesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.estudianteId,
+      referencedTable: $db.estudiantes,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$EstudiantesTableFilterComposer(
+            $db: $db,
+            $table: $db.estudiantes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$RegistroNotasTableOrderingComposer
+    extends Composer<_$KipuDb, $RegistroNotasTable> {
+  $$RegistroNotasTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get valor => $composableBuilder(
+    column: $table.valor,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$RegistroColumnasTableOrderingComposer get columnaId {
+    final $$RegistroColumnasTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.columnaId,
+      referencedTable: $db.registroColumnas,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RegistroColumnasTableOrderingComposer(
+            $db: $db,
+            $table: $db.registroColumnas,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$EstudiantesTableOrderingComposer get estudianteId {
+    final $$EstudiantesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.estudianteId,
+      referencedTable: $db.estudiantes,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$EstudiantesTableOrderingComposer(
+            $db: $db,
+            $table: $db.estudiantes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$RegistroNotasTableAnnotationComposer
+    extends Composer<_$KipuDb, $RegistroNotasTable> {
+  $$RegistroNotasTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get valor =>
+      $composableBuilder(column: $table.valor, builder: (column) => column);
+
+  $$RegistroColumnasTableAnnotationComposer get columnaId {
+    final $$RegistroColumnasTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.columnaId,
+      referencedTable: $db.registroColumnas,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RegistroColumnasTableAnnotationComposer(
+            $db: $db,
+            $table: $db.registroColumnas,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$EstudiantesTableAnnotationComposer get estudianteId {
+    final $$EstudiantesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.estudianteId,
+      referencedTable: $db.estudiantes,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$EstudiantesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.estudiantes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$RegistroNotasTableTableManager
+    extends
+        RootTableManager<
+          _$KipuDb,
+          $RegistroNotasTable,
+          RegistroNota,
+          $$RegistroNotasTableFilterComposer,
+          $$RegistroNotasTableOrderingComposer,
+          $$RegistroNotasTableAnnotationComposer,
+          $$RegistroNotasTableCreateCompanionBuilder,
+          $$RegistroNotasTableUpdateCompanionBuilder,
+          (RegistroNota, $$RegistroNotasTableReferences),
+          RegistroNota,
+          PrefetchHooks Function({bool columnaId, bool estudianteId})
+        > {
+  $$RegistroNotasTableTableManager(_$KipuDb db, $RegistroNotasTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$RegistroNotasTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$RegistroNotasTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$RegistroNotasTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> columnaId = const Value.absent(),
+                Value<int> estudianteId = const Value.absent(),
+                Value<String> valor = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => RegistroNotasCompanion(
+                columnaId: columnaId,
+                estudianteId: estudianteId,
+                valor: valor,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required int columnaId,
+                required int estudianteId,
+                required String valor,
+                Value<int> rowid = const Value.absent(),
+              }) => RegistroNotasCompanion.insert(
+                columnaId: columnaId,
+                estudianteId: estudianteId,
+                valor: valor,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$RegistroNotasTable, RegistroNota>(table),
+                  $$RegistroNotasTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({columnaId = false, estudianteId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (columnaId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.columnaId,
+                        referencedTable: $$RegistroNotasTableReferences
+                            ._columnaIdTable(db),
+                        referencedColumn: $$RegistroNotasTableReferences
+                            ._columnaIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+                    if (estudianteId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.estudianteId,
+                        referencedTable: $$RegistroNotasTableReferences
+                            ._estudianteIdTable(db),
+                        referencedColumn: $$RegistroNotasTableReferences
+                            ._estudianteIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$RegistroNotasTableProcessedTableManager =
+    ProcessedTableManager<
+      _$KipuDb,
+      $RegistroNotasTable,
+      RegistroNota,
+      $$RegistroNotasTableFilterComposer,
+      $$RegistroNotasTableOrderingComposer,
+      $$RegistroNotasTableAnnotationComposer,
+      $$RegistroNotasTableCreateCompanionBuilder,
+      $$RegistroNotasTableUpdateCompanionBuilder,
+      (RegistroNota, $$RegistroNotasTableReferences),
+      RegistroNota,
+      PrefetchHooks Function({bool columnaId, bool estudianteId})
+    >;
+typedef $$ConductasTableCreateCompanionBuilder = ConductasCompanion Function({
+  Value<int> id,
+  required int estudianteId,
+  required String fecha,
+  required bool positiva,
+  required String motivo,
+});
+typedef $$ConductasTableUpdateCompanionBuilder = ConductasCompanion Function({
+  Value<int> id,
+  Value<int> estudianteId,
+  Value<String> fecha,
+  Value<bool> positiva,
+  Value<String> motivo,
+});
+
+final class $$ConductasTableReferences
+    extends BaseReferences<_$KipuDb, $ConductasTable, Conducta> {
+  $$ConductasTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $EstudiantesTable _estudianteIdTable(_$KipuDb db) =>
+      db.estudiantes.createAlias('conductas__estudiante_id__estudiantes__id');
+
+  $$EstudiantesTableProcessedTableManager get estudianteId {
+    final $_column = $_itemColumn<int>('estudiante_id')!;
+
+    final manager = $$EstudiantesTableTableManager(
+      $_db,
+      $_db.estudiantes,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_estudianteIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$ConductasTableFilterComposer
+    extends Composer<_$KipuDb, $ConductasTable> {
+  $$ConductasTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fecha => $composableBuilder(
+    column: $table.fecha,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get positiva => $composableBuilder(
+    column: $table.positiva,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get motivo => $composableBuilder(
+    column: $table.motivo,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$EstudiantesTableFilterComposer get estudianteId {
+    final $$EstudiantesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.estudianteId,
+      referencedTable: $db.estudiantes,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$EstudiantesTableFilterComposer(
+            $db: $db,
+            $table: $db.estudiantes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ConductasTableOrderingComposer
+    extends Composer<_$KipuDb, $ConductasTable> {
+  $$ConductasTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fecha => $composableBuilder(
+    column: $table.fecha,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get positiva => $composableBuilder(
+    column: $table.positiva,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get motivo => $composableBuilder(
+    column: $table.motivo,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$EstudiantesTableOrderingComposer get estudianteId {
+    final $$EstudiantesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.estudianteId,
+      referencedTable: $db.estudiantes,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$EstudiantesTableOrderingComposer(
+            $db: $db,
+            $table: $db.estudiantes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ConductasTableAnnotationComposer
+    extends Composer<_$KipuDb, $ConductasTable> {
+  $$ConductasTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get fecha =>
+      $composableBuilder(column: $table.fecha, builder: (column) => column);
+
+  GeneratedColumn<bool> get positiva =>
+      $composableBuilder(column: $table.positiva, builder: (column) => column);
+
+  GeneratedColumn<String> get motivo =>
+      $composableBuilder(column: $table.motivo, builder: (column) => column);
+
+  $$EstudiantesTableAnnotationComposer get estudianteId {
+    final $$EstudiantesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.estudianteId,
+      referencedTable: $db.estudiantes,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$EstudiantesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.estudiantes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ConductasTableTableManager
+    extends
+        RootTableManager<
+          _$KipuDb,
+          $ConductasTable,
+          Conducta,
+          $$ConductasTableFilterComposer,
+          $$ConductasTableOrderingComposer,
+          $$ConductasTableAnnotationComposer,
+          $$ConductasTableCreateCompanionBuilder,
+          $$ConductasTableUpdateCompanionBuilder,
+          (Conducta, $$ConductasTableReferences),
+          Conducta,
+          PrefetchHooks Function({bool estudianteId})
+        > {
+  $$ConductasTableTableManager(_$KipuDb db, $ConductasTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ConductasTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ConductasTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ConductasTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> estudianteId = const Value.absent(),
+                Value<String> fecha = const Value.absent(),
+                Value<bool> positiva = const Value.absent(),
+                Value<String> motivo = const Value.absent(),
+              }) => ConductasCompanion(
+                id: id,
+                estudianteId: estudianteId,
+                fecha: fecha,
+                positiva: positiva,
+                motivo: motivo,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int estudianteId,
+                required String fecha,
+                required bool positiva,
+                required String motivo,
+              }) => ConductasCompanion.insert(
+                id: id,
+                estudianteId: estudianteId,
+                fecha: fecha,
+                positiva: positiva,
+                motivo: motivo,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$ConductasTable, Conducta>(table),
+                  $$ConductasTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({estudianteId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (estudianteId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.estudianteId,
+                        referencedTable: $$ConductasTableReferences
+                            ._estudianteIdTable(db),
+                        referencedColumn: $$ConductasTableReferences
+                            ._estudianteIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$ConductasTableProcessedTableManager =
+    ProcessedTableManager<
+      _$KipuDb,
+      $ConductasTable,
+      Conducta,
+      $$ConductasTableFilterComposer,
+      $$ConductasTableOrderingComposer,
+      $$ConductasTableAnnotationComposer,
+      $$ConductasTableCreateCompanionBuilder,
+      $$ConductasTableUpdateCompanionBuilder,
+      (Conducta, $$ConductasTableReferences),
+      Conducta,
+      PrefetchHooks Function({bool estudianteId})
+    >;
 
 class $KipuDbManager {
   final _$KipuDb _db;
@@ -5688,4 +8534,10 @@ class $KipuDbManager {
       $$EventosTableTableManager(_db, _db.eventos);
   $$HorariosTableTableManager get horarios =>
       $$HorariosTableTableManager(_db, _db.horarios);
+  $$RegistroColumnasTableTableManager get registroColumnas =>
+      $$RegistroColumnasTableTableManager(_db, _db.registroColumnas);
+  $$RegistroNotasTableTableManager get registroNotas =>
+      $$RegistroNotasTableTableManager(_db, _db.registroNotas);
+  $$ConductasTableTableManager get conductas =>
+      $$ConductasTableTableManager(_db, _db.conductas);
 }

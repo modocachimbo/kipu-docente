@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../data/database.dart';
 import '../main.dart';
 import '../theme.dart';
+import '../widgets/kipu_icono.dart';
 import '../widgets/selector_color.dart' show textoSobre;
 import 'cursos.dart' show colorColegio;
 
@@ -181,7 +182,11 @@ class _SelectorColegio extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Icon(Icons.arrow_drop_down, color: KipuColores.moradoOscuro),
+                  KipuIcon(
+                    KipuIcono.abajo,
+                    size: 18,
+                    color: KipuColores.moradoOscuro,
+                  ),
                 ],
               ),
             ),
@@ -249,9 +254,9 @@ class _PasarListaState extends State<PasarLista> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(
-                                  Icons.calendar_today,
-                                  size: 18,
+                                KipuIcon(
+                                  KipuIcono.calendario,
+                                  size: 20,
                                   color: KipuColores.morado,
                                 ),
                                 const SizedBox(width: 8),

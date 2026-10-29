@@ -8,7 +8,7 @@ import '../theme.dart';
 import '../widgets/kipu_icono.dart';
 import '../widgets/selector_color.dart';
 import '../widgets/ventana.dart';
-import 'curso_detalle.dart';
+import 'registro.dart';
 
 class MisCursos extends StatefulWidget {
   const MisCursos({super.key});
@@ -387,18 +387,7 @@ class _Vacio extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              padding: const EdgeInsets.all(22),
-              decoration: BoxDecoration(
-                color: KipuColores.moradoClaro,
-                shape: BoxShape.circle,
-              ),
-              child: KipuIcon(
-                KipuIcono.colegio,
-                size: 40,
-                color: KipuColores.morado,
-              ),
-            ),
+            KipuIcon(KipuIcono.colegio, size: 64, color: KipuColores.morado),
             const SizedBox(height: 18),
             const Text(
               'Aún no tienes colegios',
@@ -1152,17 +1141,10 @@ class _AgregarCurso extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: KipuColores.morado,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const KipuIcon(
-                    KipuIcono.agregar,
-                    color: Colors.white,
-                    size: 20,
-                  ),
+                KipuIcon(
+                  KipuIcono.agregar,
+                  color: KipuColores.morado,
+                  size: 32,
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -1214,7 +1196,7 @@ class TarjetaCurso extends StatelessWidget {
       child: InkWell(
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => CursoDetalle(datos: datos)),
+          MaterialPageRoute(builder: (_) => RegistroCurso(datos: datos)),
         ),
         child: Container(
           decoration: BoxDecoration(
@@ -1271,18 +1253,7 @@ class TarjetaCurso extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.all(5),
-                    decoration: BoxDecoration(
-                      color: tono,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: KipuIcon(
-                      KipuIcono.flecha,
-                      color: textoSobre(tono),
-                      size: 18,
-                    ),
-                  ),
+                  KipuIcon(KipuIcono.flecha, color: tonoTexto(tono), size: 22),
                 ],
               ),
               const SizedBox(height: 10),

@@ -43,6 +43,7 @@ class Estudiantes extends Table {
   TextColumn get dni => text().nullable()();
   TextColumn get apoderado => text().nullable()();
   TextColumn get telefono => text().nullable()();
+  BlobColumn get foto => blob().nullable()(); // JPG o PNG pequeño
   DateTimeColumn get creado => dateTime().withDefault(currentDateAndTime)();
 }
 
@@ -65,6 +66,50 @@ class Notas extends Table {
   IntColumn get periodo => integer()(); // 1..4 (bimestre) o 1..3 (trimestre)
   TextColumn get competencia => text()();
   TextColumn get nota => text()(); // AD, A, B, C
+}
+
+/// Columna del registro auxiliar de un curso en un periodo. Tipo 'nota' se
+/// llena a mano con su escala; 'calculada' (promedios) se configurará después.
+class RegistroColumnas extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get cursoId =>
+      integer().references(Cursos, #id, onDelete: KeyAction.cascade)();
+  IntColumn get periodo => integer()(); // posición del periodo, desde 1
+  IntColumn get orden => integer()();
+  TextColumn get codigo => text()(); // F1, T1, Prom.
+  TextColumn get tema => text().nullable()();
+  TextColumn get fecha => text().nullable()(); // yyyy-MM-dd
+  TextColumn get tipo => text().withDefault(const Constant('nota'))();
+  TextColumn get escala => text().nullable()(); // id de la escala
+  BoolColumn get enEquipo => boolean().withDefault(const Constant(false))();
+
+  /// Queda fija a la derecha al deslizar (solo una por curso y periodo).
+  BoolColumn get fijada => boolean().withDefault(const Constant(false))();
+}
+
+/// Nota de un estudiante en una columna: '17', '15.5', 'AD', 'Logrado'...
+class RegistroNotas extends Table {
+  IntColumn get columnaId => integer().references(
+    RegistroColumnas,
+    #id,
+    onDelete: KeyAction.cascade,
+  )();
+  IntColumn get estudianteId =>
+      integer().references(Estudiantes, #id, onDelete: KeyAction.cascade)();
+  TextColumn get valor => text()();
+
+  @override
+  Set<Column> get primaryKey => {columnaId, estudianteId};
+}
+
+/// Conducta anotada en clase: positiva o por mejorar.
+class Conductas extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get estudianteId =>
+      integer().references(Estudiantes, #id, onDelete: KeyAction.cascade)();
+  TextColumn get fecha => text()(); // yyyy-MM-dd
+  BoolColumn get positiva => boolean()();
+  TextColumn get motivo => text()();
 }
 
 /// Fechas del calendario del docente (entregas, reuniones, cumpleaños...).
@@ -137,13 +182,16 @@ class CursoConColegio {
     Notas,
     Eventos,
     Horarios,
+    RegistroColumnas,
+    RegistroNotas,
+    Conductas,
   ],
 )
 class KipuDb extends _$KipuDb {
   KipuDb([QueryExecutor? executor]) : super(executor ?? _abrir());
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -156,6 +204,12 @@ class KipuDb extends _$KipuDb {
       if (from < 4) await m.createTable(horarios);
       if (from < 5) await m.addColumn(colegios, colegios.color);
       if (from < 6) await m.addColumn(colegios, colegios.pais);
+      if (from < 7) {
+        await m.addColumn(estudiantes, estudiantes.foto);
+        await m.createTable(registroColumnas);
+        await m.createTable(registroNotas);
+        await m.createTable(conductas);
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
@@ -518,6 +572,160 @@ class KipuDb extends _$KipuDb {
         (e, cursos.where((c) => c.curso.id == e.cursoId).firstOrNull),
     ];
   }
+
+  // Registro auxiliar
+
+  Stream<List<RegistroColumna>> verColumnas(int cursoId, int periodo) =>
+      (select(registroColumnas)
+            ..where(
+              (c) => c.cursoId.equals(cursoId) & c.periodo.equals(periodo),
+            )
+            ..orderBy([(c) => OrderingTerm.asc(c.orden)]))
+          .watch();
+
+  /// Notas del periodo: {columnaId: {estudianteId: valor}}.
+  Stream<Map<int, Map<int, String>>> verNotasRegistro(
+    int cursoId,
+    int periodo,
+  ) {
+    final q =
+        select(registroNotas).join([
+          innerJoin(
+            registroColumnas,
+            registroColumnas.id.equalsExp(registroNotas.columnaId),
+          ),
+        ])..where(
+          registroColumnas.cursoId.equals(cursoId) &
+              registroColumnas.periodo.equals(periodo),
+        );
+    return q.watch().map((filas) {
+      final r = <int, Map<int, String>>{};
+      for (final f in filas) {
+        final n = f.readTable(registroNotas);
+        (r[n.columnaId] ??= {})[n.estudianteId] = n.valor;
+      }
+      return r;
+    });
+  }
+
+  Future<int> crearColumna(RegistroColumnasCompanion c) async {
+    final ultimo =
+        await (selectOnly(registroColumnas)
+              ..addColumns([registroColumnas.orden.max()])
+              ..where(
+                registroColumnas.cursoId.equals(c.cursoId.value) &
+                    registroColumnas.periodo.equals(c.periodo.value),
+              ))
+            .map((f) => f.read(registroColumnas.orden.max()))
+            .getSingle();
+    return into(registroColumnas)
+        .insert(c.copyWith(orden: Value((ultimo ?? 0) + 1)));
+  }
+
+  Future<void> editarColumna(int id, RegistroColumnasCompanion c) =>
+      (update(registroColumnas)..where((x) => x.id.equals(id))).write(c);
+
+  Future<void> borrarColumna(int id) =>
+      (delete(registroColumnas)..where((x) => x.id.equals(id))).go();
+
+  /// Fija una columna a la derecha y suelta la que estaba fijada.
+  Future<void> fijarColumna(RegistroColumna col, bool fijar) =>
+      transaction(() async {
+        await (update(registroColumnas)..where(
+              (x) =>
+                  x.cursoId.equals(col.cursoId) & x.periodo.equals(col.periodo),
+            ))
+            .write(const RegistroColumnasCompanion(fijada: Value(false)));
+        if (fijar) {
+          await editarColumna(
+            col.id,
+            const RegistroColumnasCompanion(fijada: Value(true)),
+          );
+        }
+      });
+
+  /// Cambia de lugar una columna con su vecina (-1 izquierda, 1 derecha).
+  Future<void> moverColumna(List<RegistroColumna> lista, int i, int paso) =>
+      transaction(() async {
+        final j = i + paso;
+        if (j < 0 || j >= lista.length) return;
+        await editarColumna(
+          lista[i].id,
+          RegistroColumnasCompanion(orden: Value(lista[j].orden)),
+        );
+        await editarColumna(
+          lista[j].id,
+          RegistroColumnasCompanion(orden: Value(lista[i].orden)),
+        );
+      });
+
+  Future<void> ponerNota(int columnaId, int estudianteId, String? valor) {
+    if (valor == null || valor.isEmpty) {
+      return (delete(registroNotas)..where(
+            (n) =>
+                n.columnaId.equals(columnaId) &
+                n.estudianteId.equals(estudianteId),
+          ))
+          .go();
+    }
+    return into(registroNotas).insertOnConflictUpdate(
+      RegistroNotasCompanion.insert(
+        columnaId: columnaId,
+        estudianteId: estudianteId,
+        valor: valor,
+      ),
+    );
+  }
+
+  /// Saldo de conducta de cada estudiante del curso en una fecha: {id: (+, −)}.
+  Stream<Map<int, (int, int)>> verConductaDelDia(int cursoId, String fecha) {
+    final q =
+        select(conductas).join([
+          innerJoin(
+            estudiantes,
+            estudiantes.id.equalsExp(conductas.estudianteId),
+          ),
+        ])..where(
+          estudiantes.cursoId.equals(cursoId) & conductas.fecha.equals(fecha),
+        );
+    return q.watch().map((filas) {
+      final r = <int, (int, int)>{};
+      for (final f in filas) {
+        final c = f.readTable(conductas);
+        final (p, n) = r[c.estudianteId] ?? (0, 0);
+        r[c.estudianteId] = c.positiva ? (p + 1, n) : (p, n + 1);
+      }
+      return r;
+    });
+  }
+
+  Stream<List<Conducta>> verConductas(int estudianteId) =>
+      (select(conductas)
+            ..where((c) => c.estudianteId.equals(estudianteId))
+            ..orderBy([(c) => OrderingTerm.desc(c.id)]))
+          .watch();
+
+  Future<int> anotarConducta(
+    int estudianteId,
+    String fecha,
+    bool positiva,
+    String motivo,
+  ) => into(conductas).insert(
+    ConductasCompanion.insert(
+      estudianteId: estudianteId,
+      fecha: fecha,
+      positiva: positiva,
+      motivo: motivo,
+    ),
+  );
+
+  Future<void> borrarConducta(int id) =>
+      (delete(conductas)..where((c) => c.id.equals(id))).go();
+
+  Future<void> guardarFoto(int estudianteId, Uint8List? foto) =>
+      (update(estudiantes)..where((e) => e.id.equals(estudianteId))).write(
+        EstudiantesCompanion(foto: Value(foto)),
+      );
 
   /// Borra todo (colegios, cursos, estudiantes, asistencia, notas, eventos).
   Future<void> borrarTodo() => transaction(() async {
