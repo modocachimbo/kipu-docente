@@ -18,6 +18,12 @@ class Pais {
   /// Escalas de calificación que vienen listas; la primera es la de por defecto.
   final List<Escala> escalas;
 
+  /// Feriados nacionales de fecha fija: (mes, día, nombre).
+  final List<(int, int, String)> feriados;
+
+  /// Si Jueves y Viernes Santo son feriado.
+  final bool semanaSanta;
+
   const Pais({
     required this.codigo,
     required this.nombre,
@@ -27,7 +33,38 @@ class Pais {
     required this.areas,
     required this.periodo,
     required this.escalas,
+    this.feriados = const [],
+    this.semanaSanta = false,
   });
+
+  /// Feriados de [anio] como 'yyyy-MM-dd' → nombre.
+  Map<String, String> feriadosDe(int anio) {
+    String clave(DateTime d) =>
+        '${d.year}-${d.month.toString().padLeft(2, '0')}-'
+        '${d.day.toString().padLeft(2, '0')}';
+    final r = {
+      for (final (m, d, n) in feriados) clave(DateTime(anio, m, d)): n,
+    };
+    if (semanaSanta) {
+      final pascua = _pascua(anio);
+      r[clave(pascua.subtract(const Duration(days: 3)))] = 'Jueves Santo';
+      r[clave(pascua.subtract(const Duration(days: 2)))] = 'Viernes Santo';
+    }
+    return r;
+  }
+}
+
+/// Domingo de Pascua (algoritmo de Meeus/Butcher).
+DateTime _pascua(int y) {
+  final a = y % 19, b = y ~/ 100, c = y % 100, d = b ~/ 4, e = b % 4;
+  final f = (b + 8) ~/ 25, g = (b - f + 1) ~/ 3;
+  final h = (19 * a + b - d - g + 15) % 30;
+  final i = c ~/ 4, k = c % 4;
+  final l = (32 + 2 * e + 2 * i - h - k) % 7;
+  final m = (a + 11 * h + 22 * l) ~/ 451;
+  final mes = (h + l - 7 * m + 114) ~/ 31;
+  final dia = (h + l - 7 * m + 114) % 31 + 1;
+  return DateTime(y, mes, dia);
 }
 
 /// Un valor de una escala (AD, Logrado...) con su color. En escalas numéricas,
@@ -168,6 +205,23 @@ const peru = Pais(
     ],
   },
   periodo: 'bimestre',
+  semanaSanta: true,
+  feriados: [
+    (1, 1, 'Año Nuevo'),
+    (5, 1, 'Día del Trabajo'),
+    (6, 7, 'Batalla de Arica'),
+    (6, 29, 'San Pedro y San Pablo'),
+    (7, 23, 'Día de la Fuerza Aérea'),
+    (7, 28, 'Fiestas Patrias'),
+    (7, 29, 'Fiestas Patrias'),
+    (8, 6, 'Batalla de Junín'),
+    (8, 30, 'Santa Rosa de Lima'),
+    (10, 8, 'Combate de Angamos'),
+    (11, 1, 'Todos los Santos'),
+    (12, 8, 'Inmaculada Concepción'),
+    (12, 9, 'Batalla de Ayacucho'),
+    (12, 25, 'Navidad'),
+  ],
   escalas: [
     Escala(
       id: 'cneb',

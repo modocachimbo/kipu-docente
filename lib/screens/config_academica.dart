@@ -5,6 +5,7 @@ import '../data/academico.dart';
 import '../data/paises.dart';
 import '../main.dart';
 import '../theme.dart';
+import '../widgets/calendario_rango.dart';
 import '../widgets/kipu_icono.dart';
 import '../widgets/selector_color.dart';
 import '../widgets/ventana.dart';
@@ -429,6 +430,24 @@ Future<ConfigAcademica?> editarAnio(
 }) {
   var inicio = c.inicio;
   var fin = c.fin;
+  Future<void> rango(
+    BuildContext ctx,
+    StateSetter setState,
+    bool porFin,
+  ) async {
+    final r = await elegirRango(
+      ctx,
+      icono: KipuIcono.calendario,
+      titulo: 'Año escolar ${c.anio}',
+      anio: c.anio,
+      inicio: inicio,
+      fin: fin,
+      empezarPorFin: porFin,
+      feriados: paisPorCodigo(c.pais).feriadosDe(c.anio),
+    );
+    if (r != null) setState(() => (inicio, fin) = r);
+  }
+
   return showDialog<ConfigAcademica>(
     context: context,
     builder: (ctx) => StatefulBuilder(
@@ -445,8 +464,7 @@ Future<ConfigAcademica?> editarAnio(
                   child: _CampoFecha(
                     'Inicio de clases',
                     inicio,
-                    anio: c.anio,
-                    onCambio: (v) => setState(() => inicio = v),
+                    onTap: () => rango(ctx, setState, false),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -454,8 +472,7 @@ Future<ConfigAcademica?> editarAnio(
                   child: _CampoFecha(
                     'Fin de clases',
                     fin,
-                    anio: c.anio,
-                    onCambio: (v) => setState(() => fin = v),
+                    onTap: () => rango(ctx, setState, true),
                   ),
                 ),
               ],
@@ -532,8 +549,29 @@ Future<ConfigAcademica?> editarPeriodos(
                 _FilaPeriodo(
                   numero: i + 1,
                   periodo: periodos[i],
-                  anio: c.anio,
-                  onCambio: (p) => setState(() => periodos[i] = p),
+                  onElegir: (porFin) async {
+                    final p = periodos[i];
+                    final r = await elegirRango(
+                      ctx,
+                      icono: KipuIcono.horario,
+                      titulo: p.nombre,
+                      anio: c.anio,
+                      inicio: p.inicio,
+                      fin: p.fin,
+                      empezarPorFin: porFin,
+                      feriados: paisPorCodigo(c.pais).feriadosDe(c.anio),
+                      otros: [
+                        for (final o in periodos)
+                          if (o != p && o.inicio != null && o.fin != null)
+                            (o.inicio!, o.fin!),
+                      ],
+                    );
+                    if (r != null) {
+                      setState(
+                        () => periodos[i] = p.copiar(inicio: r.$1, fin: r.$2),
+                      );
+                    }
+                  },
                 ),
               const SizedBox(height: 10),
               _BotonesVentana(
@@ -555,14 +593,12 @@ Future<ConfigAcademica?> editarPeriodos(
 class _FilaPeriodo extends StatelessWidget {
   final int numero;
   final Periodo periodo;
-  final int anio;
-  final ValueChanged<Periodo> onCambio;
+  final ValueChanged<bool> onElegir; // true: empezar por el fin
 
   const _FilaPeriodo({
     required this.numero,
     required this.periodo,
-    required this.anio,
-    required this.onCambio,
+    required this.onElegir,
   });
 
   @override
@@ -599,64 +635,29 @@ class _FilaPeriodo extends StatelessWidget {
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
-          _Fecha(
-            periodo.inicio,
-            'Inicio',
-            anio: anio,
-            onCambio: (v) => onCambio(periodo.copiar(inicio: v)),
-          ),
+          _Fecha(periodo.inicio, 'Inicio', onTap: () => onElegir(false)),
           const SizedBox(width: 6),
-          _Fecha(
-            periodo.fin,
-            'Fin',
-            anio: anio,
-            onCambio: (v) => onCambio(periodo.copiar(fin: v)),
-          ),
+          _Fecha(periodo.fin, 'Fin', onTap: () => onElegir(true)),
         ],
       ),
     );
   }
 }
 
-Future<String?> _pedirFecha(
-  BuildContext context,
-  String? actual,
-  int anio,
-) async {
-  final f = await showDatePicker(
-    context: context,
-    initialDate: actual != null
-        ? DateTime.parse(actual)
-        : DateTime(anio, DateTime.now().month.clamp(3, 12)),
-    firstDate: DateTime(anio - 1),
-    lastDate: DateTime(anio + 1, 12, 31),
-  );
-  return f == null ? null : claveFecha(f);
-}
-
 /// Píldora de fecha: muestra "9 mar" o, si falta, el texto en ámbar.
 class _Fecha extends StatelessWidget {
   final String? valor;
   final String vacio;
-  final int anio;
-  final ValueChanged<String> onCambio;
+  final VoidCallback onTap;
 
-  const _Fecha(
-    this.valor,
-    this.vacio, {
-    required this.anio,
-    required this.onCambio,
-  });
+  const _Fecha(this.valor, this.vacio, {required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final falta = valor == null;
     return InkWell(
       borderRadius: BorderRadius.circular(10),
-      onTap: () async {
-        final f = await _pedirFecha(context, valor, anio);
-        if (f != null) onCambio(f);
-      },
+      onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
         decoration: BoxDecoration(
@@ -683,15 +684,9 @@ class _Fecha extends StatelessWidget {
 class _CampoFecha extends StatelessWidget {
   final String etiqueta;
   final String? valor;
-  final int anio;
-  final ValueChanged<String> onCambio;
+  final VoidCallback onTap;
 
-  const _CampoFecha(
-    this.etiqueta,
-    this.valor, {
-    required this.anio,
-    required this.onCambio,
-  });
+  const _CampoFecha(this.etiqueta, this.valor, {required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -705,10 +700,7 @@ class _CampoFecha extends StatelessWidget {
         const SizedBox(height: 6),
         InkWell(
           borderRadius: BorderRadius.circular(14),
-          onTap: () async {
-            final f = await _pedirFecha(context, valor, anio);
-            if (f != null) onCambio(f);
-          },
+          onTap: onTap,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
             decoration: BoxDecoration(
