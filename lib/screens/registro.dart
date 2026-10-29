@@ -264,11 +264,9 @@ class _RegistroCursoState extends State<RegistroCurso> {
     return Scaffold(
       drawer: const MenuCajon(),
       backgroundColor: KipuColores.fondo,
-      // Sube un poco para no tapar la fila de medias.
       floatingActionButton: _BotonMas(
         colores: colores,
         sinEstudiantes: total == 0,
-        elevar: total == 0 ? 0 : (ancho ? 54 : 46),
         onAccion: accion,
       ),
       body: SafeArea(
@@ -693,12 +691,10 @@ Future<void> _accionRegistro(
 class _BotonMas extends StatelessWidget {
   final ColoresRegistro colores;
   final bool sinEstudiantes;
-  final double elevar;
   final ValueChanged<String> onAccion;
   const _BotonMas({
     required this.colores,
     required this.sinEstudiantes,
-    required this.elevar,
     required this.onAccion,
   });
 
@@ -724,7 +720,7 @@ class _BotonMas extends StatelessWidget {
         child: Align(
           alignment: Alignment.bottomRight,
           child: Padding(
-            padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + elevar),
+            padding: const EdgeInsets.all(16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.end,
@@ -796,15 +792,12 @@ class _BotonMas extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: EdgeInsets.only(bottom: elevar),
-    child: FloatingActionButton(
-      tooltip: 'Más opciones',
-      backgroundColor: colores.calculadas,
-      shape: const CircleBorder(),
-      onPressed: () => _abrir(context),
-      child: const KipuIcon(KipuIcono.agregar, size: 28, color: Colors.white),
-    ),
+  Widget build(BuildContext context) => FloatingActionButton(
+    tooltip: 'Más opciones',
+    backgroundColor: colores.calculadas,
+    shape: const CircleBorder(),
+    onPressed: () => _abrir(context),
+    child: const KipuIcon(KipuIcono.agregar, size: 28, color: Colors.white),
   );
 }
 
@@ -1012,7 +1005,6 @@ class _TablaState extends State<_Tabla> {
     final fija = w.columnas.where((c) => c.fijada).firstOrNull;
     final libres = w.columnas.where((c) => !c.fijada).toList();
     final c = w.colores;
-    final pieH = ancho ? 50.0 : 44.0;
 
     Widget pie(RegistroColumna col, double ancho, {bool fijada = false}) =>
         _CeldaMedia(
@@ -1023,18 +1015,23 @@ class _TablaState extends State<_Tabla> {
               : null,
           escala: w.escalaDe(col),
           ancho: ancho,
-          alto: pieH,
+          alto: filaH,
           fijada: fijada,
         );
 
-    Widget lista(int i, Widget Function(Estudiante e, int i) fila) =>
-        ListView.builder(
-          controller: _v[i],
-          padding: const EdgeInsets.only(bottom: 90),
-          itemExtent: filaH,
-          itemCount: w.estudiantes.length,
-          itemBuilder: (_, k) => fila(w.estudiantes[k], k),
-        );
+    // La última fila de cada lista es la media, pegada al último estudiante.
+    Widget lista(
+      int i,
+      Widget Function(Estudiante e, int i) fila,
+      Widget media,
+    ) => ListView.builder(
+      controller: _v[i],
+      padding: const EdgeInsets.only(bottom: 90),
+      itemExtent: filaH,
+      itemCount: w.estudiantes.length + 1,
+      itemBuilder: (_, k) =>
+          k < w.estudiantes.length ? fila(w.estudiantes[k], k) : media,
+    );
 
     final nombres = AnimatedBuilder(
       animation: _h,
@@ -1081,22 +1078,18 @@ class _TablaState extends State<_Tabla> {
                 onTap: () => w.onEstudiante(e),
                 onConducta: () => w.onConducta(e),
               ),
-            ),
-          ),
-          Container(
-            height: pieH,
-            alignment: Alignment.centerLeft,
-            padding: EdgeInsets.only(left: ancho ? 18 : 12),
-            decoration: BoxDecoration(
-              color: c.cabecera,
-              border: const Border(top: BorderSide(color: _linea)),
-            ),
-            child: Text(
-              ancho ? 'Media de la columna' : 'Media',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: c.tintaCabecera,
+              Container(
+                alignment: Alignment.centerLeft,
+                padding: EdgeInsets.only(left: ancho ? 18 : 12),
+                color: c.cabecera,
+                child: Text(
+                  ancho ? 'Media de la columna' : 'Media',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: c.tintaCabecera,
+                  ),
+                ),
               ),
             ),
           ),
@@ -1162,19 +1155,15 @@ class _TablaState extends State<_Tabla> {
                       ),
                     ],
                   ),
-                ),
-              ),
-              Container(
-                height: pieH,
-                decoration: BoxDecoration(
-                  color: c.cabecera,
-                  border: const Border(top: BorderSide(color: _linea)),
-                ),
-                child: Row(
-                  children: [
-                    for (final col in libres) pie(col, celdaW),
-                    SizedBox(width: agregarW),
-                  ],
+                  ColoredBox(
+                    color: c.cabecera,
+                    child: Row(
+                      children: [
+                        for (final col in libres) pie(col, celdaW),
+                        SizedBox(width: agregarW),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -1222,16 +1211,8 @@ class _TablaState extends State<_Tabla> {
                   ancho: fijaW,
                   onTap: () => w.onCelda(e, fija),
                 ),
+                pie(fija, fijaW, fijada: true),
               ),
-            ),
-            Container(
-              height: pieH,
-              decoration: BoxDecoration(
-                border: Border(
-                  top: BorderSide(color: Colors.white.withValues(alpha: .15)),
-                ),
-              ),
-              child: pie(fija, fijaW, fijada: true),
             ),
           ],
         ),
@@ -1260,18 +1241,6 @@ class _TablaState extends State<_Tabla> {
                       top: 0,
                       height: cabH,
                       child: ColoredBox(color: c.cabecera),
-                    ),
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      height: pieH,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: c.cabecera,
-                          border: const Border(top: BorderSide(color: _linea)),
-                        ),
-                      ),
                     ),
                     Positioned.fill(child: notas),
                   ],
