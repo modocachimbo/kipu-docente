@@ -36,6 +36,9 @@ enum KipuIcono {
   ordenar,
   aviso,
   paleta,
+  engranaje,
+  diana,
+  promedio,
 }
 
 // R = relleno suave, T = trazo. Ambos se reemplazan por el color al dibujar.
@@ -164,6 +167,20 @@ const _svg = <KipuIcono, String>{
 <path d="M12 3a9 9 0 0 0 0 18c1.2 0 1.8-.8 1.8-1.7 0-1.2-1-1.6-1-2.6 0-1 .8-1.7 1.8-1.7h2.1A4.3 4.3 0 0 0 21 10.7C21 6.4 17 3 12 3Z" fill="R"/>
 <path d="M12 3a9 9 0 0 0 0 18c1.2 0 1.8-.8 1.8-1.7 0-1.2-1-1.6-1-2.6 0-1 .8-1.7 1.8-1.7h2.1A4.3 4.3 0 0 0 21 10.7C21 6.4 17 3 12 3Z" stroke="T"/>
 <circle cx="7.5" cy="11" r="1" stroke="T"/><circle cx="10" cy="7" r="1" stroke="T"/><circle cx="15" cy="7.5" r="1" stroke="T"/>''',
+  KipuIcono.engranaje: '''
+<circle cx="12" cy="12" r="8" fill="R"/>
+<path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" stroke="T"/>
+<circle cx="12" cy="12" r="5.5" stroke="T"/>
+<circle cx="12" cy="12" r="2" stroke="T"/>''',
+  KipuIcono.diana: '''
+<circle cx="12" cy="12" r="9" fill="R"/>
+<circle cx="12" cy="12" r="9" stroke="T"/>
+<circle cx="12" cy="12" r="5" stroke="T"/>
+<circle cx="12" cy="12" r="1.3" stroke="T"/>''',
+  KipuIcono.promedio: '''
+<rect x="3" y="3" width="18" height="18" rx="4" fill="R"/>
+<rect x="3" y="3" width="18" height="18" rx="4" stroke="T"/>
+<path d="M8 16v-3M12 16V8M16 16v-5" stroke="T"/>''',
 };
 
 String _hex(Color c) =>

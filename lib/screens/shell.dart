@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../widgets/kipu_icono.dart';
 import 'asistencia.dart';
+import 'config_academica.dart';
 import 'configuracion.dart';
 import 'cursos.dart';
 import 'inicio.dart';
@@ -12,6 +13,7 @@ class _Seccion {
   final String titulo;
   final KipuIcono icono;
   final bool enBarra; // visible en la barra inferior del celular
+  final String? grupo; // se muestra dentro de un menú desplegable
   final Widget Function() pantalla;
 
   const _Seccion(
@@ -19,8 +21,11 @@ class _Seccion {
     this.icono,
     this.pantalla, {
     this.enBarra = false,
+    this.grupo,
   });
 }
+
+const _grupoConfig = 'Configuración';
 
 final _secciones = <_Seccion>[
   _Seccion('Dashboard', KipuIcono.inicio, () => const Inicio(), enBarra: true),
@@ -77,7 +82,18 @@ final _secciones = <_Seccion>[
     ),
     enBarra: true,
   ),
-  _Seccion('Configuración', KipuIcono.ajustes, () => const Configuracion()),
+  _Seccion(
+    'Académica',
+    KipuIcono.estrella,
+    () => const ConfigAcademicaPantalla(),
+    grupo: _grupoConfig,
+  ),
+  _Seccion(
+    'General',
+    KipuIcono.engranaje,
+    () => const Configuracion(),
+    grupo: _grupoConfig,
+  ),
   _Seccion(
     'Sincronizar',
     KipuIcono.copia,
@@ -168,7 +184,35 @@ class _ShellState extends State<Shell> {
           mainAxisSize: MainAxisSize.min,
           children: [
             for (var i = 0; i < _secciones.length; i++)
-              if (!_secciones[i].enBarra)
+              if (_secciones[i].grupo != null &&
+                  _secciones[i - 1].grupo == null)
+                ExpansionTile(
+                  shape: const Border(),
+                  initiallyExpanded: _secciones[_actual].grupo == _grupoConfig,
+                  leading: KipuIcon(
+                    KipuIcono.ajustes,
+                    color: KipuColores.morado,
+                  ),
+                  title: const Text(_grupoConfig),
+                  children: [
+                    for (var j = 0; j < _secciones.length; j++)
+                      if (_secciones[j].grupo == _secciones[i].grupo)
+                        ListTile(
+                          contentPadding: const EdgeInsets.only(left: 56),
+                          leading: KipuIcon(
+                            _secciones[j].icono,
+                            size: 20,
+                            color: KipuColores.morado,
+                          ),
+                          title: Text(_secciones[j].titulo),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _ir(j);
+                          },
+                        ),
+                  ],
+                )
+              else if (!_secciones[i].enBarra && _secciones[i].grupo == null)
                 ListTile(
                   leading: KipuIcon(
                     _secciones[i].icono,
@@ -187,13 +231,27 @@ class _ShellState extends State<Shell> {
   }
 }
 
-class _MenuLateral extends StatelessWidget {
+class _MenuLateral extends StatefulWidget {
   final int actual;
   final ValueChanged<int> onTap;
 
   const _MenuLateral({required this.actual, required this.onTap});
 
-  Widget _item(String titulo, KipuIcono icono, bool activo, VoidCallback tap) {
+  @override
+  State<_MenuLateral> createState() => _MenuLateralState();
+}
+
+class _MenuLateralState extends State<_MenuLateral> {
+  late bool _abierto = _secciones[widget.actual].grupo == _grupoConfig;
+
+  Widget _item(
+    String titulo,
+    KipuIcono icono,
+    bool activo,
+    VoidCallback tap, {
+    bool hijo = false,
+    Widget? cola,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Material(
@@ -203,12 +261,12 @@ class _MenuLateral extends StatelessWidget {
           borderRadius: BorderRadius.circular(30),
           onTap: tap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+            padding: EdgeInsets.fromLTRB(hijo ? 30 : 16, 13, 16, 13),
             child: Row(
               children: [
                 KipuIcon(
                   icono,
-                  size: 24,
+                  size: hijo ? 20 : 24,
                   color: activo ? Colors.white : KipuColores.tinta,
                 ),
                 const SizedBox(width: 14),
@@ -220,6 +278,7 @@ class _MenuLateral extends StatelessWidget {
                     color: activo ? Colors.white : KipuColores.tinta,
                   ),
                 ),
+                if (cola != null) ...[const Spacer(), cola],
               ],
             ),
           ),
@@ -269,13 +328,33 @@ class _MenuLateral extends StatelessWidget {
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
-                for (var i = 0; i < _secciones.length; i++)
-                  _item(
-                    _secciones[i].titulo,
-                    _secciones[i].icono,
-                    i == actual,
-                    () => onTap(i),
-                  ),
+                for (var i = 0; i < _secciones.length; i++) ...[
+                  if (_secciones[i].grupo != null &&
+                      (i == 0 || _secciones[i - 1].grupo == null))
+                    _item(
+                      _grupoConfig,
+                      KipuIcono.ajustes,
+                      false,
+                      () => setState(() => _abierto = !_abierto),
+                      cola: AnimatedRotation(
+                        turns: _abierto ? .5 : 0,
+                        duration: const Duration(milliseconds: 200),
+                        child: KipuIcon(
+                          KipuIcono.abajo,
+                          size: 18,
+                          color: KipuColores.gris,
+                        ),
+                      ),
+                    ),
+                  if (_secciones[i].grupo == null || _abierto)
+                    _item(
+                      _secciones[i].titulo,
+                      _secciones[i].icono,
+                      i == widget.actual,
+                      () => widget.onTap(i),
+                      hijo: _secciones[i].grupo != null,
+                    ),
+                ],
               ],
             ),
           ),
@@ -287,7 +366,7 @@ class _MenuLateral extends StatelessWidget {
                 content: const Text(
                   'Kipu guarda todo en este dispositivo y funciona sin internet. '
                   'Empieza en "Mis cursos" creando tu colegio, o carga datos de '
-                  'ejemplo desde "Configuración" para explorar.',
+                  'ejemplo desde "Configuración > General" para explorar.',
                 ),
                 actions: [
                   TextButton(

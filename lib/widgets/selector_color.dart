@@ -125,7 +125,7 @@ class _SelectorColorState extends State<_SelectorColor> {
       contenido: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _Pestanas(
+          KipuSegmentos(
             const ['Sólidos', 'Pasteles', 'Personalizado'],
             _pestana,
             (i) => setState(() => _pestana = i),
@@ -182,11 +182,12 @@ class _SelectorColorState extends State<_SelectorColor> {
   }
 }
 
-class _Pestanas extends StatelessWidget {
+/// Pestañas en forma de píldora (Sólidos | Pasteles | Personalizado).
+class KipuSegmentos extends StatelessWidget {
   final List<String> textos;
   final int elegida;
   final ValueChanged<int> onTap;
-  const _Pestanas(this.textos, this.elegida, this.onTap);
+  const KipuSegmentos(this.textos, this.elegida, this.onTap, {super.key});
 
   @override
   Widget build(BuildContext context) {
