@@ -104,6 +104,11 @@ PdfColor _suave(Color c, double t) => _pdf(Color.lerp(c, Colors.white, t)!);
 
 // PDF
 
+const _verde = Color(0xFF2FA66A);
+const _iniciales = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+
+PdfColor _osc(Color c, double t) => _pdf(Color.lerp(c, Colors.black, t)!);
+
 Future<Uint8List> pdfAsistencia(ReporteAsistencia r) async {
   Future<pw.Font> fuente(String f) async =>
       pw.Font.ttf(await rootBundle.load('assets/fonts/Outfit-$f.ttf'));
@@ -123,18 +128,34 @@ Future<Uint8List> pdfAsistencia(ReporteAsistencia r) async {
     'es_PE',
   ).format(DateTime.now());
   final linea = _suave(_tinta, .9);
+  final dias = [for (final f in r.fechas) DateTime.parse(f)];
+  final tutor = r.curso.tutor?.trim() ?? '';
+
+  pw.Widget texto(
+    String s, {
+    double size = 8,
+    pw.Font? font,
+    PdfColor? color,
+    double ls = 0,
+  }) => pw.Text(
+    s,
+    style: pw.TextStyle(
+      font: font ?? normal,
+      fontSize: size,
+      color: color ?? _pdf(_tinta),
+      letterSpacing: ls,
+    ),
+  );
 
   pw.Widget celda(String? e) {
     if (e == null) {
-      return pw.Center(
-        child: pw.Text('·', style: pw.TextStyle(color: _suave(_gris, .5))),
-      );
+      return pw.Center(child: texto('·', size: 9, color: _suave(_gris, .5)));
     }
     if (e == 'P') {
       return pw.Center(
         child: pw.Container(
-          width: 6,
-          height: 6,
+          width: 5.5,
+          height: 5.5,
           decoration: pw.BoxDecoration(
             color: _pdf(base),
             shape: pw.BoxShape.circle,
@@ -149,144 +170,75 @@ Future<Uint8List> pdfAsistencia(ReporteAsistencia r) async {
         height: 13,
         alignment: pw.Alignment.center,
         decoration: pw.BoxDecoration(
-          color: _suave(c, .82),
+          color: _suave(c, .8),
           borderRadius: pw.BorderRadius.circular(3.5),
         ),
-        child: pw.Text(
-          e,
-          style: pw.TextStyle(
-            font: fuerte,
-            fontSize: 7.5,
-            color: _pdf(Color.lerp(c, Colors.black, .25)!),
-          ),
-        ),
+        child: texto(e, size: 7.3, font: fuerte, color: _osc(c, .3)),
       ),
     );
   }
 
-  final muchas = r.fechas.length > 24;
-  final cabecera = pw.TextStyle(
-    font: negrita,
-    fontSize: muchas ? 6.5 : 7.5,
-    color: PdfColors.white,
-  );
-  final filas = <pw.TableRow>[
-    pw.TableRow(
+  Color colorPct(int? p) => p == null
+      ? _gris
+      : p < 80
+      ? _falta
+      : p >= 95
+      ? _verde
+      : base;
+
+  pw.Widget pastilla(int? p) {
+    final c = colorPct(p);
+    return pw.Container(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 1.6),
       decoration: pw.BoxDecoration(
-        color: _pdf(Color.lerp(base, Colors.black, .15)!),
+        color: _suave(c, .84),
+        borderRadius: pw.BorderRadius.circular(8),
       ),
-      verticalAlignment: pw.TableCellVerticalAlignment.middle,
-      children: [
-        _pad(pw.Text('N.°', style: cabecera), centro: true),
-        _pad(pw.Text('APELLIDOS Y NOMBRES', style: cabecera)),
-        for (final d in r.fechas)
-          _pad(
-            pw.Column(
-              children: [
-                pw.Text(
-                  d.substring(8),
-                  style: cabecera.copyWith(fontSize: muchas ? 7 : 8.5),
-                ),
-                pw.Text(
-                  DateFormat(
-                    'MMM',
-                    'es_PE',
-                  ).format(DateTime.parse(d)).replaceAll('.', ''),
-                  style: cabecera.copyWith(font: normal, fontSize: 6),
-                ),
-              ],
-            ),
-            centro: true,
-          ),
-        for (final t in ['%', 'F', 'T', 'J'])
-          _pad(pw.Text(t, style: cabecera), centro: true),
-      ],
-    ),
-  ];
-  for (var i = 0; i < r.estudiantes.length; i++) {
-    final e = r.estudiantes[i];
-    final s = r.resumen(e);
-    final bajo = s.pct != null && s.pct! < 80;
-    final num = pw.TextStyle(font: negrita, fontSize: 8);
-    filas.add(
-      pw.TableRow(
-        decoration: pw.BoxDecoration(
-          color: i.isOdd ? _suave(base, .965) : PdfColors.white,
-          border: pw.Border(bottom: pw.BorderSide(color: linea, width: .5)),
-        ),
-        verticalAlignment: pw.TableCellVerticalAlignment.middle,
-        children: [
-          _pad(
-            pw.Text(
-              '${i + 1}',
-              style: pw.TextStyle(fontSize: 7.5, color: _pdf(_gris)),
-            ),
-            centro: true,
-          ),
-          _pad(
-            pw.RichText(
-              text: pw.TextSpan(
-                children: [
-                  pw.TextSpan(
-                    text: '${e.apellidos.toUpperCase()}, ',
-                    style: pw.TextStyle(font: media, fontSize: 8),
-                  ),
-                  pw.TextSpan(
-                    text: e.nombres,
-                    style: const pw.TextStyle(fontSize: 8),
-                  ),
-                ],
-              ),
-              maxLines: 1,
-            ),
-          ),
-          for (final d in r.fechas) celda(r.marcas[(e.id, d)]?.estado),
-          pw.Container(
-            color: _suave(base, .9),
-            padding: const pw.EdgeInsets.symmetric(vertical: 4),
-            alignment: pw.Alignment.center,
-            child: pw.Text(
-              s.pct == null ? '—' : '${s.pct}%',
-              style: num.copyWith(
-                color: bajo
-                    ? _pdf(Color.lerp(_falta, Colors.black, .2)!)
-                    : _pdf(_tinta),
-              ),
-            ),
-          ),
-          for (final (n, c) in [(s.f, _falta), (s.t, _tarde), (s.j, _justif)])
-            pw.Container(
-              color: _suave(base, .9),
-              padding: const pw.EdgeInsets.symmetric(vertical: 4),
-              alignment: pw.Alignment.center,
-              child: pw.Text(
-                '$n',
-                style: num.copyWith(
-                  color: n == 0
-                      ? _suave(_gris, .45)
-                      : _pdf(Color.lerp(c, Colors.black, .2)!),
-                ),
-              ),
-            ),
-        ],
+      child: texto(
+        p == null ? '—' : '$p%',
+        size: 7.3,
+        font: fuerte,
+        color: _osc(c, .3),
       ),
     );
   }
 
   // Indicadores del aula.
-  var asist = 0, total = 0, faltas = 0, tardes = 0;
+  var asist = 0, total = 0, faltas = 0, tardes = 0, justif = 0, riesgo = 0;
   for (final e in r.estudiantes) {
     final s = r.resumen(e);
     asist += s.p + s.t;
     total += s.total;
-    faltas += s.f + s.j;
+    faltas += s.f;
     tardes += s.t;
+    justif += s.j;
+    if (s.pct != null && s.pct! < 80) riesgo++;
   }
   final pctAula = total == 0 ? '—' : '${(asist * 100 / total).round()}%';
+  final porFecha = [
+    for (final d in r.fechas)
+      () {
+        var a = 0, n = 0;
+        for (final e in r.estudiantes) {
+          final m = r.marcas[(e.id, d)]?.estado;
+          if (m == null) continue;
+          n++;
+          if (m == 'P' || m == 'T') a++;
+        }
+        return n == 0 ? null : a / n;
+      }(),
+  ];
 
-  pw.Widget indicador(String valor, String texto, Color c) => pw.Expanded(
+  pw.Widget indicador(
+    String valor,
+    String etiqueta,
+    String sub,
+    Color c, {
+    double? progreso,
+  }) => pw.Expanded(
     child: pw.Container(
-      padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      height: 58,
+      padding: const pw.EdgeInsets.fromLTRB(12, 9, 12, 9),
       decoration: pw.BoxDecoration(
         color: _suave(c, .92),
         borderRadius: pw.BorderRadius.circular(8),
@@ -294,47 +246,324 @@ Future<Uint8List> pdfAsistencia(ReporteAsistencia r) async {
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          pw.Text(
-            valor,
-            style: pw.TextStyle(
-              font: fuerte,
-              fontSize: 15,
-              color: _pdf(Color.lerp(c, Colors.black, .2)!),
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.end,
+            children: [
+              texto(valor, size: 17, font: fuerte, color: _osc(c, .2)),
+              pw.SizedBox(width: 6),
+              pw.Padding(
+                padding: const pw.EdgeInsets.only(bottom: 3),
+                child: texto(sub, size: 7, color: _osc(c, .05)),
+              ),
+            ],
+          ),
+          texto(etiqueta, size: 7.5, color: _pdf(_gris)),
+          if (progreso != null) ...[
+            pw.SizedBox(height: 4),
+            pw.Stack(
+              children: [
+                pw.Container(
+                  height: 3.5,
+                  decoration: pw.BoxDecoration(
+                    color: _suave(c, .78),
+                    borderRadius: pw.BorderRadius.circular(2),
+                  ),
+                ),
+                pw.LayoutBuilder(
+                  builder: (ctx, k) => pw.Container(
+                    width: (k?.maxWidth ?? 100) * progreso.clamp(0, 1),
+                    height: 3.5,
+                    decoration: pw.BoxDecoration(
+                      color: _pdf(c),
+                      borderRadius: pw.BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-          pw.Text(
-            texto,
-            style: pw.TextStyle(fontSize: 7.5, color: _pdf(_gris)),
-          ),
+          ],
         ],
       ),
+    ),
+  );
+
+  pw.Widget dato(String k, String v) => pw.Column(
+    crossAxisAlignment: pw.CrossAxisAlignment.start,
+    children: [
+      texto(k, size: 6.3, font: negrita, color: _pdf(_gris), ls: 1.2),
+      texto(v, size: 9.3, font: media),
+    ],
+  );
+
+  // Tabla principal.
+  const wN = 22.0, wNom = 168.0, wPct = 52.0, wMini = 19.0;
+  final muchas = r.fechas.length > 24;
+  final cab = _pdf(Colors.white);
+
+  final meses = <(String, int)>[];
+  for (final d in dias) {
+    final n = DateFormat('MMMM', 'es_PE').format(d).toUpperCase();
+    if (meses.isEmpty || meses.last.$1 != n) {
+      meses.add((n, 1));
+    } else {
+      meses[meses.length - 1] = (n, meses.last.$2 + 1);
+    }
+  }
+  final filaMeses = pw.Row(
+    children: [
+      pw.SizedBox(width: wN + wNom),
+      pw.Expanded(
+        child: pw.Row(
+          children: [
+            for (final g in meses)
+              pw.Expanded(
+                flex: g.$2,
+                child: pw.Container(
+                  margin: const pw.EdgeInsets.symmetric(horizontal: 1),
+                  padding: const pw.EdgeInsets.only(bottom: 2.5, left: 2),
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border(
+                      bottom: pw.BorderSide(color: _pdf(base), width: 1.2),
+                    ),
+                  ),
+                  child: texto(
+                    // Si el mes tiene pocas clases, solo cabe la abreviatura.
+                    g.$2 < 2 ? g.$1.substring(0, 3) : g.$1,
+                    size: 6.5,
+                    font: negrita,
+                    color: _pdf(base),
+                    ls: 1.2,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+      pw.SizedBox(width: wPct + wMini * 3),
+    ],
+  );
+
+  final filas = <pw.TableRow>[
+    pw.TableRow(
+      decoration: pw.BoxDecoration(color: _osc(base, .15)),
+      verticalAlignment: pw.TableCellVerticalAlignment.middle,
+      children: [
+        _pad(texto('N.°', size: 7, font: negrita, color: cab), centro: true),
+        _pad(
+          texto(
+            'APELLIDOS Y NOMBRES',
+            size: 7,
+            font: negrita,
+            color: cab,
+            ls: .4,
+          ),
+        ),
+        for (final d in dias)
+          _pad(
+            pw.Column(
+              children: [
+                texto(
+                  _iniciales[d.weekday - 1],
+                  size: 5.5,
+                  color: _suave(base, .55),
+                ),
+                texto(
+                  '${d.day}',
+                  size: muchas ? 7 : 8.3,
+                  font: negrita,
+                  color: cab,
+                ),
+              ],
+            ),
+            centro: true,
+          ),
+        _pad(
+          texto('ASIST.', size: 6.5, font: negrita, color: cab),
+          centro: true,
+        ),
+        for (final (s, c) in [('F', _falta), ('T', _tarde), ('J', _justif)])
+          _pad(
+            texto(s, size: 7.5, font: fuerte, color: _suave(c, .45)),
+            centro: true,
+          ),
+      ],
+    ),
+  ];
+
+  for (var i = 0; i < r.estudiantes.length; i++) {
+    final e = r.estudiantes[i];
+    final s = r.resumen(e);
+    final bajo = s.pct != null && s.pct! < 80;
+    final tinta = bajo ? _osc(_falta, .35) : _pdf(_tinta);
+    final fondoResumen = _suave(base, .92);
+    filas.add(
+      pw.TableRow(
+        verticalAlignment: pw.TableCellVerticalAlignment.middle,
+        decoration: pw.BoxDecoration(
+          color: bajo
+              ? _suave(_falta, .94)
+              : i.isOdd
+              ? _suave(base, .968)
+              : PdfColors.white,
+          border: pw.Border(bottom: pw.BorderSide(color: linea, width: .5)),
+        ),
+        children: [
+          _pad(texto('${i + 1}', size: 7.3, color: _pdf(_gris)), centro: true),
+          _pad(
+            pw.Row(
+              children: [
+                pw.Expanded(
+                  child: pw.RichText(
+                    maxLines: 1,
+                    text: pw.TextSpan(
+                      children: [
+                        pw.TextSpan(
+                          text: '${e.apellidos.toUpperCase()}, ',
+                          style: pw.TextStyle(
+                            font: media,
+                            fontSize: 7.8,
+                            color: tinta,
+                          ),
+                        ),
+                        pw.TextSpan(
+                          text: e.nombres,
+                          style: pw.TextStyle(
+                            font: normal,
+                            fontSize: 7.8,
+                            color: tinta,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (bajo)
+                  pw.Container(
+                    width: 9,
+                    height: 9,
+                    alignment: pw.Alignment.center,
+                    decoration: pw.BoxDecoration(
+                      color: _pdf(_falta),
+                      shape: pw.BoxShape.circle,
+                    ),
+                    child: texto('!', size: 6.5, font: fuerte, color: cab),
+                  ),
+              ],
+            ),
+          ),
+          for (final d in r.fechas) celda(r.marcas[(e.id, d)]?.estado),
+          pw.Container(
+            color: fondoResumen,
+            padding: const pw.EdgeInsets.symmetric(vertical: 3),
+            alignment: pw.Alignment.center,
+            child: pastilla(s.pct),
+          ),
+          for (final (n, c) in [(s.f, _falta), (s.t, _tarde), (s.j, _justif)])
+            pw.Container(
+              color: fondoResumen,
+              padding: const pw.EdgeInsets.symmetric(vertical: 4),
+              alignment: pw.Alignment.center,
+              child: texto(
+                '$n',
+                size: 7.8,
+                font: n == 0 ? normal : fuerte,
+                color: n == 0 ? _suave(_gris, .5) : _osc(c, .25),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // Asistencia de cada clase y del aula.
+  filas.add(
+    pw.TableRow(
+      verticalAlignment: pw.TableCellVerticalAlignment.middle,
+      decoration: pw.BoxDecoration(
+        border: pw.Border(top: pw.BorderSide(color: _pdf(_tinta), width: .8)),
+      ),
+      children: [
+        pw.SizedBox(),
+        _pad(
+          texto(
+            'Asistencia por clase',
+            size: 7.3,
+            font: negrita,
+            color: _pdf(_gris),
+          ),
+        ),
+        for (final v in porFecha)
+          _pad(
+            texto(
+              v == null ? '—' : '${(v * 100).round()}',
+              size: 7,
+              font: negrita,
+              color: v != null && v < .8 ? _osc(_falta, .25) : _osc(base, .1),
+            ),
+            centro: true,
+          ),
+        pw.Container(
+          padding: const pw.EdgeInsets.symmetric(vertical: 3),
+          alignment: pw.Alignment.center,
+          child: pw.Container(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: pw.BoxDecoration(
+              color: _pdf(base),
+              borderRadius: pw.BorderRadius.circular(8),
+            ),
+            child: texto(pctAula, size: 7.5, font: fuerte, color: cab),
+          ),
+        ),
+        pw.SizedBox(),
+        pw.SizedBox(),
+        pw.SizedBox(),
+      ],
     ),
   );
 
   pw.Widget leyenda() => pw.Row(
     children: [
       for (final e in ['P', 'T', 'F', 'J']) ...[
-        pw.SizedBox(width: 18, height: 14, child: celda(e)),
-        pw.Text(
-          _nombreEstado[e]!,
-          style: pw.TextStyle(fontSize: 7.5, color: _pdf(_gris)),
-        ),
+        pw.SizedBox(width: 16, height: 14, child: celda(e)),
+        texto(_nombreEstado[e]!, size: 7.3, color: _pdf(_gris)),
         pw.SizedBox(width: 10),
       ],
-      pw.Text(
-        '·  Sin registro',
-        style: pw.TextStyle(fontSize: 7.5, color: _pdf(_gris)),
-      ),
+      pw.SizedBox(width: 16, height: 14, child: celda(null)),
+      texto('Sin registro', size: 7.3, color: _pdf(_gris)),
+      pw.SizedBox(width: 14),
+      for (final (k, c) in [
+        ('95 % a más', _verde),
+        ('80 – 94 %', base),
+        ('menos de 80 %', _falta),
+      ]) ...[
+        pw.Container(
+          width: 7,
+          height: 7,
+          decoration: pw.BoxDecoration(
+            color: _suave(c, .6),
+            borderRadius: pw.BorderRadius.circular(2),
+          ),
+        ),
+        pw.SizedBox(width: 3),
+        texto(k, size: 7, color: _pdf(_gris)),
+        pw.SizedBox(width: 8),
+      ],
       pw.Spacer(),
-      pw.Text(
+      texto(
         '% = (presentes + tardanzas) / clases registradas',
-        style: pw.TextStyle(fontSize: 7, color: _suave(_gris, .3)),
+        size: 6.8,
+        color: _suave(_gris, .3),
       ),
     ],
   );
 
   final notas = r.conNota;
   final porId = {for (final e in r.estudiantes) e.id: e};
+  final subtitulo = [
+    '${r.curso.nombre} · ${r.curso.grado} ${r.curso.seccion} · ${r.curso.nivel}',
+    r.periodo,
+    if (r.rango.isNotEmpty) r.rango,
+  ];
 
   doc.addPage(
     pw.MultiPage(
@@ -344,9 +573,9 @@ Future<Uint8List> pdfAsistencia(ReporteAsistencia r) async {
           ? pw.SizedBox()
           : pw.Padding(
               padding: const pw.EdgeInsets.only(bottom: 8),
-              child: pw.Text(
+              child: texto(
                 '${r.titulo} · ${r.periodo}',
-                style: pw.TextStyle(fontSize: 8, color: _pdf(_gris)),
+                color: _pdf(_gris),
               ),
             ),
       footer: (ctx) => pw.Container(
@@ -357,14 +586,16 @@ Future<Uint8List> pdfAsistencia(ReporteAsistencia r) async {
         ),
         child: pw.Row(
           children: [
-            pw.Text(
+            texto(
               'Emitido el $hoy con Kipu Docente',
-              style: pw.TextStyle(fontSize: 7, color: _pdf(_gris)),
+              size: 7,
+              color: _pdf(_gris),
             ),
             pw.Spacer(),
-            pw.Text(
+            texto(
               'Página ${ctx.pageNumber} de ${ctx.pagesCount}',
-              style: pw.TextStyle(fontSize: 7, color: _pdf(_gris)),
+              size: 7,
+              color: _pdf(_gris),
             ),
           ],
         ),
@@ -374,78 +605,80 @@ Future<Uint8List> pdfAsistencia(ReporteAsistencia r) async {
         pw.Row(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            pw.Container(width: 4, height: 54, color: _pdf(base)),
+            pw.Container(
+              width: 4,
+              height: 58,
+              decoration: pw.BoxDecoration(
+                color: _pdf(base),
+                borderRadius: pw.BorderRadius.circular(2),
+              ),
+            ),
             pw.SizedBox(width: 12),
             pw.Expanded(
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Text(
+                  texto(
                     r.colegio.toUpperCase(),
-                    style: pw.TextStyle(
-                      font: negrita,
-                      fontSize: 8.5,
-                      letterSpacing: 1.6,
-                      color: _pdf(base),
-                    ),
+                    size: 8.5,
+                    font: negrita,
+                    color: _pdf(base),
+                    ls: 1.6,
                   ),
                   pw.SizedBox(height: 3),
-                  pw.Text(
-                    'Registro de asistencia',
-                    style: pw.TextStyle(
-                      font: fuerte,
-                      fontSize: 22,
-                      color: _pdf(_tinta),
-                    ),
-                  ),
-                  pw.SizedBox(height: 2),
-                  pw.Text(
-                    [
-                      '${r.curso.nombre} · ${r.curso.grado} ${r.curso.seccion} · ${r.curso.nivel}',
-                      r.periodo,
-                      if (r.rango.isNotEmpty) r.rango,
-                    ].join('   |   '),
-                    style: pw.TextStyle(fontSize: 9, color: _pdf(_gris)),
+                  texto('Registro de asistencia', size: 23, font: fuerte),
+                  pw.SizedBox(height: 3),
+                  pw.Row(
+                    children: [
+                      for (final (i, s) in subtitulo.indexed) ...[
+                        if (i > 0)
+                          pw.Container(
+                            width: 3,
+                            height: 3,
+                            margin: const pw.EdgeInsets.symmetric(
+                              horizontal: 7,
+                            ),
+                            decoration: pw.BoxDecoration(
+                              color: _suave(_gris, .4),
+                              shape: pw.BoxShape.circle,
+                            ),
+                          ),
+                        texto(s, size: 9, color: _pdf(_gris)),
+                      ],
+                    ],
                   ),
                 ],
               ),
             ),
             pw.Container(
-              width: 190,
-              padding: const pw.EdgeInsets.all(10),
+              width: 250,
+              padding: const pw.EdgeInsets.fromLTRB(12, 9, 12, 9),
               decoration: pw.BoxDecoration(
                 border: pw.Border.all(color: linea, width: .8),
                 borderRadius: pw.BorderRadius.circular(8),
               ),
-              child: pw.Column(
+              child: pw.Row(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Text(
-                    'DOCENTE',
-                    style: pw.TextStyle(
-                      font: negrita,
-                      fontSize: 6.5,
-                      letterSpacing: 1.2,
-                      color: _pdf(_gris),
+                  pw.Expanded(
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        dato('DOCENTE', r.docente.isEmpty ? '—' : r.docente),
+                        if (tutor.isNotEmpty) ...[
+                          pw.SizedBox(height: 5),
+                          dato('TUTOR(A)', tutor),
+                        ],
+                      ],
                     ),
                   ),
-                  pw.Text(
-                    r.docente.isEmpty ? '—' : r.docente,
-                    style: pw.TextStyle(font: media, fontSize: 9.5),
-                  ),
-                  pw.SizedBox(height: 5),
-                  pw.Text(
-                    'ESTUDIANTES · CLASES',
-                    style: pw.TextStyle(
-                      font: negrita,
-                      fontSize: 6.5,
-                      letterSpacing: 1.2,
-                      color: _pdf(_gris),
-                    ),
-                  ),
-                  pw.Text(
-                    '${r.estudiantes.length} · ${r.fechas.length}',
-                    style: pw.TextStyle(font: media, fontSize: 9.5),
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      dato('ESTUDIANTES', '${r.estudiantes.length}'),
+                      pw.SizedBox(height: 5),
+                      dato('CLASES', '${r.fechas.length}'),
+                    ],
                   ),
                 ],
               ),
@@ -455,25 +688,40 @@ Future<Uint8List> pdfAsistencia(ReporteAsistencia r) async {
         pw.SizedBox(height: 14),
         pw.Row(
           children: [
-            indicador(pctAula, 'Asistencia del aula', base),
+            indicador(
+              pctAula,
+              'Asistencia del aula',
+              '',
+              base,
+              progreso: total == 0 ? null : asist / total,
+            ),
             pw.SizedBox(width: 8),
-            indicador('${r.fechas.length}', 'Clases registradas', _justif),
+            indicador('$riesgo', 'Estudiantes bajo 80 %', 'en riesgo', _falta),
             pw.SizedBox(width: 8),
-            indicador('$faltas', 'Faltas (incluye justificadas)', _falta),
+            indicador('$faltas', 'Faltas', '+ $justif justificadas', _falta),
             pw.SizedBox(width: 8),
-            indicador('$tardes', 'Tardanzas', _tarde),
+            indicador(
+              '$tardes',
+              'Tardanzas',
+              total == 0
+                  ? ''
+                  : '${(tardes * 100 / total).toStringAsFixed(1)} % de marcas',
+              _tarde,
+            ),
           ],
         ),
         pw.SizedBox(height: 14),
+        filaMeses,
+        pw.SizedBox(height: 3),
         pw.Table(
           columnWidths: {
-            0: const pw.FixedColumnWidth(22),
-            1: const pw.FixedColumnWidth(170),
+            0: const pw.FixedColumnWidth(wN),
+            1: const pw.FixedColumnWidth(wNom),
             for (var i = 0; i < r.fechas.length; i++)
               i + 2: const pw.FlexColumnWidth(),
-            r.fechas.length + 2: const pw.FixedColumnWidth(34),
+            r.fechas.length + 2: const pw.FixedColumnWidth(wPct),
             for (var i = 3; i < 6; i++)
-              r.fechas.length + i: const pw.FixedColumnWidth(20),
+              r.fechas.length + i: const pw.FixedColumnWidth(wMini),
           },
           children: filas,
         ),
@@ -481,22 +729,20 @@ Future<Uint8List> pdfAsistencia(ReporteAsistencia r) async {
         leyenda(),
         if (notas.isNotEmpty) ...[
           pw.SizedBox(height: 18),
-          pw.Text(
+          texto(
             'OBSERVACIONES',
-            style: pw.TextStyle(
-              font: negrita,
-              fontSize: 8.5,
-              letterSpacing: 1.4,
-              color: _pdf(base),
-            ),
+            size: 8.5,
+            font: negrita,
+            color: _pdf(base),
+            ls: 1.4,
           ),
           pw.SizedBox(height: 6),
           pw.Table(
             columnWidths: const {
-              0: pw.FixedColumnWidth(54),
-              1: pw.FixedColumnWidth(170),
-              2: pw.FixedColumnWidth(62),
-              3: pw.FixedColumnWidth(80),
+              0: pw.FixedColumnWidth(58),
+              1: pw.FixedColumnWidth(190),
+              2: pw.FixedColumnWidth(80),
+              3: pw.FixedColumnWidth(90),
               4: pw.FlexColumnWidth(),
             },
             children: [
@@ -514,86 +760,99 @@ Future<Uint8List> pdfAsistencia(ReporteAsistencia r) async {
                     'Motivo',
                     'Nota',
                   ])
-                    _pad(
-                      pw.Text(
-                        t,
-                        style: pw.TextStyle(font: negrita, fontSize: 7.5),
-                      ),
-                    ),
+                    _pad(texto(t, size: 7.5, font: negrita)),
                 ],
               ),
-              for (final a in notas)
+              for (final (i, a) in notas.indexed)
                 if (porId[a.estudianteId] case final e?)
                   pw.TableRow(
+                    verticalAlignment: pw.TableCellVerticalAlignment.middle,
                     decoration: pw.BoxDecoration(
+                      color: i.isOdd ? _suave(base, .965) : null,
                       border: pw.Border(
                         bottom: pw.BorderSide(color: linea, width: .5),
                       ),
                     ),
                     children: [
+                      _pad(texto(_dia(a.fecha), size: 7.8, font: media)),
                       _pad(
-                        pw.Text(
-                          _dia(a.fecha),
-                          style: const pw.TextStyle(fontSize: 7.5),
-                        ),
-                      ),
-                      _pad(
-                        pw.Text(
-                          '${e.apellidos.toUpperCase()}, ${e.nombres}',
-                          style: const pw.TextStyle(fontSize: 7.5),
-                        ),
-                      ),
-                      _pad(
-                        pw.Text(
-                          _nombreEstado[a.estado] ?? a.estado,
-                          style: pw.TextStyle(
-                            font: media,
-                            fontSize: 7.5,
-                            color: _pdf(
-                              Color.lerp(
-                                colorEstado(a.estado, base),
-                                Colors.black,
-                                .2,
-                              )!,
-                            ),
+                        pw.RichText(
+                          text: pw.TextSpan(
+                            children: [
+                              pw.TextSpan(
+                                text: '${e.apellidos.toUpperCase()}, ',
+                                style: pw.TextStyle(font: media, fontSize: 7.8),
+                              ),
+                              pw.TextSpan(
+                                text: e.nombres,
+                                style: const pw.TextStyle(fontSize: 7.8),
+                              ),
+                            ],
                           ),
                         ),
                       ),
                       _pad(
-                        pw.Text(
-                          a.motivo ?? '—',
-                          style: const pw.TextStyle(fontSize: 7.5),
+                        pw.Row(
+                          children: [
+                            pw.Container(
+                              width: 6,
+                              height: 6,
+                              decoration: pw.BoxDecoration(
+                                color: _pdf(colorEstado(a.estado, base)),
+                                shape: pw.BoxShape.circle,
+                              ),
+                            ),
+                            pw.SizedBox(width: 4),
+                            texto(
+                              _nombreEstado[a.estado] ?? a.estado,
+                              size: 7.8,
+                              font: media,
+                              color: _osc(colorEstado(a.estado, base), .3),
+                            ),
+                          ],
                         ),
                       ),
                       _pad(
-                        pw.Text(
-                          a.nota ?? '',
-                          style: const pw.TextStyle(fontSize: 7.5),
+                        texto(
+                          a.motivo ?? '—',
+                          size: 7.8,
+                          color: _pdf(_gris),
                         ),
+                      ),
+                      _pad(
+                        texto(a.nota ?? '', size: 7.8, color: _pdf(_gris)),
                       ),
                     ],
                   ),
             ],
           ),
         ],
-        pw.SizedBox(height: 46),
+        // Firmas
         pw.Row(
-          mainAxisAlignment: pw.MainAxisAlignment.end,
           children: [
-            pw.Column(
-              children: [
-                pw.Container(width: 200, height: .8, color: _pdf(_tinta)),
-                pw.SizedBox(height: 4),
-                pw.Text(
-                  r.docente.isEmpty ? 'Firma del docente' : r.docente,
-                  style: pw.TextStyle(font: media, fontSize: 8.5),
+            for (final (rol, nombre) in [
+              (
+                'Docente de ${r.curso.nombre}',
+                r.docente.isEmpty ? 'Firma del docente' : r.docente,
+              ),
+              if (tutor.isNotEmpty) ('Tutor(a) del aula', tutor),
+              ('Dirección', 'Sello y firma'),
+            ])
+              pw.Expanded(
+                child: pw.Column(
+                  children: [
+                    pw.SizedBox(height: 40),
+                    pw.Container(
+                      height: .7,
+                      color: _suave(_tinta, .4),
+                      margin: const pw.EdgeInsets.symmetric(horizontal: 40),
+                    ),
+                    pw.SizedBox(height: 4),
+                    texto(nombre, size: 8.3, font: media),
+                    texto(rol, size: 7, color: _pdf(_gris)),
+                  ],
                 ),
-                pw.Text(
-                  'Docente de ${r.curso.nombre}',
-                  style: pw.TextStyle(fontSize: 7.5, color: _pdf(_gris)),
-                ),
-              ],
-            ),
+              ),
           ],
         ),
       ],
