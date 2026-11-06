@@ -3701,6 +3701,349 @@ class HorariosCompanion extends UpdateCompanion<Horario> {
   }
 }
 
+class $FranjasTable extends Franjas with TableInfo<$FranjasTable, Franja> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FranjasTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _colegioIdMeta = const VerificationMeta(
+    'colegioId',
+  );
+  @override
+  late final GeneratedColumn<int> colegioId = GeneratedColumn<int>(
+    'colegio_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES colegios (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _inicioMeta = const VerificationMeta('inicio');
+  @override
+  late final GeneratedColumn<String> inicio = GeneratedColumn<String>(
+    'inicio',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _finMeta = const VerificationMeta('fin');
+  @override
+  late final GeneratedColumn<String> fin = GeneratedColumn<String>(
+    'fin',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _recreoMeta = const VerificationMeta('recreo');
+  @override
+  late final GeneratedColumn<bool> recreo = GeneratedColumn<bool>(
+    'recreo',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("recreo" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, colegioId, inicio, fin, recreo];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'franjas';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Franja> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('colegio_id')) {
+      context.handle(
+        _colegioIdMeta,
+        colegioId.isAcceptableOrUnknown(data['colegio_id']!, _colegioIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_colegioIdMeta);
+    }
+    if (data.containsKey('inicio')) {
+      context.handle(
+        _inicioMeta,
+        inicio.isAcceptableOrUnknown(data['inicio']!, _inicioMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_inicioMeta);
+    }
+    if (data.containsKey('fin')) {
+      context.handle(
+        _finMeta,
+        fin.isAcceptableOrUnknown(data['fin']!, _finMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_finMeta);
+    }
+    if (data.containsKey('recreo')) {
+      context.handle(
+        _recreoMeta,
+        recreo.isAcceptableOrUnknown(data['recreo']!, _recreoMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Franja map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Franja(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      colegioId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}colegio_id'],
+      )!,
+      inicio: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}inicio'],
+      )!,
+      fin: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}fin'],
+      )!,
+      recreo: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}recreo'],
+      )!,
+    );
+  }
+
+  @override
+  $FranjasTable createAlias(String alias) {
+    return $FranjasTable(attachedDatabase, alias);
+  }
+}
+
+class Franja extends DataClass implements Insertable<Franja> {
+  final int id;
+  final int colegioId;
+  final String inicio;
+  final String fin;
+  final bool recreo;
+  const Franja({
+    required this.id,
+    required this.colegioId,
+    required this.inicio,
+    required this.fin,
+    required this.recreo,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['colegio_id'] = Variable<int>(colegioId);
+    map['inicio'] = Variable<String>(inicio);
+    map['fin'] = Variable<String>(fin);
+    map['recreo'] = Variable<bool>(recreo);
+    return map;
+  }
+
+  FranjasCompanion toCompanion(bool nullToAbsent) {
+    return FranjasCompanion(
+      id: Value(id),
+      colegioId: Value(colegioId),
+      inicio: Value(inicio),
+      fin: Value(fin),
+      recreo: Value(recreo),
+    );
+  }
+
+  factory Franja.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Franja(
+      id: serializer.fromJson<int>(json['id']),
+      colegioId: serializer.fromJson<int>(json['colegioId']),
+      inicio: serializer.fromJson<String>(json['inicio']),
+      fin: serializer.fromJson<String>(json['fin']),
+      recreo: serializer.fromJson<bool>(json['recreo']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'colegioId': serializer.toJson<int>(colegioId),
+      'inicio': serializer.toJson<String>(inicio),
+      'fin': serializer.toJson<String>(fin),
+      'recreo': serializer.toJson<bool>(recreo),
+    };
+  }
+
+  Franja copyWith({
+    int? id,
+    int? colegioId,
+    String? inicio,
+    String? fin,
+    bool? recreo,
+  }) => Franja(
+    id: id ?? this.id,
+    colegioId: colegioId ?? this.colegioId,
+    inicio: inicio ?? this.inicio,
+    fin: fin ?? this.fin,
+    recreo: recreo ?? this.recreo,
+  );
+  Franja copyWithCompanion(FranjasCompanion data) {
+    return Franja(
+      id: data.id.present ? data.id.value : this.id,
+      colegioId: data.colegioId.present ? data.colegioId.value : this.colegioId,
+      inicio: data.inicio.present ? data.inicio.value : this.inicio,
+      fin: data.fin.present ? data.fin.value : this.fin,
+      recreo: data.recreo.present ? data.recreo.value : this.recreo,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Franja(')
+          ..write('id: $id, ')
+          ..write('colegioId: $colegioId, ')
+          ..write('inicio: $inicio, ')
+          ..write('fin: $fin, ')
+          ..write('recreo: $recreo')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, colegioId, inicio, fin, recreo);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Franja &&
+          other.id == this.id &&
+          other.colegioId == this.colegioId &&
+          other.inicio == this.inicio &&
+          other.fin == this.fin &&
+          other.recreo == this.recreo);
+}
+
+class FranjasCompanion extends UpdateCompanion<Franja> {
+  final Value<int> id;
+  final Value<int> colegioId;
+  final Value<String> inicio;
+  final Value<String> fin;
+  final Value<bool> recreo;
+  const FranjasCompanion({
+    this.id = const Value.absent(),
+    this.colegioId = const Value.absent(),
+    this.inicio = const Value.absent(),
+    this.fin = const Value.absent(),
+    this.recreo = const Value.absent(),
+  });
+  FranjasCompanion.insert({
+    this.id = const Value.absent(),
+    required int colegioId,
+    required String inicio,
+    required String fin,
+    this.recreo = const Value.absent(),
+  }) : colegioId = Value(colegioId),
+       inicio = Value(inicio),
+       fin = Value(fin);
+  static Insertable<Franja> custom({
+    Expression<int>? id,
+    Expression<int>? colegioId,
+    Expression<String>? inicio,
+    Expression<String>? fin,
+    Expression<bool>? recreo,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (colegioId != null) 'colegio_id': colegioId,
+      if (inicio != null) 'inicio': inicio,
+      if (fin != null) 'fin': fin,
+      if (recreo != null) 'recreo': recreo,
+    });
+  }
+
+  FranjasCompanion copyWith({
+    Value<int>? id,
+    Value<int>? colegioId,
+    Value<String>? inicio,
+    Value<String>? fin,
+    Value<bool>? recreo,
+  }) {
+    return FranjasCompanion(
+      id: id ?? this.id,
+      colegioId: colegioId ?? this.colegioId,
+      inicio: inicio ?? this.inicio,
+      fin: fin ?? this.fin,
+      recreo: recreo ?? this.recreo,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (colegioId.present) {
+      map['colegio_id'] = Variable<int>(colegioId.value);
+    }
+    if (inicio.present) {
+      map['inicio'] = Variable<String>(inicio.value);
+    }
+    if (fin.present) {
+      map['fin'] = Variable<String>(fin.value);
+    }
+    if (recreo.present) {
+      map['recreo'] = Variable<bool>(recreo.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FranjasCompanion(')
+          ..write('id: $id, ')
+          ..write('colegioId: $colegioId, ')
+          ..write('inicio: $inicio, ')
+          ..write('fin: $fin, ')
+          ..write('recreo: $recreo')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $RegistroColumnasTable extends RegistroColumnas
     with TableInfo<$RegistroColumnasTable, RegistroColumna> {
   @override
@@ -5033,6 +5376,7 @@ abstract class _$KipuDb extends GeneratedDatabase {
   late final $NotasTable notas = $NotasTable(this);
   late final $EventosTable eventos = $EventosTable(this);
   late final $HorariosTable horarios = $HorariosTable(this);
+  late final $FranjasTable franjas = $FranjasTable(this);
   late final $RegistroColumnasTable registroColumnas = $RegistroColumnasTable(
     this,
   );
@@ -5051,6 +5395,7 @@ abstract class _$KipuDb extends GeneratedDatabase {
     notas,
     eventos,
     horarios,
+    franjas,
     registroColumnas,
     registroNotas,
     conductas,
@@ -5091,6 +5436,13 @@ abstract class _$KipuDb extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('horarios', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'colegios',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('franjas', kind: UpdateKind.delete)],
     ),
     WritePropagation(
       on: TableUpdateQuery.onTableName(
@@ -5295,6 +5647,25 @@ final class $$ColegiosTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$FranjasTable, List<Franja>> _franjasRefsTable(
+    _$KipuDb db,
+  ) => MultiTypedResultKey.fromTable(
+    db.franjas,
+    aliasName: 'colegios__id__franjas__colegio_id',
+  );
+
+  $$FranjasTableProcessedTableManager get franjasRefs {
+    final manager = $$FranjasTableTableManager(
+      $_db,
+      $_db.franjas,
+    ).filter((f) => f.colegioId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_franjasRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$ColegiosTableFilterComposer extends Composer<_$KipuDb, $ColegiosTable> {
@@ -5351,6 +5722,31 @@ class $$ColegiosTableFilterComposer extends Composer<_$KipuDb, $ColegiosTable> {
           }) => $$CursosTableFilterComposer(
             $db: $db,
             $table: $db.cursos,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> franjasRefs(
+    Expression<bool> Function($$FranjasTableFilterComposer f) f,
+  ) {
+    final $$FranjasTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.franjas,
+      getReferencedColumn: (t) => t.colegioId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FranjasTableFilterComposer(
+            $db: $db,
+            $table: $db.franjas,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -5452,6 +5848,31 @@ class $$ColegiosTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> franjasRefs<T extends Object>(
+    Expression<T> Function($$FranjasTableAnnotationComposer a) f,
+  ) {
+    final $$FranjasTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.franjas,
+      getReferencedColumn: (t) => t.colegioId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FranjasTableAnnotationComposer(
+            $db: $db,
+            $table: $db.franjas,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$ColegiosTableTableManager
@@ -5467,7 +5888,7 @@ class $$ColegiosTableTableManager
           $$ColegiosTableUpdateCompanionBuilder,
           (Colegio, $$ColegiosTableReferences),
           Colegio,
-          PrefetchHooks Function({bool cursosRefs})
+          PrefetchHooks Function({bool cursosRefs, bool franjasRefs})
         > {
   $$ColegiosTableTableManager(_$KipuDb db, $ColegiosTable table)
     : super(
@@ -5520,10 +5941,13 @@ class $$ColegiosTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({cursosRefs = false}) {
+          prefetchHooksCallback: ({cursosRefs = false, franjasRefs = false}) {
             return PrefetchHooks(
               db: db,
-              explicitlyWatchedTables: [if (cursosRefs) db.cursos],
+              explicitlyWatchedTables: [
+                if (cursosRefs) db.cursos,
+                if (franjasRefs) db.franjas,
+              ],
               addJoins: null,
               getPrefetchedDataCallback: (items) async {
                 return [
@@ -5539,6 +5963,22 @@ class $$ColegiosTableTableManager
                           ._cursosRefsTable(db),
                       managerFromTypedResult: (p0) =>
                           $$ColegiosTableReferences(db, table, p0).cursosRefs,
+                      currentColumn: 'id',
+                      referencedColumn: 'colegio_id',
+                      typedResults: items,
+                    ),
+                  if (franjasRefs)
+                    await $_getPrefetchedDataByColumns<
+                      Colegio,
+                      $ColegiosTable,
+                      Franja,
+                      $FranjasTable
+                    >(
+                      currentTable: table,
+                      referencedTable: $$ColegiosTableReferences
+                          ._franjasRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$ColegiosTableReferences(db, table, p0).franjasRefs,
                       currentColumn: 'id',
                       referencedColumn: 'colegio_id',
                       typedResults: items,
@@ -5563,7 +6003,7 @@ typedef $$ColegiosTableProcessedTableManager =
       $$ColegiosTableUpdateCompanionBuilder,
       (Colegio, $$ColegiosTableReferences),
       Colegio,
-      PrefetchHooks Function({bool cursosRefs})
+      PrefetchHooks Function({bool cursosRefs, bool franjasRefs})
     >;
 typedef $$CursosTableCreateCompanionBuilder = CursosCompanion Function({
   Value<int> id,
@@ -8352,6 +8792,311 @@ typedef $$HorariosTableProcessedTableManager =
       Horario,
       PrefetchHooks Function({bool cursoId})
     >;
+typedef $$FranjasTableCreateCompanionBuilder = FranjasCompanion Function({
+  Value<int> id,
+  required int colegioId,
+  required String inicio,
+  required String fin,
+  Value<bool> recreo,
+});
+typedef $$FranjasTableUpdateCompanionBuilder = FranjasCompanion Function({
+  Value<int> id,
+  Value<int> colegioId,
+  Value<String> inicio,
+  Value<String> fin,
+  Value<bool> recreo,
+});
+
+final class $$FranjasTableReferences
+    extends BaseReferences<_$KipuDb, $FranjasTable, Franja> {
+  $$FranjasTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $ColegiosTable _colegioIdTable(_$KipuDb db) =>
+      db.colegios.createAlias('franjas__colegio_id__colegios__id');
+
+  $$ColegiosTableProcessedTableManager get colegioId {
+    final $_column = $_itemColumn<int>('colegio_id')!;
+
+    final manager = $$ColegiosTableTableManager(
+      $_db,
+      $_db.colegios,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_colegioIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$FranjasTableFilterComposer extends Composer<_$KipuDb, $FranjasTable> {
+  $$FranjasTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get inicio => $composableBuilder(
+    column: $table.inicio,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fin => $composableBuilder(
+    column: $table.fin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get recreo => $composableBuilder(
+    column: $table.recreo,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$ColegiosTableFilterComposer get colegioId {
+    final $$ColegiosTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.colegioId,
+      referencedTable: $db.colegios,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ColegiosTableFilterComposer(
+            $db: $db,
+            $table: $db.colegios,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$FranjasTableOrderingComposer extends Composer<_$KipuDb, $FranjasTable> {
+  $$FranjasTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get inicio => $composableBuilder(
+    column: $table.inicio,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fin => $composableBuilder(
+    column: $table.fin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get recreo => $composableBuilder(
+    column: $table.recreo,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$ColegiosTableOrderingComposer get colegioId {
+    final $$ColegiosTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.colegioId,
+      referencedTable: $db.colegios,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ColegiosTableOrderingComposer(
+            $db: $db,
+            $table: $db.colegios,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$FranjasTableAnnotationComposer
+    extends Composer<_$KipuDb, $FranjasTable> {
+  $$FranjasTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get inicio =>
+      $composableBuilder(column: $table.inicio, builder: (column) => column);
+
+  GeneratedColumn<String> get fin =>
+      $composableBuilder(column: $table.fin, builder: (column) => column);
+
+  GeneratedColumn<bool> get recreo =>
+      $composableBuilder(column: $table.recreo, builder: (column) => column);
+
+  $$ColegiosTableAnnotationComposer get colegioId {
+    final $$ColegiosTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.colegioId,
+      referencedTable: $db.colegios,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ColegiosTableAnnotationComposer(
+            $db: $db,
+            $table: $db.colegios,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$FranjasTableTableManager
+    extends
+        RootTableManager<
+          _$KipuDb,
+          $FranjasTable,
+          Franja,
+          $$FranjasTableFilterComposer,
+          $$FranjasTableOrderingComposer,
+          $$FranjasTableAnnotationComposer,
+          $$FranjasTableCreateCompanionBuilder,
+          $$FranjasTableUpdateCompanionBuilder,
+          (Franja, $$FranjasTableReferences),
+          Franja,
+          PrefetchHooks Function({bool colegioId})
+        > {
+  $$FranjasTableTableManager(_$KipuDb db, $FranjasTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FranjasTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FranjasTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FranjasTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> colegioId = const Value.absent(),
+                Value<String> inicio = const Value.absent(),
+                Value<String> fin = const Value.absent(),
+                Value<bool> recreo = const Value.absent(),
+              }) => FranjasCompanion(
+                id: id,
+                colegioId: colegioId,
+                inicio: inicio,
+                fin: fin,
+                recreo: recreo,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int colegioId,
+                required String inicio,
+                required String fin,
+                Value<bool> recreo = const Value.absent(),
+              }) => FranjasCompanion.insert(
+                id: id,
+                colegioId: colegioId,
+                inicio: inicio,
+                fin: fin,
+                recreo: recreo,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$FranjasTable, Franja>(table),
+                  $$FranjasTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({colegioId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (colegioId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.colegioId,
+                        referencedTable: $$FranjasTableReferences
+                            ._colegioIdTable(db),
+                        referencedColumn: $$FranjasTableReferences
+                            ._colegioIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$FranjasTableProcessedTableManager =
+    ProcessedTableManager<
+      _$KipuDb,
+      $FranjasTable,
+      Franja,
+      $$FranjasTableFilterComposer,
+      $$FranjasTableOrderingComposer,
+      $$FranjasTableAnnotationComposer,
+      $$FranjasTableCreateCompanionBuilder,
+      $$FranjasTableUpdateCompanionBuilder,
+      (Franja, $$FranjasTableReferences),
+      Franja,
+      PrefetchHooks Function({bool colegioId})
+    >;
 typedef $$RegistroColumnasTableCreateCompanionBuilder =
     RegistroColumnasCompanion Function({
       Value<int> id,
@@ -9583,6 +10328,8 @@ class $KipuDbManager {
       $$EventosTableTableManager(_db, _db.eventos);
   $$HorariosTableTableManager get horarios =>
       $$HorariosTableTableManager(_db, _db.horarios);
+  $$FranjasTableTableManager get franjas =>
+      $$FranjasTableTableManager(_db, _db.franjas);
   $$RegistroColumnasTableTableManager get registroColumnas =>
       $$RegistroColumnasTableTableManager(_db, _db.registroColumnas);
   $$RegistroNotasTableTableManager get registroNotas =>

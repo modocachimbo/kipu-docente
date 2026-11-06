@@ -155,6 +155,17 @@ class Horarios extends Table {
   TextColumn get fin => text()(); // HH:mm
 }
 
+/// Horas de clase y recreos de cada colegio, en orden. Cada colegio maneja su
+/// propio horario, así que las filas de la tabla salen de aquí.
+class Franjas extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get colegioId =>
+      integer().references(Colegios, #id, onDelete: KeyAction.cascade)();
+  TextColumn get inicio => text()(); // HH:mm
+  TextColumn get fin => text()(); // HH:mm
+  BoolColumn get recreo => boolean().withDefault(const Constant(false))();
+}
+
 final _azar = Random.secure();
 
 /// Contraseña inicial fácil de dictar: dos letras y cuatro cifras, sin las
@@ -217,6 +228,7 @@ class CursoConColegio {
     Notas,
     Eventos,
     Horarios,
+    Franjas,
     RegistroColumnas,
     RegistroNotas,
     Conductas,
@@ -226,7 +238,7 @@ class KipuDb extends _$KipuDb {
   KipuDb([QueryExecutor? executor]) : super(executor ?? _abrir());
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -253,6 +265,7 @@ class KipuDb extends _$KipuDb {
         await m.addColumn(asistencias, asistencias.motivo);
         await m.addColumn(asistencias, asistencias.nota);
       }
+      if (from < 11) await m.createTable(franjas);
       if (from < 9) {
         await m.addColumn(cursos, cursos.tutor);
         await m.addColumn(cursos, cursos.tutorCelular);
@@ -720,6 +733,103 @@ class KipuDb extends _$KipuDb {
                   (h, c),
             ];
           });
+
+  /// Todas las clases de la semana, con su curso y colegio.
+  Stream<List<(Horario, CursoConColegio)>> verHorario() =>
+      (select(horarios)..orderBy([
+            (h) => OrderingTerm.asc(h.dia),
+            (h) => OrderingTerm.asc(h.inicio),
+          ]))
+          .watch()
+          .asyncMap((lista) async {
+            final cursos = {
+              for (final c in await verCursos().first) c.curso.id: c,
+            };
+            return [
+              for (final h in lista)
+                if (cursos[h.cursoId] case final c?) (h, c),
+            ];
+          });
+
+  Stream<List<Franja>> verFranjas() =>
+      (select(franjas)..orderBy([(f) => OrderingTerm.asc(f.inicio)])).watch();
+
+  /// Pone [cursoId] en un día y hora. Si ya había una clase del mismo colegio
+  /// a esa hora, la reemplaza.
+  Future<void> ponerClase(
+    int cursoId,
+    int dia,
+    String inicio,
+    String fin, {
+    int? reemplaza,
+  }) => transaction(() async {
+    final curso = await (select(
+      cursos,
+    )..where((c) => c.id.equals(cursoId))).getSingle();
+    final delColegio = selectOnly(cursos)
+      ..addColumns([cursos.id])
+      ..where(cursos.colegioId.equals(curso.colegioId));
+    await (delete(horarios)..where(
+          (h) =>
+              h.dia.equals(dia) &
+              h.inicio.equals(inicio) &
+              h.cursoId.isInQuery(delColegio),
+        ))
+        .go();
+    if (reemplaza != null) {
+      await (delete(horarios)..where((h) => h.id.equals(reemplaza))).go();
+    }
+    await into(horarios).insert(
+      HorariosCompanion.insert(
+        cursoId: cursoId,
+        dia: dia,
+        inicio: inicio,
+        fin: fin,
+      ),
+    );
+  });
+
+  Future<void> quitarClase(int id) =>
+      (delete(horarios)..where((h) => h.id.equals(id))).go();
+
+  /// Guarda las horas y recreos de un colegio. [cambios] lleva, para cada hora
+  /// de clase que ya existía, su nueva hora (o null si se quitó), y mueve o
+  /// borra las clases que estaban en ella.
+  Future<void> guardarFranjas(
+    int colegioId,
+    List<({String inicio, String fin, bool recreo})> nuevas,
+    Map<String, ({String inicio, String fin})?> cambios,
+  ) => transaction(() async {
+    await (delete(franjas)..where((f) => f.colegioId.equals(colegioId))).go();
+    await batch(
+      (b) => b.insertAll(franjas, [
+        for (final f in nuevas)
+          FranjasCompanion.insert(
+            colegioId: colegioId,
+            inicio: f.inicio,
+            fin: f.fin,
+            recreo: Value(f.recreo),
+          ),
+      ]),
+    );
+    final delColegio = selectOnly(cursos)
+      ..addColumns([cursos.id])
+      ..where(cursos.colegioId.equals(colegioId));
+    final clases = await (select(
+      horarios,
+    )..where((h) => h.cursoId.isInQuery(delColegio))).get();
+    for (final h in clases) {
+      if (!cambios.containsKey(h.inicio)) continue;
+      final a = cambios[h.inicio];
+      if (a == null) {
+        await (delete(horarios)..where((x) => x.id.equals(h.id))).go();
+      } else if (a.inicio != h.inicio || a.fin != h.fin) {
+        await (update(horarios)..where((x) => x.id.equals(h.id))).write(
+          HorariosCompanion(inicio: Value(a.inicio), fin: Value(a.fin)),
+        );
+      }
+    }
+  });
 
   // Eventos
 

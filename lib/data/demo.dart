@@ -107,24 +107,54 @@ Future<void> cargarDatosDeEjemplo(KipuDb db) async {
     if (d.weekday <= DateTime.friday) dias.add(d);
   }
 
+  // Cada colegio tiene sus propias horas y recreos: (inicio, fin, recreo).
+  const franjas = {
+    'Elite School': [
+      ('07:50', '09:20', false),
+      ('09:20', '09:35', true),
+      ('09:35', '11:05', false),
+      ('11:05', '11:20', true),
+      ('11:20', '12:50', false),
+      ('12:50', '13:00', true),
+      ('13:00', '14:30', false),
+    ],
+    'I.E. Nikola Tesla': [
+      ('08:00', '09:30', false),
+      ('09:30', '09:50', true),
+      ('09:50', '11:20', false),
+      ('11:20', '11:40', true),
+      ('11:40', '13:10', false),
+      ('13:10', '13:30', true),
+      ('13:30', '15:00', false),
+    ],
+    'I.E. José Carlos Mariátegui': [
+      ('08:15', '09:45', false),
+      ('09:45', '10:00', true),
+      ('10:00', '11:30', false),
+      ('11:30', '11:45', true),
+      ('11:45', '13:15', false),
+      ('13:15', '14:45', false),
+    ],
+  };
+
   // Horario semanal: (curso, día, inicio, fin)
   const bloques = [
     (0, 1, '07:50', '09:20'),
     (1, 1, '09:35', '11:05'),
     (2, 1, '11:20', '12:50'),
-    (3, 2, '07:50', '09:20'),
-    (4, 2, '09:35', '11:05'),
-    (5, 2, '13:00', '14:30'),
+    (3, 2, '08:00', '09:30'),
+    (4, 2, '09:50', '11:20'),
+    (5, 2, '13:15', '14:45'),
     (0, 3, '07:50', '09:20'),
     (2, 3, '09:35', '11:05'),
     (1, 3, '11:20', '12:50'),
-    (3, 3, '13:00', '14:30'),
-    (4, 4, '07:50', '09:20'),
-    (5, 4, '09:35', '11:05'),
-    (0, 4, '11:20', '12:50'),
+    (3, 3, '13:30', '15:00'),
+    (4, 4, '08:00', '09:30'),
+    (5, 4, '10:00', '11:30'),
+    (0, 4, '13:00', '14:30'),
     (1, 5, '07:50', '09:20'),
     (2, 5, '09:35', '11:05'),
-    (3, 5, '11:20', '12:50'),
+    (3, 5, '11:40', '13:10'),
   ];
   final idCursos = <int>[];
 
@@ -228,6 +258,18 @@ Future<void> cargarDatosDeEjemplo(KipuDb db) async {
       await _registroDeEjemplo(db, cursoId, alumnos, azar, fecha(hoy));
     }
 
+    await db.batch(
+      (b) => b.insertAll(db.franjas, [
+        for (final MapEntry(key: colegio, value: lista) in franjas.entries)
+          for (final (inicio, fin, recreo) in lista)
+            FranjasCompanion.insert(
+              colegioId: idColegio[colegio]!,
+              inicio: inicio,
+              fin: fin,
+              recreo: Value(recreo),
+            ),
+      ]),
+    );
     await db.batch(
       (b) => b.insertAll(db.horarios, [
         for (final (curso, dia, inicio, fin) in bloques)
