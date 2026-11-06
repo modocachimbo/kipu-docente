@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:drift/drift.dart' show Value;
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -18,6 +19,7 @@ import 'asistencia.dart';
 import 'cursos.dart' show colorColegio, confirmar;
 import 'estudiantes.dart';
 import 'ficha_estudiante.dart';
+import 'registro_exportar.dart';
 import 'shell.dart' show MenuCajon;
 
 const _rojo = Color(0xFFC2334A);
@@ -204,6 +206,16 @@ class _RegistroCursoState extends State<RegistroCurso> {
       ),
       onBuscar: (t) => setState(() => _buscar = t),
       onNuevaColumna: nuevaColumna,
+      onDescargar: (desde) => _descargarRegistro(
+        context,
+        desde: desde,
+        datos: widget.datos,
+        periodo: _periodo.clamp(1, periodos.length),
+        periodos: periodos,
+        estudiantes: estudiantes ?? const [],
+        colores: colores,
+        escalaDe: escalaDe,
+      ),
     );
 
     Widget cuerpo;
@@ -335,6 +347,9 @@ class _Cabecera extends StatelessWidget {
   final ValueChanged<String> onBuscar;
   final VoidCallback onNuevaColumna;
 
+  /// Recibe el botón que lo abrió, para mostrar el menú debajo.
+  final ValueChanged<BuildContext> onDescargar;
+
   const _Cabecera({
     required this.ancho,
     required this.titulo,
@@ -347,6 +362,7 @@ class _Cabecera extends StatelessWidget {
     required this.onAsistencia,
     required this.onBuscar,
     required this.onNuevaColumna,
+    required this.onDescargar,
   });
 
   @override
@@ -429,6 +445,13 @@ class _Cabecera extends StatelessWidget {
               onTap: onAsistencia,
             ),
             const SizedBox(width: 12),
+            Builder(
+              builder: (ctx) => _BotonDescargar(
+                color: colores.calculadas,
+                onTap: () => onDescargar(ctx),
+              ),
+            ),
+            const SizedBox(width: 12),
             FilledButton.icon(
               style: FilledButton.styleFrom(
                 backgroundColor: colores.calculadas,
@@ -458,6 +481,31 @@ class _Cabecera extends StatelessWidget {
               boton,
               const SizedBox(width: 10),
               Expanded(child: textos),
+              const SizedBox(width: 8),
+              Builder(
+                builder: (ctx) => Tooltip(
+                  message: 'Descargar registro',
+                  child: Material(
+                    color: colores.calculadas,
+                    borderRadius: BorderRadius.circular(14),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: () => onDescargar(ctx),
+                      child: const SizedBox(
+                        width: 40,
+                        height: 40,
+                        child: Center(
+                          child: KipuIcon(
+                            KipuIcono.descargar,
+                            size: 21,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 10),
@@ -655,6 +703,476 @@ class _BotonAsistencia extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ─────────────────────── Descargar el registro de notas ───────────────────────
+
+const _rojoPdf = Color(0xFFE0475B);
+const _verdeExcel = Color(0xFF1E8E5A);
+
+/// Botón blanco con borde del color del curso: "Descargar · PDF o Excel".
+class _BotonDescargar extends StatelessWidget {
+  final Color color;
+  final VoidCallback onTap;
+  const _BotonDescargar({required this.color, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Colors.white,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(14),
+      side: BorderSide(color: color, width: 1.6),
+    ),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(7, 6, 14, 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: const Center(
+                child: KipuIcon(
+                  KipuIcono.descargar,
+                  size: 18,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            const SizedBox(width: 9),
+            const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Descargar',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+                Text(
+                  'PDF o Excel',
+                  style: TextStyle(fontSize: 11.5, color: KipuColores.gris),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+/// Etiqueta de formato: "PDF" en rojo, "XLSX" en verde.
+class _Formato extends StatelessWidget {
+  final String texto;
+  final Color color;
+  final bool blanco;
+  const _Formato(this.texto, this.color, {this.blanco = false});
+  static const tam = 46.0;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: tam,
+    height: tam,
+    decoration: BoxDecoration(
+      color: blanco ? Colors.white : Color.lerp(color, Colors.white, .88),
+      borderRadius: BorderRadius.circular(tam * .27),
+    ),
+    child: Center(
+      child: Text(
+        texto,
+        style: TextStyle(
+          fontSize: tam * .27,
+          fontWeight: FontWeight.w700,
+          letterSpacing: .3,
+          color: color,
+        ),
+      ),
+    ),
+  );
+}
+
+/// Menú de descarga: PDF o Excel, del periodo abierto o de todo el año.
+/// Devuelve (formato, todoElAño).
+class _PanelDescarga extends StatefulWidget {
+  final String subtitulo;
+  final String periodo;
+  final bool hoja;
+  const _PanelDescarga({
+    required this.subtitulo,
+    required this.periodo,
+    required this.hoja,
+  });
+
+  @override
+  State<_PanelDescarga> createState() => _PanelDescargaState();
+}
+
+class _PanelDescargaState extends State<_PanelDescarga> {
+  var _anual = false;
+
+  void _elegir(String f) => Navigator.pop(context, (f, _anual));
+
+  Widget _opcionFila(String f, String titulo, String detalle, Color color) =>
+      Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Material(
+          color: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: _linea, width: 1.5),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            hoverColor: KipuColores.fondo,
+            onTap: () => _elegir(f),
+            child: Padding(
+              padding: const EdgeInsets.all(11),
+              child: Row(
+                children: [
+                  _Formato(f == 'pdf' ? 'PDF' : 'XLSX', color),
+                  const SizedBox(width: 13),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          titulo,
+                          style: const TextStyle(
+                            fontSize: 15.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          detalle,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: KipuColores.gris,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const KipuIcon(
+                    KipuIcono.descargar,
+                    size: 19,
+                    color: Color(0xFFA3A1B3),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+  Widget _opcionGrande(String f, String titulo, String detalle, Color color) =>
+      Expanded(
+        child: Material(
+          color: Color.lerp(color, Colors.white, .9),
+          borderRadius: BorderRadius.circular(20),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () => _elegir(f),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _Formato(f == 'pdf' ? 'PDF' : 'XLSX', color, blanco: true),
+                  const SizedBox(height: 12),
+                  Text(
+                    titulo,
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      color: color,
+                    ),
+                  ),
+                  Text(
+                    detalle,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: Color.lerp(color, Colors.white, .15),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+  Widget _alcance() => Container(
+    padding: const EdgeInsets.all(4),
+    decoration: BoxDecoration(
+      color: KipuColores.fondo,
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Row(
+      children: [
+        for (final (anual, texto) in [
+          (false, widget.periodo),
+          (true, 'Todo el año'),
+        ])
+          Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _anual = anual),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 160),
+                padding: const EdgeInsets.symmetric(vertical: 9),
+                decoration: BoxDecoration(
+                  color: _anual == anual ? Colors.white : null,
+                  borderRadius: BorderRadius.circular(9),
+                  boxShadow: _anual == anual
+                      ? [
+                          BoxShadow(
+                            color: KipuColores.tinta.withValues(alpha: .08),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Text(
+                  texto,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: _anual == anual
+                        ? FontWeight.w600
+                        : FontWeight.w500,
+                    color: _anual == anual
+                        ? KipuColores.tinta
+                        : KipuColores.gris,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final titulo = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Descargar registro de notas',
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          widget.subtitulo,
+          style: const TextStyle(fontSize: 13, color: KipuColores.gris),
+        ),
+      ],
+    );
+    const pregunta = Padding(
+      padding: EdgeInsets.fromLTRB(2, 6, 2, 6),
+      child: Text(
+        '¿Qué periodo?',
+        style: TextStyle(
+          fontSize: 12.5,
+          color: KipuColores.gris,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+    if (widget.hoja) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(18, 0, 18, 22),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            titulo,
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                _opcionGrande('pdf', 'PDF', 'Imprimir o enviar', _rojoPdf),
+                const SizedBox(width: 10),
+                _opcionGrande(
+                  'xlsx',
+                  'Excel',
+                  'Editar o calcular',
+                  _verdeExcel,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            pregunta,
+            _alcance(),
+          ],
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          titulo,
+          const SizedBox(height: 14),
+          _opcionFila('pdf', 'PDF', 'Listo para imprimir o enviar', _rojoPdf),
+          _opcionFila(
+            'xlsx',
+            'Excel',
+            'Para editar o sacar cálculos',
+            _verdeExcel,
+          ),
+          pregunta,
+          _alcance(),
+        ],
+      ),
+    );
+  }
+}
+
+Future<void> _descargarRegistro(
+  BuildContext context, {
+  required BuildContext desde,
+  required CursoConColegio datos,
+  required int periodo,
+  required List<Periodo> periodos,
+  required List<Estudiante> estudiantes,
+  required ColoresRegistro colores,
+  required Escala? Function(RegistroColumna) escalaDe,
+}) async {
+  final cur = datos.curso;
+  final ancho = MediaQuery.sizeOf(context).width >= 900;
+  final nombre = periodos[periodo - 1].nombre;
+  final subtitulo =
+      '${cur.nombre} · ${_gradoCorto(cur)} · ${datos.colegio.nombre}';
+  (String, bool)? elegido;
+  if (ancho) {
+    final caja = desde.findRenderObject() as RenderBox?;
+    final pantalla = MediaQuery.sizeOf(context);
+    final rect = caja == null
+        ? null
+        : caja.localToGlobal(Offset.zero) & caja.size;
+    elegido = await showGeneralDialog<(String, bool)>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Cerrar',
+      barrierColor: Colors.transparent,
+      transitionDuration: const Duration(milliseconds: 160),
+      transitionBuilder: (_, a, _, child) => FadeTransition(
+        opacity: a,
+        child: ScaleTransition(
+          alignment: Alignment.topRight,
+          scale: Tween(begin: .96, end: 1.0).animate(a),
+          child: child,
+        ),
+      ),
+      pageBuilder: (ctx, _, _) => Stack(
+        children: [
+          Positioned(
+            top: (rect?.bottom ?? 80) + 8,
+            right: rect == null ? 20 : max(12.0, pantalla.width - rect.right),
+            width: 390,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(22),
+                boxShadow: [
+                  BoxShadow(
+                    color: KipuColores.tinta.withValues(alpha: .18),
+                    blurRadius: 50,
+                    offset: const Offset(0, 20),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(22),
+                child: _PanelDescarga(
+                  subtitulo: subtitulo,
+                  periodo: nombre,
+                  hoja: false,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  } else {
+    elegido = await showModalBottomSheet<(String, bool)>(
+      context: context,
+      backgroundColor: Colors.white,
+      showDragHandle: true,
+      barrierColor: const Color(0x661F1B2E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+      ),
+      builder: (_) => SafeArea(
+        child: _PanelDescarga(
+          subtitulo: subtitulo,
+          periodo: nombre,
+          hoja: true,
+        ),
+      ),
+    );
+  }
+  if (elegido == null || !context.mounted) return;
+  final (formato, anual) = elegido;
+
+  final hojas = <HojaRegistro>[];
+  for (final p
+      in anual ? [for (var i = 1; i <= periodos.length; i++) i] : [periodo]) {
+    final columnas = await db.verColumnas(cur.id, p).first;
+    final notas = await db.verNotasRegistro(cur.id, p).first;
+    hojas.add(
+      HojaRegistro(
+        periodo: periodos[p - 1].nombre,
+        estudiantes: estudiantes.where((e) => estaEnPeriodo(e, p)).toList()
+          ..sort((a, b) => claveOrden(a).compareTo(claveOrden(b))),
+        // Las calculadas todavía no tienen valores: solo van las notas.
+        columnas: [
+          for (final c in columnas)
+            if (c.tipo == 'nota') c,
+        ],
+        notas: notas,
+      ),
+    );
+  }
+  final r = ReporteRegistro(
+    colegio: datos.colegio.nombre,
+    curso: cur,
+    docente: await db.leerAjuste('nombre') ?? '',
+    color: colores.calculadas,
+    alcance: anual ? 'Año completo' : nombre,
+    hojas: hojas,
+    escalaDe: escalaDe,
+  );
+  try {
+    if (formato == 'pdf') {
+      await FilePicker.saveFile(
+        fileName: '${r.archivo}.pdf',
+        bytes: await pdfRegistro(r),
+        mimeType: 'application/pdf',
+      );
+    } else {
+      await FilePicker.saveFile(
+        fileName: '${r.archivo}.xlsx',
+        bytes: excelRegistro(r),
+        mimeType:
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+    }
+  } catch (e) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('No se pudo descargar el registro: $e')),
     );
   }
 }
