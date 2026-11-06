@@ -573,10 +573,7 @@ Future<Uint8List> pdfAsistencia(ReporteAsistencia r) async {
           ? pw.SizedBox()
           : pw.Padding(
               padding: const pw.EdgeInsets.only(bottom: 8),
-              child: texto(
-                '${r.titulo} · ${r.periodo}',
-                color: _pdf(_gris),
-              ),
+              child: texto('${r.titulo} · ${r.periodo}', color: _pdf(_gris)),
             ),
       footer: (ctx) => pw.Container(
         margin: const pw.EdgeInsets.only(top: 8),
@@ -813,15 +810,9 @@ Future<Uint8List> pdfAsistencia(ReporteAsistencia r) async {
                         ),
                       ),
                       _pad(
-                        texto(
-                          a.motivo ?? '—',
-                          size: 7.8,
-                          color: _pdf(_gris),
-                        ),
+                        texto(a.motivo ?? '—', size: 7.8, color: _pdf(_gris)),
                       ),
-                      _pad(
-                        texto(a.nota ?? '', size: 7.8, color: _pdf(_gris)),
-                      ),
+                      _pad(texto(a.nota ?? '', size: 7.8, color: _pdf(_gris))),
                     ],
                   ),
             ],

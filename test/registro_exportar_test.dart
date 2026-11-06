@@ -33,7 +33,7 @@ void main() {
           orden: id,
           codigo: cod,
           tema: tema,
-          fecha: '2026-0${3 + p}-1$id',
+          fecha: '2026-0${3 + p}-${10 + id % 18}',
           tipo: 'nota',
           escala: esc,
           enEquipo: false,
@@ -45,7 +45,14 @@ void main() {
       col(3, 1, 'FB', 'Feedback de la práctica', 'logrado'),
       col(4, 1, 'F2', 'Tabla periódica', 'vigesimal'),
     ];
-    final c2 = [col(5, 2, 'F3', 'Enlaces químicos', 'vigesimal')];
+    final c2 = [
+      for (
+        var i = 0;
+        i < int.parse(Platform.environment['KIPU_COLS'] ?? '1');
+        i++
+      )
+        col(5 + i, 2, 'F${3 + i}', 'Enlaces químicos y más', 'vigesimal'),
+    ];
     final notas = <int, Map<int, String>>{
       1: {for (final e in estudiantes) e.id: '${8 + e.id % 12}'},
       2: {
@@ -59,7 +66,8 @@ void main() {
         for (final e in estudiantes)
           if (e.id % 3 != 0) e.id: '1${e.id % 10}.5',
       },
-      5: {for (final e in estudiantes) e.id: '${10 + e.id % 9}'},
+      for (var i = 0; i < 40; i++)
+        5 + i: {for (final e in estudiantes) e.id: '${10 + (e.id + i) % 9}'},
     };
     HojaRegistro hoja(int p, String n, List<RegistroColumna> c) => HojaRegistro(
       periodo: n,

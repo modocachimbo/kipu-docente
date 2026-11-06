@@ -1,3 +1,5 @@
+import 'dart:math' show min;
+
 import 'package:excel/excel.dart' as xl;
 import 'package:flutter/material.dart' show Color, Colors;
 import 'package:flutter/services.dart' show Uint8List, rootBundle;
@@ -68,6 +70,9 @@ class ReporteRegistro {
   }
 }
 
+/// Columnas por bloque en el PDF: más que esto ya no se leen en A4.
+const _porBloque = 15;
+
 const _tinta = Color(0xFF1F1B2E);
 const _gris = Color(0xFF6E6A80);
 const _rojo = Color(0xFFC2334A);
@@ -114,11 +119,8 @@ String? _media(List<String> valores, Escala? e) {
 }
 
 String _detalleColumna(RegistroColumna c, Escala? e) => [
-  if (c.fecha != null)
-    DateFormat(
-      'd MMM',
-      'es_PE',
-    ).format(DateTime.parse(c.fecha!)).replaceAll('.', ''),
+  if (DateTime.tryParse(c.fecha ?? '') case final d?)
+    DateFormat('d MMM', 'es_PE').format(d).replaceAll('.', ''),
   escalaCorta(e),
 ].where((s) => s.isNotEmpty).join(' · ');
 
@@ -222,9 +224,9 @@ Future<Uint8List> pdfRegistro(ReporteRegistro r) async {
     ],
   );
 
-  pw.Widget tabla(HojaRegistro h) {
+  pw.Widget tabla(HojaRegistro h, List<RegistroColumna> cols) {
     const wN = 20.0, wNom = 168.0;
-    final n = h.columnas.length;
+    final n = cols.length;
     final size = n > 16 ? 7.0 : (n > 10 ? 7.8 : 8.6);
     final cab = <pw.Widget>[
       pw.Container(
@@ -243,7 +245,7 @@ Future<Uint8List> pdfRegistro(ReporteRegistro r) async {
           ls: .6,
         ),
       ),
-      for (final c in h.columnas)
+      for (final c in cols)
         pw.Container(
           padding: const pw.EdgeInsets.fromLTRB(2, 6, 2, 5),
           child: pw.Column(
@@ -320,8 +322,7 @@ Future<Uint8List> pdfRegistro(ReporteRegistro r) async {
                 ),
               ),
             ),
-            for (final c in h.columnas)
-              celda(h.nota(c, e), r.escalaDe(c), size),
+            for (final c in cols) celda(h.nota(c, e), r.escalaDe(c), size),
           ],
         ),
       pw.TableRow(
@@ -343,7 +344,7 @@ Future<Uint8List> pdfRegistro(ReporteRegistro r) async {
               ls: .6,
             ),
           ),
-          for (final c in h.columnas)
+          for (final c in cols)
             () {
               final e = r.escalaDe(c);
               final m = _media([
@@ -610,7 +611,26 @@ Future<Uint8List> pdfRegistro(ReporteRegistro r) async {
               ),
             )
           else
-            tabla(h),
+            // Con muchas columnas, el registro se parte en bloques de hasta
+            // 15 y cada bloque repite los nombres, para que todo se lea.
+            for (var k = 0; k < h.columnas.length; k += _porBloque) ...[
+              if (k > 0) ...[
+                // Cada bloque empieza en su página para no cortarse.
+                pw.NewPage(),
+                texto(
+                  '${h.periodo} · columnas ${k + 1} a '
+                  '${min(k + _porBloque, h.columnas.length)} '
+                  'de ${h.columnas.length}',
+                  size: 7.5,
+                  color: _pdf(_gris),
+                ),
+                pw.SizedBox(height: 5),
+              ],
+              tabla(
+                h,
+                h.columnas.sublist(k, min(k + _porBloque, h.columnas.length)),
+              ),
+            ],
         ],
         pw.SizedBox(height: 8),
         leyenda(),
