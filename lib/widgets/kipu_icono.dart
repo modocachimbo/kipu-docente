@@ -71,6 +71,7 @@ enum KipuIcono {
   enviar,
   copiar,
   dado,
+  descargar,
 }
 
 // R = relleno suave, T = trazo. Ambos se reemplazan por el color al dibujar.
@@ -326,6 +327,10 @@ const _svg = <KipuIcono, String>{
 <rect x="3.5" y="3.5" width="17" height="17" rx="4.5" fill="R"/>
 <rect x="3.5" y="3.5" width="17" height="17" rx="4.5" stroke="T"/>
 <path d="M8.5 8.5h.01M15.5 8.5h.01M12 12h.01M8.5 15.5h.01M15.5 15.5h.01" stroke="T" stroke-width="3"/>''',
+  KipuIcono.descargar: '''
+<path d="M4 14.5v3A2.5 2.5 0 0 0 6.5 20h11a2.5 2.5 0 0 0 2.5-2.5v-3Z" fill="R"/>
+<path d="M4 14.5v3A2.5 2.5 0 0 0 6.5 20h11a2.5 2.5 0 0 0 2.5-2.5v-3" stroke="T"/>
+<path d="M12 4v10.5M7.5 10 12 14.5 16.5 10" stroke="T"/>''',
 };
 
 String _hex(Color c) =>
