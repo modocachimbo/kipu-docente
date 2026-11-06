@@ -206,9 +206,8 @@ class _RegistroCursoState extends State<RegistroCurso> {
       ),
       onBuscar: (t) => setState(() => _buscar = t),
       onNuevaColumna: nuevaColumna,
-      onDescargar: (desde) => _descargarRegistro(
+      onDescargar: () => _descargarRegistro(
         context,
-        desde: desde,
         datos: widget.datos,
         periodo: _periodo.clamp(1, periodos.length),
         periodos: periodos,
@@ -347,8 +346,7 @@ class _Cabecera extends StatelessWidget {
   final ValueChanged<String> onBuscar;
   final VoidCallback onNuevaColumna;
 
-  /// Recibe el botón que lo abrió, para mostrar el menú debajo.
-  final ValueChanged<BuildContext> onDescargar;
+  final VoidCallback onDescargar;
 
   const _Cabecera({
     required this.ancho,
@@ -445,12 +443,7 @@ class _Cabecera extends StatelessWidget {
               onTap: onAsistencia,
             ),
             const SizedBox(width: 12),
-            Builder(
-              builder: (ctx) => _BotonDescargar(
-                color: colores.calculadas,
-                onTap: () => onDescargar(ctx),
-              ),
-            ),
+            _BotonDescargar(color: colores.calculadas, onTap: onDescargar),
             const SizedBox(width: 12),
             FilledButton.icon(
               style: FilledButton.styleFrom(
@@ -490,7 +483,7 @@ class _Cabecera extends StatelessWidget {
                     borderRadius: BorderRadius.circular(14),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(14),
-                      onTap: () => onDescargar(ctx),
+                      onTap: onDescargar,
                       child: const SizedBox(
                         width: 40,
                         height: 40,
@@ -770,26 +763,25 @@ class _BotonDescargar extends StatelessWidget {
 }
 
 /// Etiqueta de formato: "PDF" en rojo, "XLSX" en verde.
+/// Etiqueta de formato: "PDF" en rojo, "XLSX" en verde.
 class _Formato extends StatelessWidget {
   final String texto;
   final Color color;
-  final bool blanco;
-  const _Formato(this.texto, this.color, {this.blanco = false});
-  static const tam = 46.0;
+  const _Formato(this.texto, this.color);
 
   @override
   Widget build(BuildContext context) => Container(
-    width: tam,
-    height: tam,
+    width: 42,
+    height: 42,
     decoration: BoxDecoration(
-      color: blanco ? Colors.white : Color.lerp(color, Colors.white, .88),
-      borderRadius: BorderRadius.circular(tam * .27),
+      color: Color.lerp(color, Colors.white, .88),
+      borderRadius: BorderRadius.circular(12),
     ),
     child: Center(
       child: Text(
         texto,
         style: TextStyle(
-          fontSize: tam * .27,
+          fontSize: 11.5,
           fontWeight: FontWeight.w700,
           letterSpacing: .3,
           color: color,
@@ -799,16 +791,131 @@ class _Formato extends StatelessWidget {
   );
 }
 
-/// Menú de descarga: PDF o Excel, del periodo abierto o de todo el año.
-/// Devuelve (formato, todoElAño).
+/// Miniatura de una hoja PDF con la tabla del registro.
+class _MiniPdf extends StatelessWidget {
+  final Color color;
+  const _MiniPdf(this.color);
+
+  @override
+  Widget build(BuildContext context) {
+    Widget fila(Color fondo, Color fin) => Padding(
+      padding: const EdgeInsets.only(bottom: 3),
+      child: Row(
+        children: [
+          Expanded(flex: 3, child: Container(height: 5, color: fondo)),
+          for (var i = 0; i < 3; i++) ...[
+            const SizedBox(width: 2),
+            Expanded(child: Container(height: 5, color: fondo)),
+          ],
+          const SizedBox(width: 2),
+          Expanded(child: Container(height: 5, color: fin)),
+        ],
+      ),
+    );
+    final suave = Color.lerp(color, Colors.white, .75)!;
+    return Container(
+      width: 104,
+      height: 120,
+      padding: const EdgeInsets.fromLTRB(9, 10, 9, 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        boxShadow: [
+          BoxShadow(
+            color: KipuColores.tinta.withValues(alpha: .14),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(width: 54, height: 6, color: color),
+          const SizedBox(height: 4),
+          Container(width: 36, height: 3.5, color: const Color(0xFFD5D4DE)),
+          const SizedBox(height: 8),
+          fila(suave, suave),
+          for (var i = 0; i < 9; i++)
+            fila(
+              const Color(0xFFEDEDF2),
+              Color.lerp(color, Colors.white, .85)!,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Miniatura de una hoja de Excel.
+class _MiniExcel extends StatelessWidget {
+  final Color color;
+  const _MiniExcel(this.color);
+
+  @override
+  Widget build(BuildContext context) {
+    const linea = Color(0xFFDDE7E1);
+    return Container(
+      width: 150,
+      height: 112,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        boxShadow: [
+          BoxShadow(
+            color: KipuColores.tinta.withValues(alpha: .14),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          for (var f = 0; f < 9; f++)
+            Expanded(
+              child: Row(
+                children: [
+                  for (var c = 0; c < 6; c++)
+                    Expanded(
+                      flex: c == 0 ? 2 : 1,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: f == 0
+                              ? color
+                              : (c == 0 ? const Color(0xFFF2F7F4) : null),
+                          border: const Border(
+                            right: BorderSide(color: linea, width: .8),
+                            bottom: BorderSide(color: linea, width: .8),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Ventana de descarga: formato con vista previa y periodo. Los periodos sin
+/// notas salen deshabilitados. Devuelve (formato, periodos elegidos).
 class _PanelDescarga extends StatefulWidget {
   final String subtitulo;
-  final String periodo;
+  final List<Periodo> periodos;
+  final int periodo;
+  final Set<int> conNotas;
   final bool hoja;
+  final Color color;
   const _PanelDescarga({
     required this.subtitulo,
+    required this.periodos,
     required this.periodo,
+    required this.conNotas,
     required this.hoja,
+    required this.color,
   });
 
   @override
@@ -816,222 +923,259 @@ class _PanelDescarga extends StatefulWidget {
 }
 
 class _PanelDescargaState extends State<_PanelDescarga> {
-  var _anual = false;
+  var _formato = 'pdf';
 
-  void _elegir(String f) => Navigator.pop(context, (f, _anual));
+  /// 0 = todo el año.
+  late int _periodo = widget.conNotas.contains(widget.periodo)
+      ? widget.periodo
+      : (widget.conNotas.isEmpty
+            ? widget.periodo
+            : (widget.conNotas.toList()..sort()).first);
 
-  Widget _opcionFila(String f, String titulo, String detalle, Color color) =>
-      Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Material(
-          color: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: _linea, width: 1.5),
+  bool get _hayNotas => widget.conNotas.isNotEmpty;
+  Color get _color => _formato == 'pdf' ? _rojoPdf : _verdeExcel;
+
+  Widget _tarjeta(String f) {
+    final pdf = f == 'pdf';
+    final color = pdf ? _rojoPdf : _verdeExcel;
+    final activo = _formato == f;
+    final chico = widget.hoja;
+    return Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: activo ? color : _linea, width: 2),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => setState(() => _formato = f),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: activo
+                ? [
+                    BoxShadow(
+                      color: color.withValues(alpha: .14),
+                      spreadRadius: 4,
+                    ),
+                  ]
+                : null,
           ),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(16),
-            hoverColor: KipuColores.fondo,
-            onTap: () => _elegir(f),
-            child: Padding(
-              padding: const EdgeInsets.all(11),
-              child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                height: chico ? 120 : 160,
+                decoration: BoxDecoration(
+                  color: Color.lerp(color, Colors.white, .9),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Center(
+                  child: Transform.scale(
+                    scale: chico ? .8 : 1,
+                    child: pdf ? _MiniPdf(widget.color) : _MiniExcel(color),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
                 children: [
-                  _Formato(f == 'pdf' ? 'PDF' : 'XLSX', color),
-                  const SizedBox(width: 13),
+                  _Formato(pdf ? 'PDF' : 'XLSX', color),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          titulo,
+                          pdf ? 'PDF' : 'Excel',
                           style: const TextStyle(
-                            fontSize: 15.5,
+                            fontSize: 16,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         Text(
-                          detalle,
+                          pdf
+                              ? 'Para imprimir, firmar o enviar'
+                              : 'Para editar o sacar cálculos',
                           style: const TextStyle(
-                            fontSize: 13,
+                            fontSize: 12.5,
                             color: KipuColores.gris,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const KipuIcon(
-                    KipuIcono.descargar,
-                    size: 19,
-                    color: Color(0xFFA3A1B3),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-
-  Widget _opcionGrande(String f, String titulo, String detalle, Color color) =>
-      Expanded(
-        child: Material(
-          color: Color.lerp(color, Colors.white, .9),
-          borderRadius: BorderRadius.circular(20),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(20),
-            onTap: () => _elegir(f),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _Formato(f == 'pdf' ? 'PDF' : 'XLSX', color, blanco: true),
-                  const SizedBox(height: 12),
-                  Text(
-                    titulo,
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                      color: color,
-                    ),
-                  ),
-                  Text(
-                    detalle,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      color: Color.lerp(color, Colors.white, .15),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: activo ? color : const Color(0xFFD5D4DE),
+                        width: activo ? 7 : 2,
+                      ),
                     ),
                   ),
                 ],
               ),
-            ),
+            ],
           ),
-        ),
-      );
-
-  Widget _alcance() => Container(
-    padding: const EdgeInsets.all(4),
-    decoration: BoxDecoration(
-      color: KipuColores.fondo,
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: Row(
-      children: [
-        for (final (anual, texto) in [
-          (false, widget.periodo),
-          (true, 'Todo el año'),
-        ])
-          Expanded(
-            child: GestureDetector(
-              onTap: () => setState(() => _anual = anual),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 160),
-                padding: const EdgeInsets.symmetric(vertical: 9),
-                decoration: BoxDecoration(
-                  color: _anual == anual ? Colors.white : null,
-                  borderRadius: BorderRadius.circular(9),
-                  boxShadow: _anual == anual
-                      ? [
-                          BoxShadow(
-                            color: KipuColores.tinta.withValues(alpha: .08),
-                            blurRadius: 4,
-                            offset: const Offset(0, 1),
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Text(
-                  texto,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: _anual == anual
-                        ? FontWeight.w600
-                        : FontWeight.w500,
-                    color: _anual == anual
-                        ? KipuColores.tinta
-                        : KipuColores.gris,
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
-    ),
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    final titulo = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Descargar registro de notas',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          widget.subtitulo,
-          style: const TextStyle(fontSize: 13, color: KipuColores.gris),
-        ),
-      ],
-    );
-    const pregunta = Padding(
-      padding: EdgeInsets.fromLTRB(2, 6, 2, 6),
-      child: Text(
-        '¿Qué periodo?',
-        style: TextStyle(
-          fontSize: 12.5,
-          color: KipuColores.gris,
-          fontWeight: FontWeight.w500,
         ),
       ),
     );
-    if (widget.hoja) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(18, 0, 18, 22),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            titulo,
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                _opcionGrande('pdf', 'PDF', 'Imprimir o enviar', _rojoPdf),
-                const SizedBox(width: 10),
-                _opcionGrande(
-                  'xlsx',
-                  'Excel',
-                  'Editar o calcular',
-                  _verdeExcel,
-                ),
-              ],
+  }
+
+  Widget _chip(int p, String texto) {
+    final habil = p == 0 ? _hayNotas : widget.conNotas.contains(p);
+    final activo = habil && _periodo == p;
+    final chip = Material(
+      color: activo ? KipuColores.tinta : KipuColores.fondo,
+      borderRadius: BorderRadius.circular(11),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(11),
+        onTap: habil ? () => setState(() => _periodo = p) : null,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+          child: Text(
+            texto,
+            style: TextStyle(
+              fontSize: 13.5,
+              fontWeight: activo ? FontWeight.w600 : FontWeight.w500,
+              color: activo
+                  ? Colors.white
+                  : (habil ? KipuColores.gris : const Color(0xFFC9C8D3)),
+              decoration: habil ? null : TextDecoration.lineThrough,
+              decorationColor: const Color(0xFFC9C8D3),
             ),
-            const SizedBox(height: 12),
-            pregunta,
-            _alcance(),
-          ],
+          ),
         ),
-      );
+      ),
+    );
+    return habil ? chip : Tooltip(message: 'Sin notas todavía', child: chip);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final w = widget;
+    String corto(int i) {
+      final n = w.periodos[i - 1].nombre.split(' ');
+      return i == _periodo && n.length > 1
+          ? '${n.first} ${n.last.substring(0, min(3, n.last.length))}'
+          : n.first;
     }
+
+    final chips = Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: [
+        for (var i = 1; i <= w.periodos.length; i++) _chip(i, corto(i)),
+        _chip(0, 'Todo el año'),
+      ],
+    );
+    final periodo = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Periodo',
+          style: TextStyle(
+            fontSize: 13,
+            color: KipuColores.gris,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
+        chips,
+        if (!_hayNotas)
+          const Padding(
+            padding: EdgeInsets.only(top: 10),
+            child: Text(
+              'Todavía no hay notas en ningún periodo.',
+              style: TextStyle(fontSize: 13, color: _rojo),
+            ),
+          ),
+      ],
+    );
+    final descargar = FilledButton.icon(
+      style: FilledButton.styleFrom(
+        backgroundColor: _color,
+        padding: const EdgeInsets.symmetric(vertical: 17),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      ),
+      onPressed: _hayNotas
+          ? () => Navigator.pop(context, (
+              _formato,
+              _periodo == 0 ? (w.conNotas.toList()..sort()) : [_periodo],
+            ))
+          : null,
+      icon: const KipuIcon(KipuIcono.descargar, size: 20, color: Colors.white),
+      label: Text(
+        'Descargar ${_formato == 'pdf' ? 'PDF' : 'Excel'}',
+        style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w600),
+      ),
+    );
+
     return Padding(
-      padding: const EdgeInsets.all(18),
+      padding: w.hoja
+          ? const EdgeInsets.fromLTRB(16, 0, 16, 20)
+          : const EdgeInsets.all(24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          titulo,
-          const SizedBox(height: 14),
-          _opcionFila('pdf', 'PDF', 'Listo para imprimir o enviar', _rojoPdf),
-          _opcionFila(
-            'xlsx',
-            'Excel',
-            'Para editar o sacar cálculos',
-            _verdeExcel,
+          const Text(
+            'Descargar registro de notas',
+            style: TextStyle(fontSize: 21, fontWeight: FontWeight.w600),
           ),
-          pregunta,
-          _alcance(),
+          const SizedBox(height: 2),
+          Text(
+            w.subtitulo,
+            style: const TextStyle(fontSize: 14, color: KipuColores.gris),
+          ),
+          const SizedBox(height: 18),
+          if (w.hoja) ...[
+            _tarjeta('pdf'),
+            const SizedBox(height: 10),
+            _tarjeta('xlsx'),
+          ] else
+            Row(
+              children: [
+                Expanded(child: _tarjeta('pdf')),
+                const SizedBox(width: 16),
+                Expanded(child: _tarjeta('xlsx')),
+              ],
+            ),
+          const SizedBox(height: 18),
+          periodo,
+          const SizedBox(height: 20),
+          if (w.hoja)
+            descargar
+          else
+            Row(
+              children: [
+                SizedBox(
+                  width: 140,
+                  child: TextButton(
+                    style: TextButton.styleFrom(
+                      backgroundColor: KipuColores.fondo,
+                      foregroundColor: KipuColores.gris,
+                      padding: const EdgeInsets.symmetric(vertical: 17),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                    ),
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text(
+                      'Cancelar',
+                      style: TextStyle(fontSize: 15.5),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: descargar),
+              ],
+            ),
         ],
       ),
     );
@@ -1040,7 +1184,6 @@ class _PanelDescargaState extends State<_PanelDescarga> {
 
 Future<void> _descargarRegistro(
   BuildContext context, {
-  required BuildContext desde,
   required CursoConColegio datos,
   required int periodo,
   required List<Periodo> periodos,
@@ -1049,109 +1192,87 @@ Future<void> _descargarRegistro(
   required Escala? Function(RegistroColumna) escalaDe,
 }) async {
   final cur = datos.curso;
-  final ancho = MediaQuery.sizeOf(context).width >= 900;
-  final nombre = periodos[periodo - 1].nombre;
+  final ancho = MediaQuery.sizeOf(context).width >= 700;
   final subtitulo =
       '${cur.nombre} · ${_gradoCorto(cur)} · ${datos.colegio.nombre}';
-  (String, bool)? elegido;
-  if (ancho) {
-    final caja = desde.findRenderObject() as RenderBox?;
-    final pantalla = MediaQuery.sizeOf(context);
-    final rect = caja == null
-        ? null
-        : caja.localToGlobal(Offset.zero) & caja.size;
-    elegido = await showGeneralDialog<(String, bool)>(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: 'Cerrar',
-      barrierColor: Colors.transparent,
-      transitionDuration: const Duration(milliseconds: 160),
-      transitionBuilder: (_, a, _, child) => FadeTransition(
-        opacity: a,
-        child: ScaleTransition(
-          alignment: Alignment.topRight,
-          scale: Tween(begin: .96, end: 1.0).animate(a),
-          child: child,
-        ),
-      ),
-      pageBuilder: (ctx, _, _) => Stack(
-        children: [
-          Positioned(
-            top: (rect?.bottom ?? 80) + 8,
-            right: rect == null ? 20 : max(12.0, pantalla.width - rect.right),
-            width: 390,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(22),
-                boxShadow: [
-                  BoxShadow(
-                    color: KipuColores.tinta.withValues(alpha: .18),
-                    blurRadius: 50,
-                    offset: const Offset(0, 20),
-                  ),
-                ],
-              ),
-              child: Material(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(22),
-                child: _PanelDescarga(
-                  subtitulo: subtitulo,
-                  periodo: nombre,
-                  hoja: false,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  } else {
-    elegido = await showModalBottomSheet<(String, bool)>(
-      context: context,
-      backgroundColor: Colors.white,
-      showDragHandle: true,
-      barrierColor: const Color(0x661F1B2E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-      ),
-      builder: (_) => SafeArea(
-        child: _PanelDescarga(
-          subtitulo: subtitulo,
-          periodo: nombre,
-          hoja: true,
-        ),
-      ),
-    );
-  }
-  if (elegido == null || !context.mounted) return;
-  final (formato, anual) = elegido;
 
-  final hojas = <HojaRegistro>[];
-  for (final p
-      in anual ? [for (var i = 1; i <= periodos.length; i++) i] : [periodo]) {
+  // Lo que hay en cada periodo, para saber cuáles se pueden descargar.
+  final hojas = <int, HojaRegistro>{};
+  for (var p = 1; p <= periodos.length; p++) {
     final columnas = await db.verColumnas(cur.id, p).first;
     final notas = await db.verNotasRegistro(cur.id, p).first;
-    hojas.add(
-      HojaRegistro(
-        periodo: periodos[p - 1].nombre,
-        estudiantes: estudiantes.where((e) => estaEnPeriodo(e, p)).toList()
-          ..sort((a, b) => claveOrden(a).compareTo(claveOrden(b))),
-        // Las calculadas todavía no tienen valores: solo van las notas.
-        columnas: [
-          for (final c in columnas)
-            if (c.tipo == 'nota') c,
-        ],
-        notas: notas,
-      ),
+    final lista = estudiantes.where((e) => estaEnPeriodo(e, p)).toList()
+      ..sort((a, b) => claveOrden(a).compareTo(claveOrden(b)));
+    hojas[p] = HojaRegistro(
+      periodo: periodos[p - 1].nombre,
+      estudiantes: lista,
+      // Las calculadas todavía no tienen valores: solo van las notas.
+      columnas: [
+        for (final c in columnas)
+          if (c.tipo == 'nota') c,
+      ],
+      notas: notas,
     );
   }
+  final conNotas = {
+    for (final MapEntry(key: p, value: h) in hojas.entries)
+      if (h.columnas.any((c) => h.notas[c.id]?.isNotEmpty ?? false)) p,
+  };
+  if (!context.mounted) return;
+
+  final panel = _PanelDescarga(
+    subtitulo: subtitulo,
+    periodos: periodos,
+    periodo: periodo,
+    conNotas: conNotas,
+    hoja: !ancho,
+    color: colores.calculadas,
+  );
+  final (String, List<int>)? elegido = ancho
+      ? await showDialog(
+          context: context,
+          barrierColor: const Color(0x661F1B2E),
+          builder: (_) => Dialog(
+            backgroundColor: Colors.white,
+            surfaceTintColor: Colors.transparent,
+            insetPadding: const EdgeInsets.all(24),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(28),
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 720),
+              child: SingleChildScrollView(child: panel),
+            ),
+          ),
+        )
+      : await showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.white,
+          showDragHandle: true,
+          barrierColor: const Color(0x661F1B2E),
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+          ),
+          builder: (ctx) => ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(ctx).height * .9,
+            ),
+            child: SafeArea(child: SingleChildScrollView(child: panel)),
+          ),
+        );
+  if (elegido == null || !context.mounted) return;
+  final (formato, elegidos) = elegido;
+
   final r = ReporteRegistro(
     colegio: datos.colegio.nombre,
     curso: cur,
     docente: await db.leerAjuste('nombre') ?? '',
     color: colores.calculadas,
-    alcance: anual ? 'Año completo' : nombre,
-    hojas: hojas,
+    alcance: elegidos.length > 1
+        ? 'Año completo'
+        : periodos[elegidos.first - 1].nombre,
+    hojas: [for (final p in elegidos) hojas[p]!],
     escalaDe: escalaDe,
   );
   try {
