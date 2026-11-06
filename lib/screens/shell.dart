@@ -1,4 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+
+import '../data/database.dart';
+import '../main.dart' show db;
 
 import '../theme.dart';
 import '../widgets/kipu_icono.dart';
@@ -7,6 +12,8 @@ import 'asistencia.dart';
 import 'config_academica.dart';
 import 'configuracion.dart';
 import 'cursos.dart';
+import 'horario.dart';
+import 'horario_datos.dart';
 import 'inicio.dart';
 import 'proximamente.dart';
 
@@ -42,14 +49,7 @@ final _secciones = <_Seccion>[
     () => const PantallaAsistencia(),
     enBarra: true,
   ),
-  _Seccion(
-    'Horario',
-    KipuIcono.horario,
-    () => const Proximamente(
-      'Horario',
-      'Tus clases de la semana con recordatorios.',
-    ),
-  ),
+  _Seccion('Horario', KipuIcono.horario, () => const PantallaHorario()),
   _Seccion(
     'Reportes',
     KipuIcono.reportes,
@@ -148,16 +148,60 @@ class _ShellState extends State<Shell> {
 
   void _cambio() => setState(() {});
 
+  Timer? _reloj;
+  final _avisadas = <String>{};
+
   @override
   void initState() {
     super.initState();
     seccionShell.addListener(_cambio);
+    _reloj = Timer.periodic(const Duration(seconds: 30), (_) => _avisar());
   }
 
   @override
   void dispose() {
     seccionShell.removeListener(_cambio);
+    _reloj?.cancel();
     super.dispose();
+  }
+
+  /// Aviso dentro de la app unos minutos antes de cada clase.
+  Future<void> _avisar() async {
+    final antes = int.tryParse(await db.leerAjuste('aviso_clase') ?? '') ?? 10;
+    if (antes <= 0 || !mounted) return;
+    final ahora = DateTime.now();
+    final min = ahora.hour * 60 + ahora.minute;
+    final hoy = '${ahora.year}-${ahora.month}-${ahora.day}';
+    final clases = await db.verHorario().first;
+    for (final (Horario h, CursoConColegio c) in clases) {
+      final falta = minutos(h.inicio) - min;
+      final clave = '$hoy-${h.id}';
+      if (h.dia != ahora.weekday || falta <= 0 || falta > antes) continue;
+      if (!_avisadas.add(clave) || !mounted) continue;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 10),
+          content: Row(
+            children: [
+              const KipuIcon(KipuIcono.campana, color: Colors.white, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'En $falta min: ${c.curso.nombre} ${aula(c.curso)} · '
+                  '${c.colegio.nombre} (${h.inicio})',
+                ),
+              ),
+            ],
+          ),
+          action: SnackBarAction(
+            label: 'Ver horario',
+            onPressed: () =>
+                _ir(_secciones.indexWhere((s) => s.titulo == 'Horario')),
+          ),
+        ),
+      );
+    }
   }
 
   @override
