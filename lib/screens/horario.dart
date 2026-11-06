@@ -29,6 +29,10 @@ class _PantallaHorarioState extends State<PantallaHorario> {
 
   /// 0 = todos mis colegios; 1.. = un colegio, en el orden de la lista.
   int _pagina = 0;
+
+  /// Modo edición: muestra las casillas vacías con +, y deja cambiar las
+  /// horas y agregar o quitar filas.
+  bool _editando = false;
   late int _dia = DateTime.now().weekday > 5 ? 1 : DateTime.now().weekday;
   DateTime _ahora = DateTime.now();
   Timer? _reloj;
@@ -103,9 +107,18 @@ class _PantallaHorarioState extends State<PantallaHorario> {
       colegio: colegio,
       pagina: _pagina,
       compacto: !ancho,
-      onCambiar: (p) => setState(() => _pagina = p),
+      onCambiar: (p) => setState(() {
+        _pagina = p;
+        if (p == 0) _editando = false;
+      }),
     );
     final menu = _Menu(onElegir: (o) => _menu(context, o, d, colegio));
+    final filas = colegio == null
+        ? const <FilaHorario>[]
+        : filasDeColegio(colegio.id, d.franjas, d.clases);
+    void editarFila(int i) => _editarFila(context, d, colegio!, filas, i);
+    void agregarFila(bool recreo) =>
+        _agregarFila(context, d, colegio!, filas, recreo);
 
     if (ancho) {
       return Scaffold(
@@ -141,13 +154,13 @@ class _PantallaHorarioState extends State<PantallaHorario> {
                     ),
                     const SizedBox(width: 10),
                     FilledButton.icon(
-                      onPressed: () => _agregarClase(context, d, colegio),
-                      icon: const KipuIcon(
-                        KipuIcono.agregar,
+                      onPressed: () => _alternarEdicion(context, d),
+                      icon: KipuIcon(
+                        _editando ? KipuIcono.check : KipuIcono.editar,
                         color: Colors.white,
                         size: 20,
                       ),
-                      label: const Text('Agregar clase'),
+                      label: Text(_editando ? 'Listo' : 'Editar horario'),
                     ),
                     const SizedBox(width: 8),
                     menu,
@@ -155,6 +168,10 @@ class _PantallaHorarioState extends State<PantallaHorario> {
                 ),
                 const SizedBox(height: 16),
                 banner,
+                if (_editando) ...[
+                  const SizedBox(height: 10),
+                  const _AvisoEdicion(),
+                ],
                 const SizedBox(height: 10),
                 Expanded(
                   child: SingleChildScrollView(
@@ -176,6 +193,9 @@ class _PantallaHorarioState extends State<PantallaHorario> {
                             onClase: (x) => _tocarClase(context, d, x),
                             onVacia: (dia, f) =>
                                 _ponerEnVacia(context, d, colegio, dia, f),
+                            editando: _editando,
+                            onFila: editarFila,
+                            onAgregarFila: agregarFila,
                           ),
                   ),
                 ),
@@ -194,16 +214,21 @@ class _PantallaHorarioState extends State<PantallaHorario> {
           Padding(padding: const EdgeInsets.only(right: 12), child: menu),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        tooltip: 'Agregar clase',
+      floatingActionButton: FloatingActionButton.extended(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        onPressed: () => _agregarClase(context, d, colegio),
-        child: const KipuIcon(KipuIcono.agregar, color: Colors.white),
+        onPressed: () => _alternarEdicion(context, d),
+        icon: KipuIcon(
+          _editando ? KipuIcono.check : KipuIcono.editar,
+          color: Colors.white,
+          size: 20,
+        ),
+        label: Text(_editando ? 'Listo' : 'Editar'),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
         children: [
           banner,
+          if (_editando) ...[const SizedBox(height: 10), const _AvisoEdicion()],
           const SizedBox(height: 10),
           _DiasCelular(
             dias: dias,
@@ -232,6 +257,9 @@ class _PantallaHorarioState extends State<PantallaHorario> {
               esAhora: _esAhora,
               onClase: (x) => _tocarClase(context, d, x),
               onVacia: (f) => _ponerEnVacia(context, d, colegio, _dia, f),
+              editando: _editando,
+              onFila: editarFila,
+              onAgregarFila: agregarFila,
             ),
         ],
       ),
@@ -239,6 +267,95 @@ class _PantallaHorarioState extends State<PantallaHorario> {
   }
 
   // Acciones
+
+  Future<void> _alternarEdicion(BuildContext context, _Datos d) async {
+    if (_editando) {
+      setState(() => _editando = false);
+      return;
+    }
+    if (_pagina == 0) {
+      final c = await _elegirColegio(
+        context,
+        d.colegios,
+        titulo: '¿Qué horario quieres editar?',
+      );
+      if (c == null) return;
+      _pagina = d.colegios.indexWhere((x) => x.id == c.id) + 1;
+    }
+    setState(() => _editando = true);
+  }
+
+  /// Cambia la hora de una fila, la vuelve clase o recreo, o la quita.
+  Future<void> _editarFila(
+    BuildContext context,
+    _Datos d,
+    Colegio colegio,
+    List<FilaHorario> filas,
+    int i,
+  ) async {
+    final f = filas[i];
+    final clases = f.recreo
+        ? 0
+        : d.clases
+              .where(
+                (x) => x.$2.colegio.id == colegio.id && x.$1.inicio == f.inicio,
+              )
+              .length;
+    final r = await showDialog<(FilaHorario?,)>(
+      context: context,
+      builder: (_) => _VentanaFila(fila: f, clases: clases),
+    );
+    if (r == null) return;
+    final nueva = r.$1;
+    final lista = [...filas];
+    if (nueva == null) {
+      lista.removeAt(i);
+    } else {
+      lista[i] = nueva;
+    }
+    await _guardarFilas(colegio, lista, {
+      for (final (j, x) in filas.indexed)
+        if (!x.recreo)
+          x.inicio: j != i
+              ? (inicio: x.inicio, fin: x.fin)
+              : (nueva == null || nueva.recreo)
+              ? null
+              : (inicio: nueva.inicio, fin: nueva.fin),
+    });
+  }
+
+  Future<void> _agregarFila(
+    BuildContext context,
+    _Datos d,
+    Colegio colegio,
+    List<FilaHorario> filas,
+    bool recreo,
+  ) async {
+    final inicio = filas.isEmpty ? '07:45' : filas.last.fin;
+    final largo =
+        filas
+            .where((f) => !f.recreo)
+            .map((f) => minutos(f.fin) - minutos(f.inicio))
+            .lastOrNull ??
+        45;
+    final nueva = FilaHorario(
+      inicio,
+      hhmm(minutos(inicio) + (recreo ? 15 : largo)),
+      recreo: recreo,
+    );
+    await _guardarFilas(colegio, [...filas, nueva], {});
+  }
+
+  Future<void> _guardarFilas(
+    Colegio colegio,
+    List<FilaHorario> filas,
+    Map<String, ({String inicio, String fin})?> cambios,
+  ) {
+    filas.sort((a, b) => a.inicio.compareTo(b.inicio));
+    return db.guardarFranjas(colegio.id, [
+      for (final f in filas) (inicio: f.inicio, fin: f.fin, recreo: f.recreo),
+    ], cambios);
+  }
 
   void _menu(BuildContext context, String opcion, _Datos d, Colegio? colegio) {
     switch (opcion) {
@@ -250,6 +367,8 @@ class _PantallaHorarioState extends State<PantallaHorario> {
             if (c != null && context.mounted) _horasYRecreos(context, d, c);
           });
         }
+      case 'clase':
+        _agregarClase(context, d, colegio);
       case 'aviso':
         _recordatorios(context, d.aviso);
       case 'pdf':
@@ -466,7 +585,11 @@ class _PantallaHorarioState extends State<PantallaHorario> {
       );
 }
 
-Future<Colegio?> _elegirColegio(BuildContext context, List<Colegio> colegios) {
+Future<Colegio?> _elegirColegio(
+  BuildContext context,
+  List<Colegio> colegios, {
+  String titulo = '¿De qué colegio?',
+}) {
   if (colegios.length == 1) return Future.value(colegios.first);
   return ventanaCentrada<Colegio>(
     context: context,
@@ -475,11 +598,11 @@ Future<Colegio?> _elegirColegio(BuildContext context, List<Colegio> colegios) {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(22, 4, 22, 8),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(22, 4, 22, 8),
           child: Text(
-            '¿De qué colegio?',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            titulo,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
           ),
         ),
         for (final c in colegios)
@@ -663,6 +786,7 @@ class _Menu extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       onSelected: onElegir,
       itemBuilder: (_) => [
+        item('clase', KipuIcono.agregar, 'Agregar clase', 'Curso, día y hora'),
         item(
           'franjas',
           KipuIcono.horario,
@@ -911,6 +1035,9 @@ class _TablaColegio extends StatelessWidget {
   final bool Function(Horario) esAhora;
   final ValueChanged<(Horario, CursoConColegio)> onClase;
   final void Function(int dia, FilaHorario fila) onVacia;
+  final bool editando;
+  final ValueChanged<int> onFila;
+  final ValueChanged<bool> onAgregarFila;
 
   const _TablaColegio({
     required this.datos,
@@ -920,6 +1047,9 @@ class _TablaColegio extends StatelessWidget {
     required this.esAhora,
     required this.onClase,
     required this.onVacia,
+    required this.editando,
+    required this.onFila,
+    required this.onAgregarFila,
   });
 
   @override
@@ -931,28 +1061,8 @@ class _TablaColegio extends StatelessWidget {
         if (x.$2.colegio.id == colegio.id) (x.$1.dia, x.$1.inicio): x,
     };
 
-    Widget hora(FilaHorario f) => SizedBox(
-      width: _anchoHora,
-      child: Column(
-        children: [
-          Text(
-            f.inicio,
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: f.recreo ? 12 : 13.5,
-              color: KipuColores.gris,
-            ),
-          ),
-          if (!f.recreo)
-            Text(
-              f.fin,
-              style: const TextStyle(fontSize: 11.5, color: Color(0xFFA3A1B3)),
-            ),
-        ],
-      ),
-    );
-
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           children: [
@@ -966,19 +1076,22 @@ class _TablaColegio extends StatelessWidget {
               ),
           ],
         ),
-        for (final f in filas)
+        for (final (i, f) in filas.indexed)
           if (f.recreo)
             Row(
               children: [
-                hora(f),
+                _Hora(fila: f, editando: editando, onTap: () => onFila(i)),
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.all(3),
-                    child: _Recreo(
-                      texto:
-                          'RECREO   ${f.inicio} – ${f.fin} · '
-                          '${duracion(minutos(f.fin) - minutos(f.inicio))}',
-                      alto: 30,
+                    child: GestureDetector(
+                      onTap: editando ? () => onFila(i) : null,
+                      child: _Recreo(
+                        texto:
+                            'RECREO   ${f.inicio} – ${f.fin} · '
+                            '${duracion(minutos(f.fin) - minutos(f.inicio))}',
+                        alto: 30,
+                      ),
                     ),
                   ),
                 ),
@@ -987,7 +1100,7 @@ class _TablaColegio extends StatelessWidget {
           else
             Row(
               children: [
-                hora(f),
+                _Hora(fila: f, editando: editando, onTap: () => onFila(i)),
                 for (final d in dias)
                   Expanded(
                     child: Padding(
@@ -1001,28 +1114,339 @@ class _TablaColegio extends StatelessWidget {
                             ahora: esAhora(x.$1),
                             onTap: () => onClase(x),
                           ),
-                          null => _CeldaVacia(onTap: () => onVacia(d, f)),
+                          null when editando => _CeldaVacia(
+                            onTap: () => onVacia(d, f),
+                          ),
+                          null => DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: .45),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
                         },
                       ),
                     ),
                   ),
               ],
             ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            KipuIcon(KipuIcono.horario, size: 16, color: KipuColores.gris),
-            const SizedBox(width: 8),
-            Text(
-              'Toca una casilla vacía para poner una clase · '
-              'Toca una clase para cambiarla, moverla o quitarla',
-              style: TextStyle(fontSize: 13, color: KipuColores.gris),
-            ),
-          ],
-        ),
+        if (editando)
+          Padding(
+            padding: const EdgeInsets.only(left: _anchoHora, top: 6),
+            child: _BotonesFila(onAgregar: onAgregarFila),
+          ),
       ],
     );
   }
+}
+
+/// Hora de una fila. Al editar se ve como botón para cambiarla.
+class _Hora extends StatelessWidget {
+  final FilaHorario fila;
+  final bool editando;
+  final VoidCallback onTap;
+  final double ancho;
+  final CrossAxisAlignment alinear;
+
+  const _Hora({
+    required this.fila,
+    required this.editando,
+    required this.onTap,
+    this.ancho = _anchoHora,
+    this.alinear = CrossAxisAlignment.center,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final f = fila;
+    final texto = Column(
+      crossAxisAlignment: alinear,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          f.inicio,
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: f.recreo ? 12 : 13.5,
+            color: editando ? KipuColores.morado : KipuColores.gris,
+          ),
+        ),
+        if (!f.recreo)
+          Text(
+            f.fin,
+            style: TextStyle(
+              fontSize: 11.5,
+              color: editando
+                  ? KipuColores.morado.withValues(alpha: .7)
+                  : const Color(0xFFA3A1B3),
+            ),
+          ),
+      ],
+    );
+    if (!editando) return SizedBox(width: ancho, child: texto);
+    return SizedBox(
+      width: ancho,
+      child: Padding(
+        padding: const EdgeInsets.only(right: 6),
+        child: Material(
+          color: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: BorderSide(color: KipuColores.morado.withValues(alpha: .35)),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  texto,
+                  const SizedBox(width: 4),
+                  KipuIcon(
+                    KipuIcono.editar,
+                    size: 13,
+                    color: KipuColores.morado,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BotonesFila extends StatelessWidget {
+  final ValueChanged<bool> onAgregar;
+  const _BotonesFila({required this.onAgregar});
+
+  @override
+  Widget build(BuildContext context) {
+    Widget boton(String texto, bool recreo) => OutlinedButton.icon(
+      onPressed: () => onAgregar(recreo),
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        side: BorderSide(color: KipuColores.morado.withValues(alpha: .45)),
+        backgroundColor: Colors.white,
+      ),
+      icon: KipuIcon(KipuIcono.agregar, size: 18, color: KipuColores.morado),
+      label: Text(texto),
+    );
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [boton('Fila de clase', false), boton('Recreo', true)],
+    );
+  }
+}
+
+class _AvisoEdicion extends StatelessWidget {
+  const _AvisoEdicion();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: KipuColores.moradoClaro,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          KipuIcon(KipuIcono.editar, size: 18, color: KipuColores.morado),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Editando: toca una hora para cambiarla o quitarla, una casilla + '
+              'para poner una clase, y agrega filas abajo.',
+              style: TextStyle(
+                color: KipuColores.moradoOscuro,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Cambiar una fila: sus horas, si es clase o recreo, o quitarla.
+class _VentanaFila extends StatefulWidget {
+  final FilaHorario fila;
+  final int clases; // clases puestas en esta hora
+  const _VentanaFila({required this.fila, required this.clases});
+
+  @override
+  State<_VentanaFila> createState() => _VentanaFilaState();
+}
+
+class _VentanaFilaState extends State<_VentanaFila> {
+  late String _inicio = widget.fila.inicio;
+  late String _fin = widget.fila.fin;
+  late bool _recreo = widget.fila.recreo;
+
+  Future<void> _hora(bool esInicio) async {
+    final nuevo = await _pedirHora(
+      context,
+      esInicio ? _inicio : _fin,
+      esInicio ? 'EMPIEZA' : 'TERMINA',
+    );
+    if (nuevo == null) return;
+    setState(() {
+      if (esInicio) {
+        final largo = minutos(_fin) - minutos(_inicio);
+        _inicio = nuevo;
+        _fin = hhmm(minutos(nuevo) + (largo > 0 ? largo : 45));
+      } else {
+        _fin = nuevo;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final valido = _fin.compareTo(_inicio) > 0;
+    Widget hora(String etiqueta, String valor, bool esInicio) => Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(etiqueta, style: TextStyle(color: KipuColores.gris)),
+          const SizedBox(height: 6),
+          OutlinedButton(
+            onPressed: () => _hora(esInicio),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(52),
+              side: BorderSide(
+                color: !esInicio && !valido
+                    ? const Color(0xFFD9475A)
+                    : KipuColores.morado.withValues(alpha: .45),
+              ),
+            ),
+            child: Text(
+              valor,
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w600,
+                color: KipuColores.tinta,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    return Ventana(
+      icono: KipuIcono.horario,
+      titulo: 'Cambiar hora',
+      subtitulo: _recreo ? 'Recreo' : 'Hora de clase',
+      contenido: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment(value: false, label: Text('Clase')),
+              ButtonSegment(value: true, label: Text('Recreo')),
+            ],
+            selected: {_recreo},
+            showSelectedIcon: false,
+            onSelectionChanged: (v) => setState(() => _recreo = v.first),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              hora('Empieza', _inicio, true),
+              const SizedBox(width: 12),
+              hora('Termina', _fin, false),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            valido
+                ? 'Dura ${duracion(minutos(_fin) - minutos(_inicio))}'
+                : 'La hora de fin debe ser después del inicio.',
+            style: TextStyle(
+              fontSize: 13,
+              color: valido ? KipuColores.gris : const Color(0xFFD9475A),
+            ),
+          ),
+          if (widget.clases > 0 && _recreo)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                widget.clases == 1
+                    ? 'La clase de esta hora se quitará del horario.'
+                    : 'Las ${widget.clases} clases de esta hora se quitarán del horario.',
+                style: const TextStyle(color: Color(0xFFD9475A), fontSize: 13),
+              ),
+            ),
+          const SizedBox(height: 14),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => Navigator.pop(context, (null,)),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFFD9475A),
+              ),
+              icon: const KipuIcon(
+                KipuIcono.borrar,
+                size: 18,
+                color: Color(0xFFD9475A),
+              ),
+              label: Text(switch (widget.clases) {
+                0 => 'Quitar esta fila',
+                1 => 'Quitar esta fila y su clase',
+                final n => 'Quitar esta fila y sus $n clases',
+              }),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancelar'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton(
+                  onPressed: valido
+                      ? () => Navigator.pop(context, (
+                          FilaHorario(_inicio, _fin, recreo: _recreo),
+                        ))
+                      : null,
+                  child: const Text('Guardar'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+Future<String?> _pedirHora(
+  BuildContext context,
+  String actual,
+  String titulo,
+) async {
+  final m = minutos(actual);
+  final t = await showTimePicker(
+    context: context,
+    initialTime: TimeOfDay(hour: m ~/ 60, minute: m % 60),
+    initialEntryMode: TimePickerEntryMode.input,
+    helpText: titulo,
+    builder: (ctx, child) => MediaQuery(
+      data: MediaQuery.of(ctx).copyWith(alwaysUse24HourFormat: true),
+      child: child!,
+    ),
+  );
+  return t == null ? null : hhmm(t.hour * 60 + t.minute);
 }
 
 class _CeldaClase extends StatelessWidget {
@@ -1571,6 +1995,9 @@ class _DiaColegio extends StatelessWidget {
   final bool Function(Horario) esAhora;
   final ValueChanged<(Horario, CursoConColegio)> onClase;
   final ValueChanged<FilaHorario> onVacia;
+  final bool editando;
+  final ValueChanged<int> onFila;
+  final ValueChanged<bool> onAgregarFila;
 
   const _DiaColegio({
     required this.datos,
@@ -1579,6 +2006,9 @@ class _DiaColegio extends StatelessWidget {
     required this.esAhora,
     required this.onClase,
     required this.onVacia,
+    required this.editando,
+    required this.onFila,
+    required this.onAgregarFila,
   });
 
   @override
@@ -1589,43 +2019,34 @@ class _DiaColegio extends StatelessWidget {
       for (final x in datos.delDia(dia, colegioId: colegio.id)) x.$1.inicio: x,
     };
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final f in filas)
+        for (final (i, f) in filas.indexed)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: editando
+                  ? CrossAxisAlignment.center
+                  : CrossAxisAlignment.start,
               children: [
-                SizedBox(
-                  width: 50,
-                  child: Padding(
-                    padding: EdgeInsets.only(top: f.recreo ? 6 : 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          f.inicio,
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
-                            color: KipuColores.gris,
-                          ),
-                        ),
-                        if (!f.recreo)
-                          Text(
-                            f.fin,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Color(0xFFA3A1B3),
-                            ),
-                          ),
-                      ],
-                    ),
+                Padding(
+                  padding: EdgeInsets.only(
+                    top: editando ? 0 : (f.recreo ? 6 : 12),
+                  ),
+                  child: _Hora(
+                    fila: f,
+                    editando: editando,
+                    onTap: () => onFila(i),
+                    ancho: editando ? 70 : 50,
+                    alinear: CrossAxisAlignment.start,
                   ),
                 ),
                 Expanded(
                   child: f.recreo
-                      ? _Recreo(texto: 'RECREO', alto: 28)
+                      ? GestureDetector(
+                          onTap: editando ? () => onFila(i) : null,
+                          child: const _Recreo(texto: 'RECREO', alto: 28),
+                        )
                       : switch (clases[f.inicio]) {
                           final x? => _Tarjeta(
                             clase: x,
@@ -1634,10 +2055,10 @@ class _DiaColegio extends StatelessWidget {
                             onTap: () => onClase(x),
                             compacta: true,
                           ),
-                          null => SizedBox(
+                          null when editando => SizedBox(
                             height: 52,
                             child: Material(
-                              color: Colors.transparent,
+                              color: Colors.white,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(14),
                                 side: const BorderSide(
@@ -1654,17 +2075,18 @@ class _DiaColegio extends StatelessWidget {
                                   ),
                                   child: Row(
                                     children: [
-                                      const KipuIcon(
+                                      KipuIcon(
                                         KipuIcono.agregar,
                                         size: 16,
-                                        color: Color(0xFFA3A1B3),
+                                        color: KipuColores.morado,
                                       ),
                                       const SizedBox(width: 6),
                                       Text(
-                                        'Hora libre',
+                                        'Poner clase',
                                         style: TextStyle(
-                                          color: KipuColores.gris,
+                                          color: KipuColores.morado,
                                           fontSize: 13,
+                                          fontWeight: FontWeight.w500,
                                         ),
                                       ),
                                     ],
@@ -1673,10 +2095,28 @@ class _DiaColegio extends StatelessWidget {
                               ),
                             ),
                           ),
+                          null => SizedBox(
+                            height: 46,
+                            child: Padding(
+                              padding: const EdgeInsets.only(left: 4, top: 12),
+                              child: Text(
+                                'Libre',
+                                style: TextStyle(
+                                  color: const Color(0xFFA3A1B3),
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          ),
                         },
                 ),
               ],
             ),
+          ),
+        if (editando)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: _BotonesFila(onAgregar: onAgregarFila),
           ),
       ],
     );
