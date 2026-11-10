@@ -207,11 +207,14 @@ extension ColumnasDb on KipuDb {
   }) async {
     final ests = await _estudiantesDelPeriodo(cursoId, periodo);
     final ctx = await _contexto(cursoId, config);
+    // Una columna nueva va al final: todas quedan antes que ella.
+    final yo = ctx.todas.where((c) => c.id == columnaId).firstOrNull;
     final propia = ColumnaDato(
       id: columnaId ?? -1,
       codigo: '',
       periodo: periodo,
-      orden: 1 << 30,
+      orden: yo?.orden ?? 1 << 30,
+      fijada: yo?.fijada ?? false,
       tipo: 'calculada',
       escala: ctx.escalaPorId(escala),
     );
@@ -327,6 +330,7 @@ class _Contexto {
     tipo: c.tipo,
     escala: escalaPorId(c.escala),
     competencia: competenciaDe(c.id),
+    fijada: c.fijada,
   );
 
   late final List<ColumnaDato> columnas = [for (final c in todas) dato(c)];

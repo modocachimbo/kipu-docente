@@ -1968,7 +1968,8 @@ class _TablaState extends State<_Tabla> {
                           recuperada: notaDe(col, e).$2,
                           letra: letraDe(col, notaDe(col, e).$1),
                           escala: w.escalaDe(col),
-                          calculada: col.tipo != 'nota',
+                          calculada: col.tipo == 'calculada',
+                          automatica: esAutomatica(col.tipo),
                           colores: c,
                           ancho: celdaW,
                           onTap: () => w.onCelda(e, col),
@@ -2036,7 +2037,8 @@ class _TablaState extends State<_Tabla> {
                   recuperada: notaDe(fija, e).$2,
                   letra: letraDe(fija, notaDe(fija, e).$1),
                   escala: w.escalaDe(fija),
-                  calculada: fija.tipo != 'nota',
+                  calculada: fija.tipo == 'calculada',
+                  automatica: esAutomatica(fija.tipo),
                   fijada: true,
                   colores: c,
                   ancho: fijaW,
@@ -2275,7 +2277,7 @@ class _CabeceraColumna extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final col = columna;
-    final calculada = col.tipo != 'nota';
+    final calculada = col.tipo == 'calculada';
     final fondo = col.fijada
         ? colores.fijada
         : (calculada ? colores.calculadas : colores.cabecera);
@@ -2350,6 +2352,21 @@ class _CabeceraColumna extends StatelessWidget {
                         ),
                       ),
                     ),
+                    if (esAutomatica(col.tipo)) ...[
+                      const SizedBox(width: 3),
+                      Tooltip(
+                        message: col.tipo == 'asistencia'
+                            ? 'Se llena sola con la asistencia'
+                            : 'Se llena sola con los + y −',
+                        child: KipuIcon(
+                          col.tipo == 'asistencia'
+                              ? KipuIcono.asistencia
+                              : KipuIcono.participa,
+                          size: compacta ? 13 : 15,
+                          color: tinta,
+                        ),
+                      ),
+                    ],
                     if (config?.bloqueada ?? false) ...[
                       const SizedBox(width: 3),
                       Tooltip(
@@ -2432,6 +2449,9 @@ class _Celda extends StatelessWidget {
   final String? letra;
   final Escala? escala;
   final bool calculada;
+
+  /// Asistencia o participación: se llena sola; sin datos muestra «—».
+  final bool automatica;
   final bool fijada;
   final ColoresRegistro colores;
   final double ancho;
@@ -2443,6 +2463,7 @@ class _Celda extends StatelessWidget {
     this.letra,
     required this.escala,
     required this.calculada,
+    this.automatica = false,
     this.fijada = false,
     required this.colores,
     required this.ancho,
@@ -2468,7 +2489,7 @@ class _Celda extends StatelessWidget {
               ),
             ),
           ),
-          child: calculada && valor == null
+          child: (calculada || automatica) && valor == null
               ? Text(
                   '—',
                   style: TextStyle(
@@ -3655,6 +3676,12 @@ class _FormColumnaState extends State<_FormColumna> {
 
   void _cambiarModo(String m) => setState(() {
     _modo = m;
+    // La calculada nueva propone nota numérica (0 a 20).
+    if (m == 'calculada' &&
+        widget.columna == null &&
+        widget.escalas.any((e) => e.id == 'vigesimal')) {
+      _escala = 'vigesimal';
+    }
     if (_codigoAuto) _codigo.text = _codigoSugerido();
   });
   late final _tema = TextEditingController(text: widget.columna?.tema);

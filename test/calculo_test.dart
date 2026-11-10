@@ -38,8 +38,29 @@ void main() {
       col(8, 'REC', vig),
     ];
     test('todas las del periodo, sin calculadas ni recuperaciones', () {
-      final r = columnasDelCalculo(const Calculo(), propia, todas, recuperaciones: {8});
+      final r = columnasDelCalculo(
+        const Calculo(seleccion: Seleccion.todas),
+        propia,
+        todas,
+        recuperaciones: {8},
+      );
       expect(r.map((c) => c.id), [1, 2, 3, 4, 5]);
+    });
+    test('por defecto, solo las que están antes (a la izquierda)', () {
+      final enMedio = col(3, 'Prom', vig, tipo: 'calculada');
+      expect(columnasDelCalculo(const Calculo(), enMedio, todas).map((c) => c.id), [1, 2]);
+      final fija = ColumnaDato(
+        id: 50,
+        codigo: 'Prom',
+        periodo: 1,
+        orden: 0,
+        tipo: 'calculada',
+        escala: vig,
+        fijada: true,
+      );
+      expect(columnasDelCalculo(const Calculo(), fija, todas).map((c) => c.id), [1, 2, 3, 4, 5, 8]);
+      // Por defecto las vacías cuentan como cero.
+      expect(const Calculo().sinNota, SinNota.cero);
     });
     test('por tipo y por competencia', () {
       expect(
@@ -79,7 +100,13 @@ void main() {
   group('promedio', () {
     test('simple: la vacía no cuenta y la letra usa su equivalencia', () {
       // 16, 12, 20 y A (=15) → 63 / 4 = 15,75 → 16
-      final d = calcularCelda(c: const Calculo(), salida: vig, cfg: cfg, cols: cols, valor: valor);
+      final d = calcularCelda(
+        c: const Calculo(sinNota: SinNota.noCuenta),
+        salida: vig,
+        cfg: cfg,
+        cols: cols,
+        valor: valor,
+      );
       expect(d.valor, '16');
     });
     test('vacía como cero', () {
@@ -107,6 +134,7 @@ void main() {
     test('por grupos con pesos', () {
       // Exámenes (16+12)/2 = 14 × 40 ; Tareas 20 × 60 → 5,6 + 12 = 17,6 → 18
       const c = Calculo(
+        sinNota: SinNota.noCuenta,
         porGrupos: true,
         grupos: [GrupoPeso('Exámenes', 'EX', 40), GrupoPeso('Tareas', 'T', 60)],
       );
@@ -116,6 +144,7 @@ void main() {
     });
     test('pesos que no suman 100 se usan en proporción', () {
       const c = Calculo(
+        sinNota: SinNota.noCuenta,
         porGrupos: true,
         grupos: [GrupoPeso('Exámenes', 'EX', 1), GrupoPeso('Tareas', 'T', 1)],
       );
@@ -124,7 +153,7 @@ void main() {
     });
     test('con un decimal', () {
       final d = calcularCelda(
-        c: const Calculo(),
+        c: const Calculo(sinNota: SinNota.noCuenta),
         salida: vig,
         cfg: const ConfigColumna(decimales: 1),
         cols: cols,
@@ -181,7 +210,13 @@ void main() {
       '20',
     );
     expect(
-      calcularCelda(c: const Calculo(tipo: TipoCalculo.minima), salida: vig, cfg: cfg, cols: cols, valor: valor).valor,
+      calcularCelda(
+        c: const Calculo(tipo: TipoCalculo.minima, sinNota: SinNota.noCuenta),
+        salida: vig,
+        cfg: cfg,
+        cols: cols,
+        valor: valor,
+      ).valor,
       '12',
     );
   });
