@@ -51,8 +51,12 @@ String numeroCorto(double n) => n == n.roundToDouble()
 /// Las tres pestañas de la sección.
 enum _Vista { mios, cneb, libre }
 
-/// Sección «Evaluación»: biblioteca del docente y dos colecciones de
-/// ejemplos (CNEB para colegios públicos y libre para privados).
+/// Carpeta abierta especial: los instrumentos que no tienen carpeta.
+const _sinCarpeta = '';
+
+/// Sección «Evaluación»: biblioteca del docente (con carpetas) y dos
+/// colecciones de ejemplos (CNEB para colegios públicos y libre para
+/// privados).
 class PantallaEvaluacion extends StatefulWidget {
   const PantallaEvaluacion({super.key});
 
@@ -62,12 +66,16 @@ class PantallaEvaluacion extends StatefulWidget {
 
 class _PantallaEvaluacionState extends State<PantallaEvaluacion> {
   late final Stream<List<Instrumento>> _biblioteca;
+  late final Stream<List<Carpeta>> _carpetas = db.verCarpetas();
+  late final Stream<List<String>> _recientes = db.verRecientes();
   late final Stream<Map<int, String>> _gestiones = db.verGestiones();
   _Vista _vista = _Vista.mios;
-  TipoInstrumento? _tipo;
-  String? _nivel;
-  String? _area;
+
+  /// Carpeta abierta en Mi biblioteca (null = vista de carpetas).
+  String? _carpeta;
+  bool _buscando = false;
   String _buscar = '';
+  final _campoBuscar = TextEditingController();
 
   @override
   void initState() {
@@ -77,24 +85,21 @@ class _PantallaEvaluacionState extends State<PantallaEvaluacion> {
     ).asyncExpand((_) => db.verBiblioteca());
   }
 
-  List<Instrumento> _coleccion(_Vista v, List<Instrumento>? mios) =>
-      switch (v) {
-        _Vista.mios => mios ?? const [],
-        _Vista.cneb => coleccionCneb,
-        _Vista.libre => ejemplosInstrumentos,
-      };
+  @override
+  void dispose() {
+    _campoBuscar.dispose();
+    super.dispose();
+  }
 
-  bool _pasa(Instrumento i, {bool conArea = true}) {
+  bool _pasa(Instrumento i) {
     final q = normalizar(_buscar);
-    return (_tipo == null || i.tipo == _tipo) &&
-        (_nivel == null || i.niveles.isEmpty || i.niveles.contains(_nivel)) &&
-        (!conArea || _area == null || i.area == _area) &&
-        (q.isEmpty ||
-            normalizar(
-              '${i.nombre} ${i.area} ${i.descripcion} '
-              '${i.competencias.map((c) => competenciaPorId(c)?.nombre ?? '').join(' ')} '
-              '${i.items.map((x) => x.texto).join(' ')}',
-            ).contains(q));
+    if (q.isEmpty) return true;
+    return normalizar(
+      '${i.nombre} ${i.area} ${i.descripcion} ${i.tipo.nombre} '
+      '${i.niveles.join(' ')} '
+      '${i.competencias.map((c) => competenciaPorId(c)?.nombre ?? '').join(' ')} '
+      '${i.items.map((x) => x.texto).join(' ')}',
+    ).contains(q);
   }
 
   void _aviso(String t, {SnackBarAction? accion}) {
@@ -104,7 +109,21 @@ class _PantallaEvaluacionState extends State<PantallaEvaluacion> {
       ..showSnackBar(SnackBar(content: Text(t), action: accion));
   }
 
-  Future<void> _editar(Instrumento ins, {bool nuevo = false}) async {
+  void _cerrarBusqueda() => setState(() {
+    _buscando = false;
+    _buscar = '';
+    _campoBuscar.clear();
+  });
+
+  // ───────────── Instrumentos ─────────────
+
+  /// Abre el editor. [carpeta] es donde se guarda uno nuevo; si es null se
+  /// acomoda solo según su nombre.
+  Future<void> _editar(
+    Instrumento ins, {
+    bool nuevo = false,
+    String? carpeta,
+  }) async {
     final r = await Navigator.push<Instrumento>(
       context,
       MaterialPageRoute(
@@ -112,12 +131,30 @@ class _PantallaEvaluacionState extends State<PantallaEvaluacion> {
       ),
     );
     if (r == null) return;
-    await db.guardarInstrumento(r);
-    _aviso(nuevo ? '«${r.nombre}» está en tu biblioteca' : 'Cambios guardados');
+    var guardar = r;
+    if (nuevo) {
+      final destino =
+          carpeta ?? carpetaSugerida(r, await db.leerCarpetas());
+      guardar = r.copiar(carpeta: destino);
+    }
+    await db.guardarInstrumento(guardar);
+    final carpetas = await db.leerCarpetas();
+    final nombre = carpetas
+        .where((c) => c.id == guardar.carpeta)
+        .map((c) => c.nombre)
+        .firstOrNull;
+    _aviso(
+      nuevo
+          ? '«${r.nombre}» se guardó en ${nombre == null ? 'tu biblioteca' : '«$nombre»'}'
+          : 'Cambios guardados',
+    );
   }
 
   Future<void> _duplicar(Instrumento ins) async {
-    final copia = duplicar(ins, nombre: '${ins.nombre} (copia)');
+    final copia = duplicar(
+      ins,
+      nombre: '${ins.nombre} (copia)',
+    ).copiar(carpeta: ins.carpeta);
     await db.guardarInstrumento(copia);
     _aviso(
       'Se creó «${copia.nombre}»',
@@ -144,31 +181,61 @@ class _PantallaEvaluacionState extends State<PantallaEvaluacion> {
     );
   }
 
+  Future<void> _mover(Instrumento ins) async {
+    final destino = await _elegirCarpeta(
+      titulo: 'Mover «${ins.nombre}» a…',
+      actual: ins.carpeta,
+    );
+    if (destino == null) return;
+    await db.moverACarpeta([ins.id], destino);
+    _aviso('Se movió «${ins.nombre}»');
+  }
+
+  /// Agrega instrumentos de una colección a la biblioteca, en la carpeta que
+  /// elija el docente.
   Future<void> _agregar(List<Instrumento> lista, Set<String> agregados) async {
-    final nuevos = [
+    final pendientes = [
       for (final e in lista)
-        if (!agregados.contains(e.id)) duplicar(e, ejemplo: true),
+        if (!agregados.contains(e.id)) e,
     ];
-    if (nuevos.isEmpty) {
+    if (pendientes.isEmpty) {
       _aviso('Ya están en tu biblioteca');
       return;
     }
+    final carpetas = await db.leerCarpetas();
+    final sugerida = carpetaSugerida(pendientes.first, carpetas);
+    if (!mounted) return;
+    final destino = await _elegirCarpeta(
+      titulo: pendientes.length == 1
+          ? '¿En qué carpeta guardas «${pendientes.first.nombre}»?'
+          : '¿En qué carpeta guardas estos ${pendientes.length}?',
+      actual: sugerida,
+      accion: 'Agregar',
+    );
+    if (destino == null) return;
+    final nuevos = [
+      for (final e in pendientes)
+        duplicar(e, ejemplo: true).copiar(carpeta: destino),
+    ];
     for (final n in nuevos.reversed) {
       await db.guardarInstrumento(n);
     }
+    final nombre = carpetas
+        .where((c) => c.id == destino)
+        .map((c) => c.nombre)
+        .firstOrNull;
     _aviso(
       nuevos.length == 1
-          ? '«${nuevos.first.nombre}» se agregó a tu biblioteca'
-          : 'Se agregaron ${nuevos.length} instrumentos a tu biblioteca',
-      accion: nuevos.length == 1
-          ? SnackBarAction(
-              label: 'Editar',
-              onPressed: () => _editar(nuevos.first),
-            )
-          : SnackBarAction(
-              label: 'Ver',
-              onPressed: () => setState(() => _vista = _Vista.mios),
-            ),
+          ? '«${nuevos.first.nombre}» se agregó a ${nombre == null ? 'tu biblioteca' : '«$nombre»'}'
+          : 'Se agregaron ${nuevos.length} instrumentos',
+      accion: SnackBarAction(
+        label: 'Ver',
+        onPressed: () => setState(() {
+          _vista = _Vista.mios;
+          _carpeta = destino;
+          _cerrarBusqueda();
+        }),
+      ),
     );
   }
 
@@ -176,7 +243,7 @@ class _PantallaEvaluacionState extends State<PantallaEvaluacion> {
     try {
       await FilePicker.saveFile(
         fileName: plantilla
-            ? 'plantilla-${ins.tipo.nombre.toLowerCase().replaceAll(' ', '-').replaceAll('ú', 'u').replaceAll('á', 'a').replaceAll('ó', 'o')}.xlsx'
+            ? 'plantilla-${nombreArchivo(ins).split('-mi-').first.replaceAll('.xlsx', '')}.xlsx'
             : nombreArchivo(ins),
         bytes: excelDeInstrumento(ins),
         mimeType: _mimeExcel,
@@ -227,7 +294,7 @@ class _PantallaEvaluacionState extends State<PantallaEvaluacion> {
     }
   }
 
-  Future<void> _subir() async {
+  Future<void> _subir({String? carpeta}) async {
     final f = await FilePicker.pickFile(
       type: FileType.custom,
       allowedExtensions: ['xlsx', 'csv'],
@@ -255,7 +322,7 @@ class _PantallaEvaluacionState extends State<PantallaEvaluacion> {
         l.avisos,
       );
     }
-    if (mounted) await _editar(l.instrumento!, nuevo: true);
+    if (mounted) await _editar(l.instrumento!, nuevo: true, carpeta: carpeta);
   }
 
   Future<void> _mostrarLista(
@@ -313,6 +380,10 @@ class _PantallaEvaluacionState extends State<PantallaEvaluacion> {
   );
 
   Future<void> _crear() async {
+    // Dentro de una carpeta, lo que se crea o sube se guarda ahí.
+    final enCarpeta = _vista == _Vista.mios && _carpeta != null && !_buscando
+        ? _carpeta
+        : null;
     final v = await ventanaCentrada<String>(
       context: context,
       builder: (ctx) {
@@ -355,6 +426,13 @@ class _PantallaEvaluacionState extends State<PantallaEvaluacion> {
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
               ),
             ),
+            if (_vista == _Vista.mios && _carpeta == null && !_buscando)
+              opcion(
+                'carpeta',
+                KipuIcono.agregar,
+                'Nueva carpeta',
+                'Para ordenar tus instrumentos: cuadernos, exposiciones…',
+              ),
             titulo('DESDE CERO'),
             for (final t in TipoInstrumento.values)
               opcion('nuevo:${t.name}', iconoDe(t), t.nombre, t.ayuda),
@@ -391,12 +469,15 @@ class _PantallaEvaluacionState extends State<PantallaEvaluacion> {
       },
     );
     if (v == null || !mounted) return;
-    if (v == 'subir') return _subir();
+    if (v == 'carpeta') return _nuevaCarpeta();
+    if (v == 'subir') return _subir(carpeta: enCarpeta);
     if (v == 'cneb') return setState(() => _vista = _Vista.cneb);
     if (v == 'libre') return setState(() => _vista = _Vista.libre);
     final partes = v.split(':');
     final t = TipoInstrumento.values.byName(partes[1]);
-    if (partes[0] == 'nuevo') return _editar(Instrumento.nuevo(t), nuevo: true);
+    if (partes[0] == 'nuevo') {
+      return _editar(Instrumento.nuevo(t), nuevo: true, carpeta: enCarpeta);
+    }
     return _descargar(plantillaDe(t), plantilla: true);
   }
 
@@ -426,8 +507,14 @@ class _PantallaEvaluacionState extends State<PantallaEvaluacion> {
                   child: const Text('Cerrar'),
                 ),
                 FilledButton(
-                  onPressed: agregado ? null : () => Navigator.pop(ctx, 'agregar'),
-                  child: Text(agregado ? 'Ya está en tu biblioteca' : 'Agregar a mi biblioteca'),
+                  onPressed: agregado
+                      ? null
+                      : () => Navigator.pop(ctx, 'agregar'),
+                  child: Text(
+                    agregado
+                        ? 'Ya está en tu biblioteca'
+                        : 'Agregar a mi biblioteca',
+                  ),
                 ),
               ],
             ),
@@ -439,18 +526,134 @@ class _PantallaEvaluacionState extends State<PantallaEvaluacion> {
     if (r == 'pdf') await _pdf(e);
   }
 
+  // ───────────── Carpetas ─────────────
+
+  Future<void> _nuevaCarpeta() async {
+    final r = await _formCarpeta(context);
+    if (r == null) return;
+    final c = await db.crearCarpeta(r.$1, r.$2);
+    if (mounted) setState(() => _carpeta = c.id);
+  }
+
+  Future<void> _accionCarpeta(Carpeta c, String accion, int cantidad) async {
+    switch (accion) {
+      case 'editar':
+        final r = await _formCarpeta(context, carpeta: c);
+        if (r != null) await db.editarCarpeta(c.copiar(nombre: r.$1, color: r.$2));
+      case 'eliminar':
+        if (await confirmar(
+          context,
+          '¿Eliminar la carpeta «${c.nombre}»?',
+          cantidad == 0
+              ? 'La carpeta está vacía.'
+              : 'Sus $cantidad instrumentos no se borran: pasan a «Sin carpeta».',
+        )) {
+          await db.borrarCarpeta(c.id);
+          if (mounted) setState(() => _carpeta = null);
+        }
+    }
+  }
+
+  /// Lista de carpetas para elegir destino. Devuelve el id ('' = sin
+  /// carpeta) o null si se cancela.
+  Future<String?> _elegirCarpeta({
+    required String titulo,
+    required String actual,
+    String accion = 'Mover',
+  }) async {
+    var carpetas = await db.leerCarpetas();
+    if (!mounted) return null;
+    var elegida = actual;
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: Text(titulo),
+          contentPadding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
+          content: SizedBox(
+            width: 420,
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                for (final c in carpetas)
+                  _OpcionCarpeta(
+                    nombre: c.nombre,
+                    color: Color(c.color),
+                    activo: elegida == c.id,
+                    onTap: () => setState(() => elegida = c.id),
+                  ),
+                _OpcionCarpeta(
+                  nombre: 'Sin carpeta',
+                  color: KipuColores.gris,
+                  activo: elegida == _sinCarpeta,
+                  onTap: () => setState(() => elegida = _sinCarpeta),
+                ),
+                ListTile(
+                  leading: KipuIcon(KipuIcono.agregar, color: KipuColores.morado),
+                  title: const Text('Nueva carpeta'),
+                  onTap: () async {
+                    final r = await _formCarpeta(ctx);
+                    if (r == null) return;
+                    final c = await db.crearCarpeta(r.$1, r.$2);
+                    carpetas = [...carpetas, c];
+                    setState(() => elegida = c.id);
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, elegida),
+              child: Text(accion),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ───────────── Pantalla ─────────────
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Evaluación'),
+        title: _buscando
+            ? TextField(
+                controller: _campoBuscar,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: 'Buscar instrumento, competencia o ítem',
+                  isDense: true,
+                ),
+                onChanged: (t) => setState(() => _buscar = t),
+              )
+            : const Text('Evaluación'),
         actions: [
-          TextButton.icon(
-            onPressed: () => editarTramos(context),
-            icon: KipuIcon(KipuIcono.ajustes, size: 20, color: KipuColores.morado),
-            label: const Text('Conversión'),
-          ),
-          const SizedBox(width: 8),
+          if (_buscando)
+            IconButton(
+              tooltip: 'Cerrar búsqueda',
+              onPressed: _cerrarBusqueda,
+              icon: KipuIcon(KipuIcono.cerrar, color: KipuColores.tinta),
+            )
+          else ...[
+            IconButton(
+              tooltip: 'Buscar',
+              onPressed: () => setState(() => _buscando = true),
+              icon: KipuIcon(KipuIcono.buscar, color: KipuColores.tinta),
+            ),
+            IconButton(
+              tooltip: 'Conversión a notas',
+              onPressed: () => editarTramos(context),
+              icon: KipuIcon(KipuIcono.ajustes, color: KipuColores.tinta),
+            ),
+          ],
+          const SizedBox(width: 6),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -460,15 +663,31 @@ class _PantallaEvaluacionState extends State<PantallaEvaluacion> {
       ),
       body: StreamBuilder<Map<int, String>>(
         stream: _gestiones,
-        builder: (context, g) => StreamBuilder<List<Instrumento>>(
-          stream: _biblioteca,
-          builder: (context, snap) => _cuerpo(snap.data, g.data ?? const {}),
+        builder: (context, g) => StreamBuilder<List<Carpeta>>(
+          stream: _carpetas,
+          builder: (context, c) => StreamBuilder<List<String>>(
+            stream: _recientes,
+            builder: (context, r) => StreamBuilder<List<Instrumento>>(
+              stream: _biblioteca,
+              builder: (context, snap) => _cuerpo(
+                mios: snap.data,
+                carpetas: c.data ?? const [],
+                recientes: r.data ?? const [],
+                gestiones: g.data ?? const {},
+              ),
+            ),
+          ),
         ),
       ),
     );
   }
 
-  Widget _cuerpo(List<Instrumento>? mios, Map<int, String> gestiones) {
+  Widget _cuerpo({
+    required List<Instrumento>? mios,
+    required List<Carpeta> carpetas,
+    required List<String> recientes,
+    required Map<int, String> gestiones,
+  }) {
     // Si todos los colegios son privados, la colección libre va primero.
     final privado =
         gestiones.isNotEmpty &&
@@ -478,138 +697,385 @@ class _PantallaEvaluacionState extends State<PantallaEvaluacion> {
       if (privado) ...[_Vista.libre, _Vista.cneb] else ...[_Vista.cneb, _Vista.libre],
     ];
     final agregados = {for (final m in mios ?? const <Instrumento>[]) m.origen};
-    final base = _coleccion(_vista, mios);
-    final areas = <String>{
-      for (final i in base)
-        if (_pasa(i, conArea: false)) i.area,
-    }.toList()..sort(_compararAreas);
-    final lista = base.where(_pasa).toList();
-    final grupos = <String, List<Instrumento>>{};
-    for (final i in lista) {
-      (grupos[i.area] ??= []).add(i);
+
+    final hijos = <Widget>[
+      _Pestanas(
+        pestanas: [
+          for (final p in pestanas)
+            (
+              p,
+              switch (p) {
+                _Vista.mios => 'Mi biblioteca',
+                _Vista.cneb => 'CNEB · Estatal',
+                _Vista.libre => 'Libre · Privado',
+              },
+            ),
+        ],
+        actual: _vista,
+        onCambio: (v) => setState(() {
+          _vista = v;
+          _carpeta = null;
+        }),
+      ),
+      const SizedBox(height: 14),
+    ];
+
+    if (_vista == _Vista.mios) {
+      if (mios == null) {
+        hijos.add(
+          const Padding(
+            padding: EdgeInsets.all(40),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+        );
+      } else {
+        hijos.addAll(
+          _biblio(mios: mios, carpetas: carpetas, recientes: recientes),
+        );
+      }
+    } else {
+      hijos.addAll(_coleccionVista(agregados));
     }
-    final claves = grupos.keys.toList()..sort(_compararAreas);
-    final coleccion = _vista != _Vista.mios;
-    final filtrando =
-        _tipo != null || _nivel != null || _area != null || _buscar.isNotEmpty;
-    final abrir = !coleccion || claves.length <= 2 || _buscar.isNotEmpty || _area != null;
 
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 960),
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
-          children: [
-            _Pestanas(
-              pestanas: [
-                for (final p in pestanas)
-                  (
-                    p,
-                    switch (p) {
-                      _Vista.mios => 'Mi biblioteca${mios == null ? '' : ' · ${mios.length}'}',
-                      _Vista.cneb => 'CNEB · Estatal',
-                      _Vista.libre => 'Libre · Privado',
-                    },
-                  ),
-              ],
-              actual: _vista,
-              onCambio: (v) => setState(() {
-                _vista = v;
-                _area = null;
-              }),
-            ),
-            const SizedBox(height: 12),
-            if (coleccion)
-              _Aviso(
-                _vista == _Vista.cneb
-                    ? 'Dos instrumentos por competencia del Currículo Nacional, '
-                          'por nivel y área. Sirven con letras (AD, A, B, C) o con '
-                          'números (0 a 20): la columna del registro decide.'
-                    : 'Instrumentos y exámenes para el día a día, sin depender del '
-                          'CNEB. Sirven con números (0 a 20) o con letras.',
-              ),
-            _Filtros(
-              tipo: _tipo,
-              nivel: _nivel,
-              area: _area,
-              areas: areas,
-              onTipo: (t) => setState(() => _tipo = t),
-              onNivel: (n) => setState(() {
-                _nivel = n;
-                _area = null;
-              }),
-              onArea: (a) => setState(() => _area = a),
-              onBuscar: (t) => setState(() => _buscar = t),
-            ),
-            const SizedBox(height: 12),
-            if (_vista == _Vista.mios && mios == null)
-              const Padding(
-                padding: EdgeInsets.all(40),
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (lista.isEmpty)
-              _Vacio(
-                coleccion: coleccion,
-                filtrando: filtrando,
-                onEjemplos: () => setState(() => _vista = pestanas[1]),
-                onCrear: _crear,
-              )
-            else ...[
-              Padding(
-                padding: const EdgeInsets.only(left: 4, bottom: 8),
-                child: Text(
-                  '${lista.length} ${lista.length == 1 ? 'instrumento' : 'instrumentos'}'
-                  '${claves.length > 1 ? ' en ${claves.length} áreas' : ''}',
-                  style: const TextStyle(fontSize: 13, color: KipuColores.gris),
-                ),
-              ),
-              for (final a in claves)
-                _Grupo(
-                  key: ValueKey('${_vista.name}-$a-$abrir'),
-                  titulo: a.isEmpty ? 'Sin área' : a,
-                  cantidad: grupos[a]!.length,
-                  abierto: abrir,
-                  accion: coleccion
-                      ? TextButton(
-                          onPressed: grupos[a]!.every((e) => agregados.contains(e.id))
-                              ? null
-                              : () => _agregar(grupos[a]!, agregados),
-                          child: const Text('Agregar todos'),
-                        )
-                      : null,
-                  hijos: [
-                    for (final ins in grupos[a]!)
-                      _TarjetaInstrumento(
-                        ins: ins,
-                        coleccion: coleccion,
-                        agregado: agregados.contains(ins.id),
-                        onTap: coleccion
-                            ? () => _verDeColeccion(ins, agregados.contains(ins.id))
-                            : () => _editar(ins),
-                        onAgregar: () => _agregar([ins], agregados),
-                        onAccion: (accion) {
-                          switch (accion) {
-                            case 'editar':
-                              _editar(ins);
-                            case 'duplicar':
-                              _duplicar(ins);
-                            case 'excel':
-                              _descargar(ins);
-                            case 'pdf':
-                              _pdf(ins);
-                            case 'eliminar':
-                              _eliminar(ins, (mios ?? const []).indexOf(ins));
-                          }
-                        },
-                      ),
-                  ],
-                ),
-            ],
-          ],
+          children: hijos,
         ),
       ),
     );
   }
+
+  Widget _tarjeta(
+    Instrumento ins, {
+    required bool coleccion,
+    bool agregado = false,
+    String? carpeta,
+    List<Instrumento> mios = const [],
+    Set<String> agregados = const {},
+  }) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: _TarjetaInstrumento(
+      ins: ins,
+      coleccion: coleccion,
+      agregado: agregado,
+      carpeta: carpeta,
+      onTap: coleccion
+          ? () => _verDeColeccion(ins, agregado)
+          : () => _editar(ins),
+      onAgregar: () => _agregar([ins], agregados),
+      onAccion: (accion) {
+        switch (accion) {
+          case 'editar':
+            _editar(ins);
+          case 'mover':
+            _mover(ins);
+          case 'duplicar':
+            _duplicar(ins);
+          case 'excel':
+            _descargar(ins);
+          case 'pdf':
+            _pdf(ins);
+          case 'eliminar':
+            _eliminar(ins, mios.indexOf(ins));
+        }
+      },
+    ),
+  );
+
+  List<Widget> _biblio({
+    required List<Instrumento> mios,
+    required List<Carpeta> carpetas,
+    required List<String> recientes,
+  }) {
+    final nombres = {for (final c in carpetas) c.id: c.nombre};
+    // Un instrumento con una carpeta que ya no existe cuenta como sin carpeta.
+    String carpetaDe(Instrumento i) =>
+        nombres.containsKey(i.carpeta) ? i.carpeta : _sinCarpeta;
+
+    // Buscando: lista plana de toda la biblioteca, con el nombre de la carpeta.
+    if (_buscando && _buscar.trim().isNotEmpty) {
+      final r = mios.where(_pasa).toList();
+      return [
+        _Contador('${r.length} en tu biblioteca'),
+        if (r.isEmpty)
+          const _VacioTexto('Nada coincide. Prueba en las colecciones CNEB o Libre.'),
+        for (final i in r)
+          _tarjeta(
+            i,
+            coleccion: false,
+            carpeta: nombres[carpetaDe(i)],
+            mios: mios,
+          ),
+      ];
+    }
+
+    // Dentro de una carpeta.
+    final abierta = _carpeta;
+    if (abierta != null) {
+      final c = carpetas.where((x) => x.id == abierta).firstOrNull;
+      final lista = [
+        for (final i in mios)
+          if (carpetaDe(i) == abierta) i,
+      ];
+      return [
+        _CabeceraCarpeta(
+          nombre: c?.nombre ?? 'Sin carpeta',
+          color: c == null ? KipuColores.gris : Color(c.color),
+          cantidad: lista.length,
+          onVolver: () => setState(() => _carpeta = null),
+          onAccion: c == null
+              ? null
+              : (a) => _accionCarpeta(c, a, lista.length),
+        ),
+        const SizedBox(height: 10),
+        if (lista.isEmpty)
+          _CarpetaVacia(
+            onCrear: _crear,
+            onSubir: () => _subir(carpeta: abierta),
+            onColeccion: () => setState(() {
+              _vista = _Vista.cneb;
+              _carpeta = null;
+            }),
+          )
+        else
+          for (final i in lista) _tarjeta(i, coleccion: false, mios: mios),
+      ];
+    }
+
+    // Vista de carpetas.
+    final porCarpeta = <String, int>{};
+    for (final i in mios) {
+      porCarpeta[carpetaDe(i)] = (porCarpeta[carpetaDe(i)] ?? 0) + 1;
+    }
+    final usados = [
+      for (final id in recientes) ?mios.where((i) => i.id == id).firstOrNull,
+    ];
+    return [
+      if (usados.isNotEmpty) ...[
+        const _Titulo('USADOS HACE POCO'),
+        SizedBox(
+          height: 76,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: usados.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 8),
+            itemBuilder: (_, k) => _Reciente(
+              ins: usados[k],
+              onTap: () => _editar(usados[k]),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+      ],
+      Row(
+        children: [
+          const Expanded(child: _Titulo('MIS CARPETAS')),
+          TextButton(
+            onPressed: _nuevaCarpeta,
+            child: const Text('+ Nueva carpeta'),
+          ),
+        ],
+      ),
+      LayoutBuilder(
+        builder: (context, caja) {
+          final columnas = caja.maxWidth >= 720
+              ? 4
+              : (caja.maxWidth >= 480 ? 3 : 2);
+          const espacio = 10.0;
+          final ancho = (caja.maxWidth - espacio * (columnas - 1)) / columnas;
+          final sinCarpeta = porCarpeta[_sinCarpeta] ?? 0;
+          return Wrap(
+            spacing: espacio,
+            runSpacing: espacio,
+            children: [
+              for (final c in carpetas)
+                SizedBox(
+                  width: ancho,
+                  child: _TarjetaCarpeta(
+                    nombre: c.nombre,
+                    color: Color(c.color),
+                    cantidad: porCarpeta[c.id] ?? 0,
+                    onTap: () => setState(() => _carpeta = c.id),
+                    onAccion: (a) => _accionCarpeta(c, a, porCarpeta[c.id] ?? 0),
+                  ),
+                ),
+              if (sinCarpeta > 0 || carpetas.isEmpty)
+                SizedBox(
+                  width: ancho,
+                  child: _TarjetaCarpeta(
+                    nombre: 'Sin carpeta',
+                    color: KipuColores.gris,
+                    cantidad: sinCarpeta,
+                    onTap: () => setState(() => _carpeta = _sinCarpeta),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+      const SizedBox(height: 14),
+      Text(
+        mios.isEmpty
+            ? 'Tu biblioteca está vacía. Toca «Crear» o agrega instrumentos '
+                  'de las colecciones CNEB o Libre.'
+            : '${mios.length} instrumentos en total. Mantén tus rúbricas, '
+                  'listas y exámenes ordenados por carpeta.',
+        style: const TextStyle(fontSize: 13, color: KipuColores.gris),
+      ),
+    ];
+  }
+
+  /// CNEB y Libre: agrupados por área (en CNEB, por nivel dentro del área).
+  List<Widget> _coleccionVista(Set<String> agregados) {
+    final base = _vista == _Vista.cneb ? coleccionCneb : ejemplosInstrumentos;
+    final lista = base.where(_pasa).toList();
+    final grupos = <String, List<Instrumento>>{};
+    for (final i in lista) {
+      (grupos[i.area] ??= []).add(i);
+    }
+    final claves = grupos.keys.toList()..sort(_compararAreas);
+    final abrir = claves.length <= 2 || _buscar.trim().isNotEmpty;
+    final cneb = _vista == _Vista.cneb;
+    return [
+      _Aviso(
+        cneb
+            ? 'Dos instrumentos por competencia del Currículo Nacional, por '
+                  'nivel y área. Sirven con letras (AD, A, B, C) o con números '
+                  '(0 a 20): la columna del registro decide.'
+            : 'Instrumentos y exámenes para el día a día, sin depender del '
+                  'CNEB. Sirven con números (0 a 20) o con letras.',
+      ),
+      _Contador(
+        '${lista.length} instrumentos'
+        '${claves.length > 1 ? ' en ${claves.length} áreas' : ''}',
+      ),
+      if (lista.isEmpty) const _VacioTexto('Nada coincide con tu búsqueda.'),
+      for (final a in claves)
+        _Grupo(
+          key: ValueKey('${_vista.name}-$a-$abrir'),
+          titulo: a.isEmpty ? 'General' : a,
+          cantidad: grupos[a]!.length,
+          abierto: abrir,
+          accion: TextButton(
+            onPressed: grupos[a]!.every((e) => agregados.contains(e.id))
+                ? null
+                : () => _agregar(grupos[a]!, agregados),
+            child: const Text('Agregar todos'),
+          ),
+          hijos: [
+            for (final n in [...nivelesEducativos, ''])
+              if (grupos[a]!.any((i) => _nivelPrincipal(i) == n)) ...[
+                if (cneb && n.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(6, 4, 6, 6),
+                    child: Text(
+                      n.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        letterSpacing: .6,
+                        fontWeight: FontWeight.w700,
+                        color: KipuColores.morado,
+                      ),
+                    ),
+                  ),
+                for (final i in grupos[a]!)
+                  if (_nivelPrincipal(i) == n)
+                    _tarjeta(
+                      i,
+                      coleccion: true,
+                      agregado: agregados.contains(i.id),
+                      agregados: agregados,
+                    ),
+              ],
+          ],
+        ),
+    ];
+  }
+}
+
+String _nivelPrincipal(Instrumento i) =>
+    i.niveles.isEmpty ? '' : i.niveles.first;
+
+Future<(String, int)?> _formCarpeta(
+  BuildContext context, {
+  Carpeta? carpeta,
+}) {
+  final nombre = TextEditingController(text: carpeta?.nombre);
+  var color = carpeta?.color ?? coloresCarpeta.first;
+  String? error;
+  return showDialog<(String, int)>(
+    context: context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setState) => AlertDialog(
+        title: Text(carpeta == null ? 'Nueva carpeta' : 'Editar carpeta'),
+        content: SizedBox(
+          width: 380,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: nombre,
+                autofocus: true,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: InputDecoration(
+                  labelText: 'Nombre',
+                  hintText: 'Ej. Presentación de trabajos',
+                  errorText: error,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  for (final c in coloresCarpeta)
+                    InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: () => setState(() => color = c),
+                      child: Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: Color(c),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: c == color
+                                ? KipuColores.tinta
+                                : Colors.transparent,
+                            width: 3,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final t = nombre.text.trim();
+              if (t.isEmpty) {
+                setState(() => error = 'Escribe un nombre');
+                return;
+              }
+              Navigator.pop(ctx, (t, color));
+            },
+            child: Text(carpeta == null ? 'Crear' : 'Guardar'),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 int _compararAreas(String a, String b) {
@@ -621,6 +1087,54 @@ int _compararAreas(String a, String b) {
 
   final d = pos(a).compareTo(pos(b));
   return d != 0 ? d : a.compareTo(b);
+}
+
+class _Titulo extends StatelessWidget {
+  final String texto;
+  const _Titulo(this.texto);
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(left: 4, bottom: 8),
+    child: Text(
+      texto,
+      style: const TextStyle(
+        fontSize: 12,
+        letterSpacing: .6,
+        fontWeight: FontWeight.w700,
+        color: KipuColores.gris,
+      ),
+    ),
+  );
+}
+
+class _Contador extends StatelessWidget {
+  final String texto;
+  const _Contador(this.texto);
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(left: 4, bottom: 8),
+    child: Text(
+      texto,
+      style: const TextStyle(fontSize: 13, color: KipuColores.gris),
+    ),
+  );
+}
+
+class _VacioTexto extends StatelessWidget {
+  final String texto;
+  const _VacioTexto(this.texto);
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 12),
+    child: Text(
+      texto,
+      textAlign: TextAlign.center,
+      style: const TextStyle(color: KipuColores.gris),
+    ),
+  );
 }
 
 class _Aviso extends StatelessWidget {
@@ -637,6 +1151,7 @@ class _Aviso extends StatelessWidget {
     ),
     child: Text(
       texto,
+      textAlign: TextAlign.justify,
       style: TextStyle(fontSize: 13, color: KipuColores.moradoOscuro),
     ),
   );
@@ -696,104 +1211,260 @@ class _Pestanas extends StatelessWidget {
   }
 }
 
-class _Filtros extends StatelessWidget {
-  final TipoInstrumento? tipo;
-  final String? nivel;
-  final String? area;
-  final List<String> areas;
-  final ValueChanged<TipoInstrumento?> onTipo;
-  final ValueChanged<String?> onNivel;
-  final ValueChanged<String?> onArea;
-  final ValueChanged<String> onBuscar;
-  const _Filtros({
-    required this.tipo,
-    required this.nivel,
-    required this.area,
-    required this.areas,
-    required this.onTipo,
-    required this.onNivel,
-    required this.onArea,
-    required this.onBuscar,
+class _TarjetaCarpeta extends StatelessWidget {
+  final String nombre;
+  final Color color;
+  final int cantidad;
+  final VoidCallback onTap;
+  final ValueChanged<String>? onAccion;
+  const _TarjetaCarpeta({
+    required this.nombre,
+    required this.color,
+    required this.cantidad,
+    required this.onTap,
+    this.onAccion,
   });
 
   @override
   Widget build(BuildContext context) {
-    Widget chip(String t, bool on, VoidCallback tap) => Padding(
-      padding: const EdgeInsets.only(right: 6),
-      child: ChoiceChip(
-        label: Text(t),
-        selected: on,
-        showCheckmark: false,
-        selectedColor: KipuColores.moradoClaro,
-        backgroundColor: Colors.white,
-        side: BorderSide(color: on ? KipuColores.morado : _linea),
-        labelStyle: TextStyle(
-          color: on ? KipuColores.moradoOscuro : KipuColores.tinta,
-          fontWeight: on ? FontWeight.w600 : FontWeight.w400,
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 4, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: .14),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(Icons.folder_rounded, color: color, size: 24),
+                  ),
+                  const Spacer(),
+                  if (onAccion != null)
+                    PopupMenuButton<String>(
+                      tooltip: 'Opciones de la carpeta',
+                      icon: const Icon(
+                        Icons.more_vert,
+                        size: 20,
+                        color: KipuColores.gris,
+                      ),
+                      onSelected: onAccion,
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(
+                          value: 'editar',
+                          child: Text('Renombrar o cambiar color'),
+                        ),
+                        PopupMenuItem(
+                          value: 'eliminar',
+                          child: Text('Eliminar carpeta'),
+                        ),
+                      ],
+                    )
+                  else
+                    const SizedBox(height: 40),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                nombre,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  height: 1.2,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                cantidad == 1 ? '1 instrumento' : '$cantidad instrumentos',
+                style: const TextStyle(fontSize: 12.5, color: KipuColores.gris),
+              ),
+            ],
+          ),
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        onSelected: (_) => tap(),
       ),
     );
-    Widget fila(String etiqueta, List<Widget> hijos) => Row(
-      children: [
-        SizedBox(
-          width: 52,
-          child: Text(
-            etiqueta,
-            style: const TextStyle(
-              fontSize: 11.5,
-              letterSpacing: .4,
-              fontWeight: FontWeight.w600,
-              color: KipuColores.gris,
-            ),
-          ),
-        ),
-        Expanded(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(children: hijos),
-          ),
-        ),
-      ],
-    );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        fila('NIVEL', [
-          chip('Todos', nivel == null, () => onNivel(null)),
-          for (final n in nivelesEducativos)
-            chip(n, nivel == n, () => onNivel(n)),
-        ]),
-        const SizedBox(height: 4),
-        fila('TIPO', [
-          chip('Todos', tipo == null, () => onTipo(null)),
-          for (final t in TipoInstrumento.values)
-            chip(t.plural, tipo == t, () => onTipo(t)),
-        ]),
-        if (areas.length > 1) ...[
-          const SizedBox(height: 4),
-          fila('ÁREA', [
-            chip('Todas', area == null, () => onArea(null)),
-            for (final a in areas)
-              chip(a.isEmpty ? 'Sin área' : a, area == a, () => onArea(a)),
-          ]),
-        ],
-        const SizedBox(height: 10),
-        TextField(
-          onChanged: onBuscar,
-          decoration: InputDecoration(
-            hintText: 'Buscar por nombre, competencia o ítem',
-            isDense: true,
-            prefixIcon: Padding(
-              padding: const EdgeInsets.all(12),
-              child: KipuIcon(KipuIcono.buscar, size: 20, color: KipuColores.gris),
-            ),
-          ),
-        ),
-      ],
-    );
   }
+}
+
+class _CabeceraCarpeta extends StatelessWidget {
+  final String nombre;
+  final Color color;
+  final int cantidad;
+  final VoidCallback onVolver;
+  final ValueChanged<String>? onAccion;
+  const _CabeceraCarpeta({
+    required this.nombre,
+    required this.color,
+    required this.cantidad,
+    required this.onVolver,
+    this.onAccion,
+  });
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      IconButton(
+        tooltip: 'Volver a mis carpetas',
+        onPressed: onVolver,
+        icon: KipuIcon(KipuIcono.izquierda, color: KipuColores.tinta),
+      ),
+      Icon(Icons.folder_rounded, color: color, size: 26),
+      const SizedBox(width: 8),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              nombre,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+            Text(
+              cantidad == 1 ? '1 instrumento' : '$cantidad instrumentos',
+              style: const TextStyle(fontSize: 12.5, color: KipuColores.gris),
+            ),
+          ],
+        ),
+      ),
+      if (onAccion != null)
+        PopupMenuButton<String>(
+          tooltip: 'Opciones de la carpeta',
+          onSelected: onAccion,
+          icon: const Icon(Icons.more_vert),
+          itemBuilder: (_) => const [
+            PopupMenuItem(value: 'editar', child: Text('Renombrar o cambiar color')),
+            PopupMenuItem(value: 'eliminar', child: Text('Eliminar carpeta')),
+          ],
+        ),
+    ],
+  );
+}
+
+class _CarpetaVacia extends StatelessWidget {
+  final VoidCallback onCrear;
+  final VoidCallback onSubir;
+  final VoidCallback onColeccion;
+  const _CarpetaVacia({
+    required this.onCrear,
+    required this.onSubir,
+    required this.onColeccion,
+  });
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 8),
+    child: Column(
+      children: [
+        const Text(
+          'Esta carpeta está vacía',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Crea un instrumento aquí, súbelo desde Excel o agrégalo de una '
+          'colección.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: KipuColores.gris),
+        ),
+        const SizedBox(height: 14),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          alignment: WrapAlignment.center,
+          children: [
+            FilledButton(onPressed: onCrear, child: const Text('Crear')),
+            OutlinedButton(onPressed: onSubir, child: const Text('Subir Excel')),
+            OutlinedButton(onPressed: onColeccion, child: const Text('Ver colecciones')),
+          ],
+        ),
+      ],
+    ),
+  );
+}
+
+class _OpcionCarpeta extends StatelessWidget {
+  final String nombre;
+  final Color color;
+  final bool activo;
+  final VoidCallback onTap;
+  const _OpcionCarpeta({
+    required this.nombre,
+    required this.color,
+    required this.activo,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    leading: Icon(Icons.folder_rounded, color: color),
+    title: Text(
+      nombre,
+      style: TextStyle(fontWeight: activo ? FontWeight.w700 : FontWeight.w400),
+    ),
+    trailing: activo
+        ? KipuIcon(KipuIcono.check, color: KipuColores.morado, size: 20)
+        : null,
+    selected: activo,
+    onTap: onTap,
+  );
+}
+
+class _Reciente extends StatelessWidget {
+  final Instrumento ins;
+  final VoidCallback onTap;
+  const _Reciente({required this.ins, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: 220,
+    child: Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              KipuIcon(iconoDe(ins.tipo), color: KipuColores.morado),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      ins.nombre,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    Text(
+                      ins.tipo.nombre,
+                      maxLines: 1,
+                      style: const TextStyle(fontSize: 12, color: KipuColores.gris),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _Grupo extends StatelessWidget {
@@ -863,66 +1534,8 @@ class _Grupo extends StatelessWidget {
               const KipuIcon(KipuIcono.abajo, size: 20, color: KipuColores.gris),
             ],
           ),
-          children: [
-            for (final h in hijos)
-              Padding(padding: const EdgeInsets.only(bottom: 8), child: h),
-          ],
+          children: hijos,
         ),
-      ),
-    );
-  }
-}
-
-class _Vacio extends StatelessWidget {
-  final bool coleccion;
-  final bool filtrando;
-  final VoidCallback onEjemplos;
-  final VoidCallback onCrear;
-  const _Vacio({
-    required this.coleccion,
-    required this.filtrando,
-    required this.onEjemplos,
-    required this.onCrear,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 12),
-      child: Column(
-        children: [
-          KipuIcon(KipuIcono.ficha, size: 56, color: KipuColores.morado),
-          const SizedBox(height: 12),
-          Text(
-            filtrando
-                ? 'Nada coincide con esos filtros'
-                : 'Tu biblioteca está vacía',
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            filtrando
-                ? 'Prueba con «Todos» en nivel, tipo o área.'
-                : 'Agrega instrumentos de una colección o crea uno desde cero.',
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: KipuColores.gris),
-          ),
-          if (!filtrando && !coleccion) ...[
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              alignment: WrapAlignment.center,
-              children: [
-                OutlinedButton(
-                  onPressed: onEjemplos,
-                  child: const Text('Ver colecciones'),
-                ),
-                FilledButton(onPressed: onCrear, child: const Text('Crear')),
-              ],
-            ),
-          ],
-        ],
       ),
     );
   }
@@ -932,6 +1545,9 @@ class _TarjetaInstrumento extends StatelessWidget {
   final Instrumento ins;
   final bool coleccion;
   final bool agregado;
+
+  /// Nombre de la carpeta, solo en los resultados de búsqueda.
+  final String? carpeta;
   final VoidCallback onTap;
   final VoidCallback onAgregar;
   final ValueChanged<String> onAccion;
@@ -939,6 +1555,7 @@ class _TarjetaInstrumento extends StatelessWidget {
     required this.ins,
     required this.coleccion,
     required this.agregado,
+    this.carpeta,
     required this.onTap,
     required this.onAgregar,
     required this.onAccion,
@@ -950,13 +1567,13 @@ class _TarjetaInstrumento extends StatelessWidget {
       for (final c in ins.competencias) ?competenciaPorId(c)?.nombre,
     ];
     final etiquetas = [
+      if (carpeta != null) 'Carpeta: $carpeta',
       ...ins.niveles,
       if (ins.noObservado) 'No observado',
       if (ins.ponderada &&
           ins.tipo != TipoInstrumento.rubrica &&
           ins.tipo != TipoInstrumento.prueba)
         'Ponderada',
-      if (!coleccion && ins.ejemplo) 'De la colección',
     ];
     return Material(
       color: Colors.white,
@@ -1081,6 +1698,7 @@ class _TarjetaInstrumento extends StatelessWidget {
                   icon: const Icon(Icons.more_vert),
                   itemBuilder: (_) => const [
                     PopupMenuItem(value: 'editar', child: Text('Editar')),
+                    PopupMenuItem(value: 'mover', child: Text('Mover a carpeta')),
                     PopupMenuItem(value: 'duplicar', child: Text('Duplicar')),
                     PopupMenuItem(value: 'pdf', child: Text('Descargar PDF')),
                     PopupMenuItem(

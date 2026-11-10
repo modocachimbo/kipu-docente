@@ -19,13 +19,107 @@ extension EvaluacionDb on KipuDb {
   /// La primera vez deja algunos ejemplos en la biblioteca para no empezar
   /// vacía. Si el docente borra todo, no se vuelven a poner.
   Future<void> prepararBiblioteca() async {
-    if (await leerAjuste(_clave) != null) return;
-    final iniciales = [
-      for (final id in ejemplosIniciales)
-        for (final e in ejemplosInstrumentos)
-          if (e.id == id) duplicar(e, ejemplo: true),
-    ];
-    await guardarAjuste(_clave, Instrumento.listaAJson(iniciales));
+    // Carpetas: la primera vez se crean las de inicio y se acomoda lo que ya
+    // había en la biblioteca (bibliotecas de versiones anteriores).
+    var carpetas = await leerCarpetas();
+    final sinCarpetasAun = await leerAjuste(_claveCarpetas) == null;
+    if (sinCarpetasAun) {
+      carpetas = [for (final (c, _) in carpetasIniciales) c];
+      await guardarCarpetas(carpetas);
+    }
+    final v = await leerAjuste(_clave);
+    if (v == null) {
+      final iniciales = [
+        for (final id in ejemplosIniciales)
+          for (final e in ejemplosInstrumentos)
+            if (e.id == id) duplicar(e, ejemplo: true),
+      ];
+      await guardarAjuste(
+        _clave,
+        Instrumento.listaAJson([
+          for (final i in iniciales) i.copiar(carpeta: carpetaSugerida(i, carpetas)),
+        ]),
+      );
+    } else if (sinCarpetasAun) {
+      final l = Instrumento.listaDeJson(v);
+      await guardarAjuste(
+        _clave,
+        Instrumento.listaAJson([
+          for (final i in l)
+            i.carpeta.isEmpty ? i.copiar(carpeta: carpetaSugerida(i, carpetas)) : i,
+        ]),
+      );
+    }
+  }
+
+  // Carpetas
+
+  static const _claveCarpetas = 'carpetas_instrumentos';
+  static const _claveRecientes = 'instrumentos_recientes';
+
+  Stream<List<Carpeta>> verCarpetas() =>
+      verAjuste(_claveCarpetas).map(Carpeta.listaDeJson);
+
+  Future<List<Carpeta>> leerCarpetas() async =>
+      Carpeta.listaDeJson(await leerAjuste(_claveCarpetas));
+
+  Future<void> guardarCarpetas(List<Carpeta> l) =>
+      guardarAjuste(_claveCarpetas, Carpeta.listaAJson(l));
+
+  Future<Carpeta> crearCarpeta(String nombre, int color) async {
+    final c = Carpeta(nuevoId(), nombre.trim(), color);
+    await guardarCarpetas([...await leerCarpetas(), c]);
+    return c;
+  }
+
+  Future<void> editarCarpeta(Carpeta c) async {
+    final l = await leerCarpetas();
+    await guardarCarpetas([for (final x in l) x.id == c.id ? c : x]);
+  }
+
+  /// Elimina la carpeta; sus instrumentos quedan «Sin carpeta» (no se
+  /// borran).
+  Future<void> borrarCarpeta(String id) async {
+    final l = await leerCarpetas();
+    await guardarCarpetas([
+      for (final x in l)
+        if (x.id != id) x,
+    ]);
+    final bib = await leerBiblioteca();
+    await guardarAjuste(
+      _clave,
+      Instrumento.listaAJson([
+        for (final i in bib) i.carpeta == id ? i.copiar(carpeta: '') : i,
+      ]),
+    );
+  }
+
+  Future<void> moverACarpeta(Iterable<String> ids, String carpeta) async {
+    final set = ids.toSet();
+    final bib = await leerBiblioteca();
+    await guardarAjuste(
+      _clave,
+      Instrumento.listaAJson([
+        for (final i in bib) set.contains(i.id) ? i.copiar(carpeta: carpeta) : i,
+      ]),
+    );
+  }
+
+  // Usados hace poco
+
+  Stream<List<String>> verRecientes() => verAjuste(_claveRecientes).map(
+    (v) => v == null || v.isEmpty ? <String>[] : v.split(','),
+  );
+
+  /// Pone el instrumento primero en «Usados hace poco» (máximo 6).
+  Future<void> marcarReciente(String id) async {
+    final v = await leerAjuste(_claveRecientes);
+    final l = [
+      id,
+      for (final x in (v == null || v.isEmpty ? <String>[] : v.split(',')))
+        if (x != id) x,
+    ].take(6).join(',');
+    await guardarAjuste(_claveRecientes, l);
   }
 
   Stream<List<Instrumento>> verBiblioteca() =>
@@ -106,6 +200,7 @@ extension EvaluacionDb on KipuDb {
       await borrarAjuste('$_prefijoMarcas$columnaId');
     }
     await guardarAjuste('$_prefijoCol$columnaId', jsonEncode(ins.aJson()));
+    await marcarReciente(ins.id);
   }
 
   Stream<Map<int, Marcas>> verMarcas(int columnaId) =>
@@ -152,9 +247,8 @@ extension EvaluacionDb on KipuDb {
           .map(
             (filas) => {
               for (final f in filas)
-                if (int.tryParse(f.clave.substring('gestion_colegio_'.length))
-                    case final id?)
-                  id: f.valor,
+                ?int.tryParse(f.clave.substring('gestion_colegio_'.length)):
+                    f.valor,
             },
           );
 

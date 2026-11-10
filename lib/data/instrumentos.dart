@@ -169,6 +169,9 @@ class Instrumento {
   /// Id del ejemplo del que se copió, para saber cuáles ya se agregaron.
   final String origen;
 
+  /// Carpeta de la biblioteca ('' = sin carpeta).
+  final String carpeta;
+
   const Instrumento({
     required this.id,
     required this.tipo,
@@ -183,6 +186,7 @@ class Instrumento {
     this.ponderada = false,
     this.ejemplo = false,
     this.origen = '',
+    this.carpeta = '',
   });
 
   Instrumento copiar({
@@ -198,6 +202,7 @@ class Instrumento {
     bool? ponderada,
     bool? ejemplo,
     String? origen,
+    String? carpeta,
   }) => Instrumento(
     id: id ?? this.id,
     tipo: tipo,
@@ -212,6 +217,7 @@ class Instrumento {
     ponderada: ponderada ?? this.ponderada,
     ejemplo: ejemplo ?? this.ejemplo,
     origen: origen ?? this.origen,
+    carpeta: carpeta ?? this.carpeta,
   );
 
   /// Puntos del mejor y del peor nivel.
@@ -295,6 +301,7 @@ class Instrumento {
     'ponderada': ponderada,
     if (ejemplo) 'ejemplo': true,
     if (origen.isNotEmpty) 'origen': origen,
+    if (carpeta.isNotEmpty) 'carpeta': carpeta,
   };
 
   factory Instrumento.deJson(Map<String, dynamic> j) => Instrumento(
@@ -322,6 +329,7 @@ class Instrumento {
     ponderada: j['ponderada'] as bool? ?? false,
     ejemplo: j['ejemplo'] as bool? ?? false,
     origen: j['origen'] as String? ?? '',
+    carpeta: j['carpeta'] as String? ?? '',
   );
 
   static List<Instrumento> listaDeJson(String? v) {
@@ -760,4 +768,91 @@ String? validarTramos(List<double> t) {
     }
   }
   return null;
+}
+
+
+// ───────────────────────────── Carpetas ─────────────────────────────
+
+/// Carpeta de la biblioteca del docente («Cuadernos», «Exposiciones»…).
+class Carpeta {
+  final String id;
+  final String nombre;
+  final int color;
+  const Carpeta(this.id, this.nombre, this.color);
+
+  Carpeta copiar({String? nombre, int? color}) =>
+      Carpeta(id, nombre ?? this.nombre, color ?? this.color);
+
+  Map<String, dynamic> aJson() => {'id': id, 'nombre': nombre, 'color': color};
+
+  factory Carpeta.deJson(Map<String, dynamic> j) => Carpeta(
+    j['id'] as String,
+    j['nombre'] as String? ?? '',
+    (j['color'] as num?)?.toInt() ?? coloresCarpeta.first,
+  );
+
+  static List<Carpeta> listaDeJson(String? v) {
+    if (v == null || v.isEmpty) return [];
+    try {
+      return [
+        for (final x in jsonDecode(v) as List)
+          Carpeta.deJson(x as Map<String, dynamic>),
+      ];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static String listaAJson(List<Carpeta> l) =>
+      jsonEncode([for (final c in l) c.aJson()]);
+}
+
+const coloresCarpeta = [
+  0xFF4F5BD5,
+  0xFF16A37F,
+  0xFFF07A2D,
+  0xFFE5508E,
+  0xFF3D7BF0,
+  0xFF8B5CF6,
+  0xFFB86E00,
+  0xFF6E6A80,
+];
+
+/// Las carpetas con las que empieza la biblioteca, con las palabras que
+/// sirven para acomodar cada instrumento en su lugar.
+const carpetasIniciales = [
+  (Carpeta('cuadernos', 'Cuadernos y tareas', 0xFF3D7BF0), ['cuaderno', 'tarea', 'revision']),
+  (Carpeta('exposiciones', 'Exposiciones', 0xFFF07A2D), ['exposicion', 'oral', 'debate', 'presentacion', 'comunica oralmente']),
+  (Carpeta('trabajos', 'Trabajos y proyectos', 0xFF16A37F), ['proyecto', 'trabajo', 'informe', 'ensayo', 'laboratorio', 'indagacion', 'producto', 'mapa', 'organizador', 'texto', 'prototipo', 'situacion']),
+  (Carpeta('examenes', 'Exámenes', 0xFF8B5CF6), ['examen', 'practica', 'control', 'quiz', 'prueba']),
+  (Carpeta('actitudes', 'Actitudes', 0xFFE5508E), ['actitud', 'participacion', 'convivencia', 'coevaluacion', 'autoevaluacion', 'metacognicion', 'caritas', 'seguridad']),
+];
+
+String _sinTildes(String s) {
+  const de = 'áéíóúüñÁÉÍÓÚÜÑ', a = 'aeiouunAEIOUUN';
+  var r = s;
+  for (var i = 0; i < de.length; i++) {
+    r = r.replaceAll(de[i], a[i]);
+  }
+  return r.toLowerCase();
+}
+
+/// Carpeta donde conviene guardar un instrumento según su nombre y tipo, o
+/// '' si no encaja en ninguna. Solo propone carpetas que existen.
+String carpetaSugerida(Instrumento i, List<Carpeta> carpetas) {
+  final ids = {for (final c in carpetas) c.id};
+  if (i.tipo == TipoInstrumento.prueba && ids.contains('examenes')) {
+    return 'examenes';
+  }
+  final texto = _sinTildes('${i.nombre} ${i.descripcion}');
+  for (final (c, palabras) in carpetasIniciales) {
+    if (!ids.contains(c.id)) continue;
+    if (palabras.any(texto.contains)) return c.id;
+  }
+  // También por el nombre de una carpeta creada por el docente.
+  for (final c in carpetas) {
+    final n = _sinTildes(c.nombre);
+    if (n.length >= 4 && texto.contains(n)) return c.id;
+  }
+  return '';
 }

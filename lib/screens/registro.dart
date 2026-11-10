@@ -3423,6 +3423,19 @@ class _FormColumnaState extends State<_FormColumna> {
   Future<void> _elegirInstrumento() async {
     await db.prepararBiblioteca();
     final bib = await db.leerBiblioteca();
+    final carpetas = await db.leerCarpetas();
+    // Agrupados por carpeta, en el orden de las carpetas.
+    final grupos = <(String, List<Instrumento>)>[
+      for (final c in carpetas)
+        (c.nombre, [for (final i in bib) if (i.carpeta == c.id) i]),
+      (
+        'Sin carpeta',
+        [
+          for (final i in bib)
+            if (!carpetas.any((c) => c.id == i.carpeta)) i,
+        ],
+      ),
+    ];
     if (!mounted) return;
     final r = await showDialog<Object>(
       context: context,
@@ -3441,14 +3454,29 @@ class _FormColumnaState extends State<_FormColumna> {
                 selected: _ins == null,
                 onTap: () => Navigator.pop(ctx, 'ninguno'),
               ),
-              for (final i in bib)
-                ListTile(
-                  leading: KipuIcon(iconoDe(i.tipo), color: KipuColores.morado),
-                  title: Text(i.nombre),
-                  subtitle: Text('${i.tipo.nombre} · ${i.resumen}'),
-                  selected: _ins?.id == i.id,
-                  onTap: () => Navigator.pop(ctx, i),
-                ),
+              for (final (nombre, lista) in grupos)
+                if (lista.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 2),
+                    child: Text(
+                      nombre.toUpperCase(),
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        letterSpacing: .5,
+                        fontWeight: FontWeight.w600,
+                        color: KipuColores.gris,
+                      ),
+                    ),
+                  ),
+                  for (final i in lista)
+                    ListTile(
+                      leading: KipuIcon(iconoDe(i.tipo), color: KipuColores.morado),
+                      title: Text(i.nombre),
+                      subtitle: Text('${i.tipo.nombre} · ${i.resumen}'),
+                      selected: _ins?.id == i.id,
+                      onTap: () => Navigator.pop(ctx, i),
+                    ),
+                ],
               if (bib.isEmpty)
                 const Padding(
                   padding: EdgeInsets.all(16),
