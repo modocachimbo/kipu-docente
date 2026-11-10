@@ -12,6 +12,7 @@ import 'asistencia.dart';
 import 'config_academica.dart';
 import 'configuracion.dart';
 import 'cursos.dart';
+import 'evaluacion.dart' show PantallaEvaluacion;
 import 'horario.dart';
 import 'horario_datos.dart';
 import 'inicio.dart';
@@ -77,10 +78,7 @@ final _secciones = <_Seccion>[
   _Seccion(
     'Evaluación',
     KipuIcono.notas,
-    () => const Proximamente(
-      'Evaluación',
-      'Calificación por competencias con la escala AD, A, B y C.',
-    ),
+    () => const PantallaEvaluacion(),
     enBarra: true,
   ),
   _Seccion(

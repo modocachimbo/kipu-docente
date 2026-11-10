@@ -979,8 +979,18 @@ class KipuDb extends _$KipuDb {
   Future<void> editarColumna(int id, RegistroColumnasCompanion c) =>
       (update(registroColumnas)..where((x) => x.id.equals(id))).write(c);
 
-  Future<void> borrarColumna(int id) =>
-      (delete(registroColumnas)..where((x) => x.id.equals(id))).go();
+  /// Borra la columna con sus notas y, si usaba un instrumento de
+  /// evaluación, también la copia y las marcas guardadas.
+  Future<void> borrarColumna(int id) => transaction(() async {
+    await (delete(registroColumnas)..where((x) => x.id.equals(id))).go();
+    await (delete(ajustes)..where(
+          (a) => a.clave.isIn([
+            'instrumento_col_$id',
+            'instrumento_marcas_$id',
+          ]),
+        ))
+        .go();
+  });
 
   /// Fija una columna a la derecha y suelta la que estaba fijada.
   Future<void> fijarColumna(RegistroColumna col, bool fijar) =>
