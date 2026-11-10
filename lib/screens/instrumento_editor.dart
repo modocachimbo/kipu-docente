@@ -1796,6 +1796,14 @@ class _EvaluarInstrumentoState extends State<EvaluarInstrumento> {
                           child: Text('Lo que falta: «$mejor»'),
                         ),
                       ),
+                    if (_ins.tipo == TipoInstrumento.rubrica)
+                      _RubricaCuadro(
+                        ins: _ins,
+                        marcas: _m,
+                        color: base,
+                        onMarca: _marcar,
+                      )
+                    else
                     for (final (n, it) in _ins.items.indexed)
                       prueba
                       ? _PreguntaEvaluar(
@@ -1805,16 +1813,7 @@ class _EvaluarInstrumentoState extends State<EvaluarInstrumento> {
                           color: base,
                           onMarca: (k) => _marcar(it.id, k),
                         )
-                      : _ins.tipo == TipoInstrumento.rubrica
-                          ? _CriterioEvaluar(
-                              n: n,
-                              item: it,
-                              ins: _ins,
-                              marca: _m[it.id],
-                              color: base,
-                              onMarca: (k) => _marcar(it.id, k),
-                            )
-                          : _ItemEvaluar(
+                      : _ItemEvaluar(
                               n: n,
                               item: it,
                               ins: _ins,
@@ -2034,104 +2033,6 @@ class _ItemEvaluar extends StatelessWidget {
   }
 }
 
-class _CriterioEvaluar extends StatelessWidget {
-  final int n;
-  final ItemInstrumento item;
-  final Instrumento ins;
-  final int? marca;
-  final Color color;
-  final ValueChanged<int> onMarca;
-  const _CriterioEvaluar({
-    required this.n,
-    required this.item,
-    required this.ins,
-    required this.marca,
-    required this.color,
-    required this.onMarca,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '${n + 1}. ${item.texto}',
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                ),
-              ),
-              if (ins.ponderada)
-                Text(
-                  '${numeroCorto(item.peso)} %',
-                  style: const TextStyle(fontSize: 12, color: KipuColores.gris),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          // Del mejor nivel al más bajo, como se lee una rúbrica al evaluar.
-          for (var k = ins.escala.length - 1; k >= 0; k--)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Material(
-                color: marca == k ? color.withValues(alpha: .1) : KipuColores.fondo,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(
-                    color: marca == k ? color : Colors.transparent,
-                    width: 1.6,
-                  ),
-                ),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: () => onMarca(k),
-                  child: Padding(
-                    padding: const EdgeInsets.all(10),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(
-                          width: 110,
-                          child: Text(
-                            ins.escala[k].nombre,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: marca == k ? color : KipuColores.tinta,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            k < item.descriptores.length &&
-                                    item.descriptores[k].isNotEmpty
-                                ? item.descriptores[k]
-                                : '—',
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-
-/// «BADC VF…»: dictar o escribir las respuestas de corrido.
 class _RespuestasRapidas extends StatefulWidget {
   final ValueChanged<String> onAplicar;
   const _RespuestasRapidas({super.key, required this.onAplicar});
@@ -2297,6 +2198,222 @@ class _PreguntaEvaluar extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+
+/// Rúbrica en un cuadro: criterios × niveles, con los puntos de cada nivel.
+/// Se toca la celda y listo. En pantallas angostas las celdas muestran solo
+/// el nivel y sus puntos; «Ver descriptores» muestra el texto completo.
+class _RubricaCuadro extends StatefulWidget {
+  final Instrumento ins;
+  final Map<String, int> marcas;
+  final Color color;
+  final void Function(String, int) onMarca;
+  const _RubricaCuadro({
+    required this.ins,
+    required this.marcas,
+    required this.color,
+    required this.onMarca,
+  });
+
+  @override
+  State<_RubricaCuadro> createState() => _RubricaCuadroState();
+}
+
+class _RubricaCuadroState extends State<_RubricaCuadro> {
+  bool? _descriptores;
+
+  @override
+  Widget build(BuildContext context) {
+    final ins = widget.ins;
+    final n = ins.escala.length;
+    final suma = ins.items.fold<double>(0, (s, i) => s + ins.pesoDe(i));
+    return LayoutBuilder(
+      builder: (context, caja) {
+        final ancho = caja.maxWidth >= 640;
+        final verTexto = _descriptores ?? ancho;
+        final colCriterio = ancho ? 170.0 : 104.0;
+        var obtenidos = 0.0, maximo = 0.0;
+        for (final it in ins.items) {
+          final k = widget.marcas[it.id];
+          if (k != null && k >= 0 && k < n) obtenidos += ins.escala[k].puntos;
+          maximo += ins.puntosMax;
+        }
+        final marcados = ins.items.where((it) => widget.marcas[it.id] != null).length;
+
+        Widget celda(ItemInstrumento it, int k) {
+          final on = widget.marcas[it.id] == k;
+          final c = colorNivel(k, n);
+          final d = k < it.descriptores.length ? it.descriptores[k] : '';
+          return Padding(
+            padding: const EdgeInsets.all(2),
+            child: Material(
+              color: on ? c.withValues(alpha: .16) : Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: BorderSide(color: on ? c : _linea, width: on ? 2 : 1),
+              ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: () => widget.onMarca(it.id, k),
+                child: Container(
+                  constraints: BoxConstraints(minHeight: verTexto ? 64 : 44),
+                  padding: const EdgeInsets.all(6),
+                  alignment: verTexto ? Alignment.topLeft : Alignment.center,
+                  child: verTexto
+                      ? Text(
+                          d.isEmpty ? '—' : d,
+                          textAlign: TextAlign.justify,
+                          style: TextStyle(
+                            fontSize: 12,
+                            height: 1.3,
+                            fontWeight: on ? FontWeight.w600 : FontWeight.w400,
+                          ),
+                        )
+                      : Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              numeroCorto(ins.escala[k].puntos),
+                              style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                                color: on ? c : KipuColores.tinta,
+                              ),
+                            ),
+                            if (on)
+                              KipuIcon(KipuIcono.check, size: 14, color: c),
+                          ],
+                        ),
+                ),
+              ),
+            ),
+          );
+        }
+
+        final tabla = Table(
+          columnWidths: {
+            0: FixedColumnWidth(colCriterio),
+            for (var k = 1; k <= n; k++)
+              k: verTexto && !ancho
+                  ? const FixedColumnWidth(150)
+                  : const FlexColumnWidth(),
+          },
+          defaultVerticalAlignment: TableCellVerticalAlignment.top,
+          children: [
+            TableRow(
+              children: [
+                const SizedBox(),
+                for (var k = 0; k < n; k++)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(2, 0, 2, 4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                      decoration: BoxDecoration(
+                        color: colorNivel(k, n).withValues(alpha: .12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            ins.escala[k].nombre,
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: ancho ? 12.5 : 11,
+                              fontWeight: FontWeight.w700,
+                              color: colorNivel(k, n),
+                            ),
+                          ),
+                          Text(
+                            '${numeroCorto(ins.escala[k].puntos)} pts',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: colorNivel(k, n),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            for (final (i, it) in ins.items.indexed)
+              TableRow(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(0, 8, 6, 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${i + 1}. ${it.texto}',
+                          style: TextStyle(
+                            fontSize: ancho ? 14 : 12.5,
+                            fontWeight: FontWeight.w600,
+                            height: 1.2,
+                          ),
+                        ),
+                        if (ins.ponderada && suma > 0)
+                          Text(
+                            'Vale ${numeroCorto(ins.pesoDe(it) / suma * 100)} %',
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              color: KipuColores.gris,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  for (var k = 0; k < n; k++) celda(it, k),
+                ],
+              ),
+          ],
+        );
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.fromLTRB(10, 8, 10, 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Puntaje: ${numeroCorto(obtenidos)} de ${numeroCorto(maximo)}'
+                      '${marcados < ins.items.length ? ' · faltan ${ins.items.length - marcados}' : ''}',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => setState(() => _descriptores = !verTexto),
+                    child: Text(verTexto ? 'Ocultar descriptores' : 'Ver descriptores'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              if (verTexto && !ancho)
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: SizedBox(width: colCriterio + 150.0 * n, child: tabla),
+                )
+              else
+                tabla,
+            ],
+          ),
+        );
+      },
     );
   }
 }
