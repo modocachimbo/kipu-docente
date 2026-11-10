@@ -7,6 +7,9 @@ import 'instrumentos.dart';
 import 'instrumentos_ejemplos.dart';
 import 'paises.dart';
 
+const gestionPublica = 'publica';
+const gestionPrivada = 'privada';
+
 /// Guardado de instrumentos en la tabla Ajustes (sin cambiar el esquema).
 extension EvaluacionDb on KipuDb {
   static const _clave = 'instrumentos';
@@ -127,6 +130,33 @@ extension EvaluacionDb on KipuDb {
     }
     await guardarAjuste('$_prefijoMarcas$columnaId', Marcas.mapaAJson(todas));
   }
+
+  // Gestión del colegio
+
+  Stream<String> verGestion(int colegioId) => verAjuste(
+    'gestion_colegio_$colegioId',
+  ).map((v) => v == gestionPrivada ? gestionPrivada : gestionPublica);
+
+  Future<String> leerGestion(int colegioId) async =>
+      await leerAjuste('gestion_colegio_$colegioId') == gestionPrivada
+      ? gestionPrivada
+      : gestionPublica;
+
+  Future<void> guardarGestion(int colegioId, String gestion) =>
+      guardarAjuste('gestion_colegio_$colegioId', gestion);
+
+  /// Gestión de todos los colegios: {colegioId: 'publica' | 'privada'}.
+  Stream<Map<int, String>> verGestiones() =>
+      (select(ajustes)..where((a) => a.clave.like('gestion_colegio_%')))
+          .watch()
+          .map(
+            (filas) => {
+              for (final f in filas)
+                if (int.tryParse(f.clave.substring('gestion_colegio_'.length))
+                    case final id?)
+                  id: f.valor,
+            },
+          );
 
   // Conversión a la escala
 

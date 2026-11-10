@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 
 import '../data/database.dart';
+import '../data/evaluacion_db.dart';
 import '../data/paises.dart';
 import '../main.dart';
 import '../theme.dart';
@@ -1445,6 +1446,9 @@ Future<void> _formColegio(BuildContext context, {Colegio? colegio}) async {
   final nombre = TextEditingController(text: colegio?.nombre);
   final lugar = TextEditingController(text: colegio?.lugar);
   var pais = paisPorCodigo(colegio?.pais);
+  var gestion = colegio == null
+      ? gestionPublica
+      : await db.leerGestion(colegio.id);
   final colegios = await db.verColegios().first;
   // Al crear, se propone el primer color que nadie usa todavía.
   final usados = colegios.map((c) => colorColegio(colegios, c.id)).toSet();
@@ -1544,6 +1548,74 @@ Future<void> _formColegio(BuildContext context, {Colegio? colegio}) async {
                 ),
               ),
               _Campo(
+                'Gestión',
+                StatefulBuilder(
+                  builder: (ctx, setState) {
+                    Widget opcion(String g, String t, String d) {
+                      final on = gestion == g;
+                      return Expanded(
+                        child: Material(
+                          color: on ? KipuColores.moradoClaro : Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            side: BorderSide(
+                              color: on
+                                  ? KipuColores.morado
+                                  : const Color(0xFFE6E7F0),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(14),
+                            onTap: () => setState(() => gestion = g),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    t,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  Text(
+                                    d,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: KipuColores.gris,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+
+                    return Row(
+                      children: [
+                        opcion(
+                          gestionPublica,
+                          'Pública (estatal)',
+                          'Colección CNEB · AD, A, B, C',
+                        ),
+                        const SizedBox(width: 10),
+                        opcion(
+                          gestionPrivada,
+                          'Privada',
+                          'Colección libre · 0 a 20',
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+              _Campo(
                 'Color',
                 StatefulBuilder(
                   builder: (ctx, setState) {
@@ -1637,7 +1709,9 @@ Future<void> _formColegio(BuildContext context, {Colegio? colegio}) async {
                       pais: pais.codigo,
                     );
                     await db.guardarAjuste('colegio_activo', id.toString());
+                    await db.guardarGestion(id, gestion);
                   } else {
+                    await db.guardarGestion(colegio.id, gestion);
                     await db.editarColegio(
                       colegio.id,
                       nombre.text.trim(),

@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:intl/intl.dart';
 
 import 'database.dart';
+import 'evaluacion_db.dart';
 import 'registro.dart';
 
 /// Datos inventados para probar la app sin tener que llenar nada.
@@ -166,6 +167,11 @@ Future<void> cargarDatosDeEjemplo(KipuDb db) async {
         c.key,
         c.value.$1,
         color: c.value.$2,
+      );
+      // Elite School es privado; los demás, estatales.
+      await db.guardarGestion(
+        idColegio[c.key]!,
+        c.key == 'Elite School' ? gestionPrivada : gestionPublica,
       );
     }
     for (final c in cursos) {

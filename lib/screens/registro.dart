@@ -55,6 +55,7 @@ class _RegistroCursoState extends State<RegistroCurso> {
   late final _asistencia = db.verAsistencia(_cursoId, _hoy);
   late final _config = db.verAnioActivo().asyncExpand(db.verConfigAcademica);
   late final _instrumentos = db.verInstrumentosDeColumnas();
+  late final _gestion = db.verGestion(widget.datos.colegio.id);
   late Stream<List<RegistroColumna>> _columnas;
   late Stream<Map<int, Map<int, String>>> _notas;
 
@@ -106,8 +107,11 @@ class _RegistroCursoState extends State<RegistroCurso> {
                       _asistencia,
                       (asistencia) => _Escucha<Map<int, Instrumento>>(
                         _instrumentos,
-                        (instrumentos) => _pantalla(
+                        (instrumentos) => _Escucha<String>(
+                        _gestion,
+                        (gestion) => _pantalla(
                         context,
+                        gestion: gestion ?? gestionPublica,
                         instrumentos: instrumentos ?? const {},
                         ancho: ancho,
                         colores: colores,
@@ -118,6 +122,7 @@ class _RegistroCursoState extends State<RegistroCurso> {
                         conducta: conducta ?? const {},
                         grupos: grupos ?? const [],
                         asistencia: asistencia ?? const {},
+                      ),
                       ),
                       ),
                     ),
@@ -143,11 +148,17 @@ class _RegistroCursoState extends State<RegistroCurso> {
     required List<GrupoEquipos> grupos,
     required Map<int, String> asistencia,
     required Map<int, Instrumento> instrumentos,
+    required String gestion,
   }) {
     final cur = widget.datos.curso;
     final periodos = config?.periodos ?? periodosDe('bimestre');
     final escalas = {for (final e in config?.escalas ?? peru.escalas) e.id: e};
-    final escalaDefecto = config?.escalaPorDefecto ?? peru.escalas.first.id;
+    // En colegios privados se propone la escala de 0 a 20; el docente puede
+    // elegir otra en cada columna.
+    final escalaDefecto =
+        gestion == gestionPrivada && escalas.containsKey('vigesimal')
+        ? 'vigesimal'
+        : config?.escalaPorDefecto ?? peru.escalas.first.id;
     final delPeriodo =
         (estudiantes ?? const <Estudiante>[])
             .where((e) => estaEnPeriodo(e, _periodo))
