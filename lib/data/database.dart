@@ -987,6 +987,7 @@ class KipuDb extends _$KipuDb {
           (a) => a.clave.isIn([
             'instrumento_col_$id',
             'instrumento_marcas_$id',
+            'columna_cfg_$id',
           ]),
         ))
         .go();

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/cneb.dart';
+import '../data/columnas.dart';
 import '../data/database.dart';
 import '../data/evaluacion_db.dart';
 import '../data/instrumentos.dart';
@@ -1551,6 +1552,8 @@ Future<void> evaluarConInstrumento(
   required int inicio,
   required Map<int, int> equipos,
   required Color color,
+  int decimales = 0,
+  Redondeo redondeo = Redondeo.normal,
 }) => Navigator.push(
   context,
   MaterialPageRoute(
@@ -1562,6 +1565,8 @@ Future<void> evaluarConInstrumento(
       inicio: inicio,
       equipos: equipos,
       color: color,
+      decimales: decimales,
+      redondeo: redondeo,
     ),
   ),
 );
@@ -1574,8 +1579,12 @@ class EvaluarInstrumento extends StatefulWidget {
   final int inicio;
   final Map<int, int> equipos;
   final Color color;
+  final int decimales;
+  final Redondeo redondeo;
 
   const EvaluarInstrumento({
+    this.decimales = 0,
+    this.redondeo = Redondeo.normal,
     super.key,
     required this.columna,
     required this.instrumento,
@@ -1643,7 +1652,16 @@ class _EvaluarInstrumentoState extends State<EvaluarInstrumento> {
 
   String? get _valor {
     final r = _resultado;
-    return r == null ? null : valorEnEscala(_ins, r, widget.escala, tramos: _tramos);
+    return r == null
+        ? null
+        : valorEnEscala(
+            _ins,
+            r,
+            widget.escala,
+            tramos: _tramos,
+            decimales: widget.decimales,
+            redondeo: widget.redondeo,
+          );
   }
 
   Future<void> _guardar({bool borrar = false}) async {

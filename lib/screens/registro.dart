@@ -10,6 +10,9 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:intl/intl.dart';
 
 import '../data/academico.dart';
+import '../data/cneb.dart';
+import '../data/columnas.dart';
+import '../data/columnas_db.dart';
 import '../data/database.dart';
 import '../data/evaluacion_db.dart';
 import '../data/instrumentos.dart';
@@ -56,6 +59,11 @@ class _RegistroCursoState extends State<RegistroCurso> {
   late final _config = db.verAnioActivo().asyncExpand(db.verConfigAcademica);
   late final _instrumentos = db.verInstrumentosDeColumnas();
   late final _gestion = db.verGestion(widget.datos.colegio.id);
+  late final _configsCol = db.verConfigsColumnas();
+
+  /// Lo último que se usó para recalcular asistencia y participación; si
+  /// cambia (otro periodo, nuevas marcas de hoy…), se vuelve a calcular.
+  String _firmaAuto = '';
   late Stream<List<RegistroColumna>> _columnas;
   late Stream<Map<int, Map<int, String>>> _notas;
 
@@ -109,8 +117,11 @@ class _RegistroCursoState extends State<RegistroCurso> {
                         _instrumentos,
                         (instrumentos) => _Escucha<String>(
                         _gestion,
-                        (gestion) => _pantalla(
+                        (gestion) => _Escucha<Map<int, ConfigColumna>>(
+                        _configsCol,
+                        (configs) => _pantalla(
                         context,
+                        configs: configs ?? const {},
                         gestion: gestion ?? gestionPublica,
                         instrumentos: instrumentos ?? const {},
                         ancho: ancho,
@@ -122,6 +133,7 @@ class _RegistroCursoState extends State<RegistroCurso> {
                         conducta: conducta ?? const {},
                         grupos: grupos ?? const [],
                         asistencia: asistencia ?? const {},
+                      ),
                       ),
                       ),
                       ),
@@ -149,6 +161,7 @@ class _RegistroCursoState extends State<RegistroCurso> {
     required Map<int, String> asistencia,
     required Map<int, Instrumento> instrumentos,
     required String gestion,
+    required Map<int, ConfigColumna> configs,
   }) {
     final cur = widget.datos.curso;
     final periodos = config?.periodos ?? periodosDe('bimestre');
@@ -180,7 +193,34 @@ class _RegistroCursoState extends State<RegistroCurso> {
     final presentes = asistencia.values.where((v) => v == 'P' || v == 'T');
 
     Escala? escalaDe(RegistroColumna c) =>
-        c.tipo == 'nota' ? escalas[c.escala ?? escalaDefecto] : null;
+        tieneEscala(c.tipo) ? escalas[c.escala ?? escalaDefecto] : null;
+    // Escala de letras para mostrar «16 · A» en columnas numéricas.
+    final letras = escalas.values
+        .where((e) => !e.numerica && e.valores.length > 2)
+        .firstOrNull;
+
+    // Asistencia y participación se recalculan solas.
+    final autos = columnas.where((c) => esAutomatica(c.tipo)).toList();
+    final acad = config;
+    if (acad != null && autos.isNotEmpty) {
+      final firma = [
+        _periodo,
+        for (final c in autos) '${c.id}:${c.escala}:${configs[c.id]?.aTexto()}',
+        asistencia.entries.map((e) => '${e.key}${e.value}').join(),
+        conducta.entries.map((e) => '${e.key}${e.value}').join(),
+        estudiantes?.length,
+      ].join('|');
+      if (firma != _firmaAuto) {
+        _firmaAuto = firma;
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => db.actualizarAutomaticas(
+            cursoId: _cursoId,
+            periodo: _periodo,
+            config: acad,
+          ),
+        );
+      }
+    }
 
     void nuevaColumna() => _formColumna(
       context,
@@ -189,7 +229,7 @@ class _RegistroCursoState extends State<RegistroCurso> {
       escalas: escalas.values.toList(),
       escalaDefecto: escalaDefecto,
       colores: colores,
-      codigoSugerido: 'N${columnas.where((c) => c.tipo == 'nota').length + 1}',
+      columnas: columnas,
       grupos: grupos,
     );
 
@@ -259,6 +299,8 @@ class _RegistroCursoState extends State<RegistroCurso> {
         colores: colores,
         escalaDe: escalaDe,
         instrumentos: instrumentos,
+        configs: configs,
+        letras: letras,
         onNueva: nuevaColumna,
         onEstudiante: (e) => abrirFicha(
           context,
@@ -275,6 +317,7 @@ class _RegistroCursoState extends State<RegistroCurso> {
           context,
           c,
           columnas,
+          config: configs[c.id] ?? const ConfigColumna(),
           grupos: grupos,
           estudiantes: lista,
           colores: colores,
@@ -282,11 +325,35 @@ class _RegistroCursoState extends State<RegistroCurso> {
           escalaDefecto: escalaDefecto,
         ),
         onCelda: (e, c) {
-          if (c.tipo != 'nota') {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Las columnas calculadas se configurarán pronto.',
+          final cfg = configs[c.id] ?? const ConfigColumna();
+          void aviso(String t, [SnackBarAction? a]) =>
+              ScaffoldMessenger.of(context)
+                ..hideCurrentSnackBar()
+                ..showSnackBar(SnackBar(content: Text(t), action: a));
+          if (c.tipo == 'calculada') {
+            aviso('Las columnas calculadas se configurarán pronto.');
+            return;
+          }
+          if (esAutomatica(c.tipo)) {
+            aviso(
+              c.tipo == 'asistencia'
+                  ? 'Esta nota se calcula sola con la asistencia del periodo: '
+                        'presente y tarde cuentan, la falta baja el % y la '
+                        'justificada no cuenta.'
+                  : 'Esta nota se calcula sola con las participaciones (+) y '
+                        '(−) del periodo. Con ${cfg.meta} (+) llega a la nota '
+                        'máxima.',
+            );
+            return;
+          }
+          if (cfg.bloqueada) {
+            aviso(
+              'La columna ${c.codigo} está bloqueada.',
+              SnackBarAction(
+                label: 'Desbloquear',
+                onPressed: () => db.guardarConfigColumna(
+                  c.id,
+                  cfg.copiar(bloqueada: false),
                 ),
               ),
             );
@@ -303,6 +370,8 @@ class _RegistroCursoState extends State<RegistroCurso> {
               inicio: lista.indexOf(e),
               equipos: grupoDe(grupos, c)?.equipos ?? const {},
               color: colores.calculadas,
+              decimales: cfg.decimales,
+              redondeo: cfg.redondeo,
             );
             return;
           }
@@ -315,6 +384,7 @@ class _RegistroCursoState extends State<RegistroCurso> {
             notas: notas[c.id] ?? const {},
             equipos: grupoDe(grupos, c)?.equipos ?? const {},
             colores: colores,
+            config: cfg,
           );
         },
       );
@@ -1233,20 +1303,26 @@ Future<void> _descargarRegistro(
   final subtitulo =
       '${cur.nombre} · ${_gradoCorto(cur)} · ${datos.colegio.nombre}';
 
+  final config = await db.verAnioActivo().asyncExpand(db.verConfigAcademica).first;
+  final cfgs = await db.verConfigsColumnas().first;
+
   // Lo que hay en cada periodo, para saber cuáles se pueden descargar.
   final hojas = <int, HojaRegistro>{};
   for (var p = 1; p <= periodos.length; p++) {
     final columnas = await db.verColumnas(cur.id, p).first;
+    // Asistencia y participación al día antes de descargar.
+    await db.actualizarAutomaticas(cursoId: cur.id, periodo: p, config: config);
     final notas = await db.verNotasRegistro(cur.id, p).first;
     final lista = estudiantes.where((e) => estaEnPeriodo(e, p)).toList()
       ..sort((a, b) => claveOrden(a).compareTo(claveOrden(b)));
     hojas[p] = HojaRegistro(
       periodo: periodos[p - 1].nombre,
       estudiantes: lista,
-      // Las calculadas todavía no tienen valores: solo van las notas.
+      // Las calculadas todavía no tienen valores; las ocultas no van.
       columnas: [
         for (final c in columnas)
-          if (c.tipo == 'nota') c,
+          if (tieneEscala(c.tipo) && !(cfgs[c.id]?.ocultaEnDescarga ?? false))
+            c,
       ],
       notas: notas,
     );
@@ -1622,6 +1698,8 @@ class _Tabla extends StatefulWidget {
   final ColoresRegistro colores;
   final Escala? Function(RegistroColumna) escalaDe;
   final Map<int, Instrumento> instrumentos;
+  final Map<int, ConfigColumna> configs;
+  final Escala? letras;
   final VoidCallback onNueva;
   final ValueChanged<Estudiante> onEstudiante;
   final ValueChanged<Estudiante> onConducta;
@@ -1638,6 +1716,8 @@ class _Tabla extends StatefulWidget {
     required this.colores,
     required this.escalaDe,
     this.instrumentos = const {},
+    this.configs = const {},
+    this.letras,
     required this.onNueva,
     required this.onEstudiante,
     required this.onConducta,
@@ -1697,11 +1777,46 @@ class _TablaState extends State<_Tabla> {
     final libres = w.columnas.where((c) => !c.fijada).toList();
     final c = w.colores;
 
+    String? codigoDe(int? id) => id == null
+        ? null
+        : w.columnas.where((x) => x.id == id).firstOrNull?.codigo;
+
+    // Columna que recupera a cada columna: {original: recuperación}.
+    final recuperadaPor = <int, RegistroColumna>{};
+    for (final x in w.columnas) {
+      final r = w.configs[x.id]?.recupera;
+      if (r != null) recuperadaPor[r] = x;
+    }
+
+    /// Nota que se ve: con recuperación, la que cuenta según el docente.
+    (String?, bool) notaDe(RegistroColumna col, Estudiante e) {
+      final v = w.notas[col.id]?[e.id];
+      final rec = recuperadaPor[col.id];
+      final esc = w.escalaDe(col);
+      if (rec == null || esc == null) return (v, false);
+      final r = w.notas[rec.id]?[e.id];
+      final ef = notaConRecuperacion(
+        v,
+        r,
+        esc,
+        masAlta: w.configs[rec.id]?.recuperaMasAlta ?? true,
+      );
+      return (ef, ef != v);
+    }
+
+    String? letraDe(RegistroColumna col, String? v) {
+      final esc = w.escalaDe(col);
+      final l = w.letras;
+      if (v == null || esc == null || l == null || !esc.numerica) return null;
+      if (!(w.configs[col.id]?.mostrarLetra ?? false)) return null;
+      return letraDeNumero(v, esc, l);
+    }
+
     Widget pie(RegistroColumna col, double ancho, {bool fijada = false}) =>
         _CeldaMedia(
-          texto: col.tipo == 'nota'
+          texto: tieneEscala(col.tipo)
               ? mediaColumna([
-                  for (final e in w.estudiantes) ?w.notas[col.id]?[e.id],
+                  for (final e in w.estudiantes) ?notaDe(col, e).$1,
                 ], w.escalaDe(col))
               : null,
           escala: w.escalaDe(col),
@@ -1808,6 +1923,8 @@ class _TablaState extends State<_Tabla> {
                         columna: col,
                         escala: w.escalaDe(col),
                         instrumento: w.instrumentos[col.id],
+                        config: w.configs[col.id],
+                        recupera: codigoDe(w.configs[col.id]?.recupera),
                         colores: c,
                         ancho: celdaW,
                         compacta: !ancho,
@@ -1832,7 +1949,9 @@ class _TablaState extends State<_Tabla> {
                     children: [
                       for (final col in libres)
                         _Celda(
-                          valor: w.notas[col.id]?[e.id],
+                          valor: notaDe(col, e).$1,
+                          recuperada: notaDe(col, e).$2,
+                          letra: letraDe(col, notaDe(col, e).$1),
                           escala: w.escalaDe(col),
                           calculada: col.tipo != 'nota',
                           colores: c,
@@ -1886,6 +2005,8 @@ class _TablaState extends State<_Tabla> {
                 columna: fija,
                 escala: w.escalaDe(fija),
                 instrumento: w.instrumentos[fija.id],
+                config: w.configs[fija.id],
+                recupera: codigoDe(w.configs[fija.id]?.recupera),
                 colores: c,
                 ancho: fijaW,
                 compacta: !ancho,
@@ -1896,7 +2017,9 @@ class _TablaState extends State<_Tabla> {
               child: lista(
                 2,
                 (e, _) => _Celda(
-                  valor: w.notas[fija.id]?[e.id],
+                  valor: notaDe(fija, e).$1,
+                  recuperada: notaDe(fija, e).$2,
+                  letra: letraDe(fija, notaDe(fija, e).$1),
                   escala: w.escalaDe(fija),
                   calculada: fija.tipo != 'nota',
                   fijada: true,
@@ -2113,6 +2236,10 @@ class _CabeceraColumna extends StatelessWidget {
   final RegistroColumna columna;
   final Escala? escala;
   final Instrumento? instrumento;
+  final ConfigColumna? config;
+
+  /// Código de la columna que esta recupera.
+  final String? recupera;
   final ColoresRegistro colores;
   final double ancho;
   final bool compacta;
@@ -2122,6 +2249,8 @@ class _CabeceraColumna extends StatelessWidget {
     required this.columna,
     required this.escala,
     this.instrumento,
+    this.config,
+    this.recupera,
     required this.colores,
     required this.ancho,
     required this.compacta,
@@ -2143,9 +2272,18 @@ class _CabeceraColumna extends StatelessWidget {
     final fecha = col.fecha == null
         ? null
         : DateFormat('d MMM', 'es_PE').format(DateTime.parse(col.fecha!));
-    final detalle = calculada
+    final auto = esAutomatica(col.tipo);
+    final detalle = auto
+        ? [
+            col.tipo == 'asistencia' ? 'Asistencia' : 'Participación',
+            escalaCorta(escala),
+          ].join(' · ')
+        : calculada
         ? (col.fijada ? 'Fija · calculada' : 'Calculada')
-        : [?fecha, escalaCorta(escala)].join(' · ');
+        : [
+            if (recupera != null) 'Recupera $recupera' else ?fecha,
+            escalaCorta(escala),
+          ].join(' · ');
 
     return Material(
       color: fondo,
@@ -2162,7 +2300,13 @@ class _CabeceraColumna extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 4),
                     child: KipuIcon(
-                      col.fijada ? KipuIcono.chincheta : KipuIcono.calculadora,
+                      col.fijada
+                          ? KipuIcono.chincheta
+                          : (col.tipo == 'asistencia'
+                                ? KipuIcono.asistencia
+                                : (col.tipo == 'participacion'
+                                      ? KipuIcono.participa
+                                      : KipuIcono.calculadora)),
                       size: 18,
                       color: Colors.white,
                     ),
@@ -2191,6 +2335,17 @@ class _CabeceraColumna extends StatelessWidget {
                         ),
                       ),
                     ),
+                    if (config?.bloqueada ?? false) ...[
+                      const SizedBox(width: 3),
+                      Tooltip(
+                        message: 'Columna bloqueada',
+                        child: KipuIcon(
+                          KipuIcono.candado,
+                          size: compacta ? 12 : 14,
+                          color: tinta,
+                        ),
+                      ),
+                    ],
                     if (instrumento != null && !calculada) ...[
                       const SizedBox(width: 3),
                       Tooltip(
@@ -2254,6 +2409,12 @@ class _CabeceraColumna extends StatelessWidget {
 
 class _Celda extends StatelessWidget {
   final String? valor;
+
+  /// La nota que se ve viene de la columna de recuperación.
+  final bool recuperada;
+
+  /// Letra que acompaña a la nota numérica («16 · A»).
+  final String? letra;
   final Escala? escala;
   final bool calculada;
   final bool fijada;
@@ -2263,6 +2424,8 @@ class _Celda extends StatelessWidget {
 
   const _Celda({
     required this.valor,
+    this.recuperada = false,
+    this.letra,
     required this.escala,
     required this.calculada,
     this.fijada = false,
@@ -2299,9 +2462,48 @@ class _Celda extends StatelessWidget {
                         : const Color(0xFFB0B4D0),
                   ),
                 )
-              : VistaNota(valor, escala, sobreOscuro: fijada),
+              : _conExtras(VistaNota(valor, escala, sobreOscuro: fijada)),
         ),
       ),
+    );
+  }
+
+  Widget _conExtras(Widget nota) {
+    if (letra == null && !recuperada) return nota;
+    final suave = fijada
+        ? Colors.white.withValues(alpha: .75)
+        : KipuColores.gris;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Flexible(child: nota),
+        if (letra != null) ...[
+          const SizedBox(width: 3),
+          Text(
+            letra!,
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              color: suave,
+            ),
+          ),
+        ],
+        if (recuperada)
+          Tooltip(
+            message: 'Nota de la recuperación',
+            child: Padding(
+              padding: const EdgeInsets.only(left: 2, bottom: 10),
+              child: Text(
+                'R',
+                style: TextStyle(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w800,
+                  color: fijada ? Colors.white : const Color(0xFF0E7A5F),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -2875,9 +3077,11 @@ Future<void> _ponerNota(
   required Map<int, String> notas,
   required Map<int, int> equipos,
   required ColoresRegistro colores,
+  ConfigColumna config = const ConfigColumna(),
 }) => _hoja(
   context,
   _PonerNota(
+    config: config,
     columna: columna,
     escala: escala,
     estudiantes: estudiantes,
@@ -2889,6 +3093,7 @@ Future<void> _ponerNota(
 );
 
 class _PonerNota extends StatefulWidget {
+  final ConfigColumna config;
   final RegistroColumna columna;
   final Escala escala;
   final List<Estudiante> estudiantes;
@@ -2898,6 +3103,7 @@ class _PonerNota extends StatefulWidget {
   final ColoresRegistro colores;
 
   const _PonerNota({
+    this.config = const ConfigColumna(),
     required this.columna,
     required this.escala,
     required this.estudiantes,
@@ -2946,7 +3152,12 @@ class _PonerNotaState extends State<_PonerNota> {
         );
         return;
       }
-      valor = n.toString().replaceAll(RegExp(r'\.0$'), '');
+      // Decimales y redondeo de la columna: 14,5 → 15 con «Normal».
+      final cfg = widget.config;
+      valor = numeroGuardado(
+        redondear(n, cfg.decimales, cfg.redondeo),
+        cfg.decimales,
+      );
     }
     for (final m in _integrantes) {
       await db.ponerNota(widget.columna.id, m.id, valor);
@@ -3334,7 +3545,7 @@ Future<void> _formColumna(
   required List<Escala> escalas,
   required String escalaDefecto,
   required ColoresRegistro colores,
-  String codigoSugerido = '',
+  List<RegistroColumna> columnas = const [],
   RegistroColumna? columna,
   required List<GrupoEquipos> grupos,
 }) => _hoja(
@@ -3346,7 +3557,7 @@ Future<void> _formColumna(
     escalas: escalas,
     escalaDefecto: escalaDefecto,
     colores: colores,
-    codigoSugerido: codigoSugerido,
+    columnas: columnas,
     columna: columna,
   ),
 );
@@ -3357,7 +3568,9 @@ class _FormColumna extends StatefulWidget {
   final List<Escala> escalas;
   final String escalaDefecto;
   final ColoresRegistro colores;
-  final String codigoSugerido;
+
+  /// Las columnas del periodo: para el código libre y la recuperación.
+  final List<RegistroColumna> columnas;
   final RegistroColumna? columna;
   final List<GrupoEquipos> grupos;
 
@@ -3368,7 +3581,7 @@ class _FormColumna extends StatefulWidget {
     required this.escalas,
     required this.escalaDefecto,
     required this.colores,
-    required this.codigoSugerido,
+    this.columnas = const [],
     this.columna,
   });
 
@@ -3377,10 +3590,57 @@ class _FormColumna extends StatefulWidget {
 }
 
 class _FormColumnaState extends State<_FormColumna> {
-  late String _tipo = widget.columna?.tipo ?? 'nota';
+  /// Cómo se evalúa: 'mano', 'instrumento', 'asistencia', 'participacion'
+  /// (o 'calculada' en columnas que ya existían).
+  late String _modo = switch (widget.columna?.tipo) {
+    null || 'nota' => 'mano',
+    final t => t,
+  };
+  String get _tipo =>
+      _modo == 'mano' || _modo == 'instrumento' ? 'nota' : _modo;
+  ConfigColumna _cfg = const ConfigColumna();
+
+  /// El código se va sugiriendo solo hasta que el docente lo cambie.
+  late bool _codigoAuto = widget.columna == null;
   late final _codigo = TextEditingController(
-    text: widget.columna?.codigo ?? widget.codigoSugerido,
+    text: widget.columna?.codigo ?? _codigoSugerido(),
   );
+
+  Escala get _escalaActual => widget.escalas.firstWhere(
+    (e) => e.id == _escala,
+    orElse: () => widget.escalas.first,
+  );
+
+  Escala? get _letras => widget.escalas
+      .where((e) => !e.numerica && e.valores.length > 2)
+      .firstOrNull;
+
+  /// Columnas de notas del periodo que esta puede recuperar.
+  List<RegistroColumna> get _recuperables => [
+    for (final c in widget.columnas)
+      if (c.tipo == 'nota' && c.id != widget.columna?.id) c,
+  ];
+
+  bool get _masOpcionesAbiertas =>
+      _enEquipo ||
+      _cfg.recupera != null ||
+      _cfg.bloqueada ||
+      _cfg.ocultaEnDescarga ||
+      _cfg.decimales != 0 ||
+      _cfg.redondeo != Redondeo.normal;
+
+  String _codigoSugerido() => codigoLibre(
+    prefijoCodigo(_modo, instrumento: _ins?.tipo),
+    [
+      for (final c in widget.columnas)
+        if (c.id != widget.columna?.id) c.codigo,
+    ],
+  );
+
+  void _cambiarModo(String m) => setState(() {
+    _modo = m;
+    if (_codigoAuto) _codigo.text = _codigoSugerido();
+  });
   late final _tema = TextEditingController(text: widget.columna?.tema);
   late String? _fecha =
       widget.columna?.fecha ??
@@ -3402,7 +3662,12 @@ class _FormColumnaState extends State<_FormColumna> {
   void initState() {
     super.initState();
     final col = widget.columna;
-    if (col != null) _cargarInstrumento(col.id);
+    if (col != null) {
+      _cargarInstrumento(col.id);
+      db.leerConfigColumna(col.id).then((c) {
+        if (mounted) setState(() => _cfg = c);
+      });
+    }
   }
 
   Future<void> _cargarInstrumento(int columnaId) async {
@@ -3413,6 +3678,7 @@ class _FormColumnaState extends State<_FormColumna> {
     if (!mounted) return;
     setState(() {
       _ins = _insOriginal = ins;
+      _modo = 'instrumento';
       _insNuevo =
           nuevo != null && jsonEncode(nuevo.aJson()) != jsonEncode(ins.aJson())
           ? nuevo
@@ -3514,6 +3780,10 @@ class _FormColumnaState extends State<_FormColumna> {
       _insNuevo = null;
       final ins = _ins;
       if (ins != null && _tema.text.trim().isEmpty) _tema.text = ins.nombre;
+      if (ins != null && ins.competencias.isNotEmpty) {
+        _cfg = _cfg.copiar(competencia: ins.competencias.first);
+      }
+      if (_codigoAuto) _codigo.text = _codigoSugerido();
     });
   }
 
@@ -3549,7 +3819,12 @@ class _FormColumnaState extends State<_FormColumna> {
       setState(() => _error = 'Escribe un código corto, como F1 o T2');
       return;
     }
+    if (_modo == 'instrumento' && _ins == null) {
+      setState(() => _error = 'Elige el instrumento con el que vas a evaluar');
+      return;
+    }
     final nota = _tipo == 'nota';
+    final conEscala = tieneEscala(_tipo);
     final tema = _tema.text.trim();
     final datos = RegistroColumnasCompanion(
       cursoId: Value(widget.cursoId),
@@ -3558,17 +3833,25 @@ class _FormColumnaState extends State<_FormColumna> {
       tema: Value(tema.isEmpty ? null : tema),
       fecha: Value(_fecha),
       tipo: Value(_tipo),
-      escala: Value(nota ? _escala : null),
+      escala: Value(conEscala ? _escala : null),
       enEquipo: Value(nota && _enEquipo),
       grupo: Value(nota && _enEquipo ? _grupo : null),
     );
+    final conInstrumento = _modo == 'instrumento';
+    // Las opciones que no aplican a este tipo no se guardan.
+    final cfg = nota
+        ? _cfg
+        : _cfg.copiar(sinRecupera: true, bloqueada: false);
+    int id;
     if (widget.columna == null) {
-      final id = await db.crearColumna(datos.copyWith(orden: const Value(0)));
-      if (nota && _ins != null) await db.vincularInstrumento(id, _ins);
+      id = await db.crearColumna(datos.copyWith(orden: const Value(0)));
+      if (conInstrumento) await db.vincularInstrumento(id, _ins);
     } else {
-      if (!await _guardarInstrumento(widget.columna!.id, nota)) return;
-      await db.editarColumna(widget.columna!.id, datos);
+      id = widget.columna!.id;
+      if (!await _guardarInstrumento(id, conInstrumento)) return;
+      await db.editarColumna(id, datos);
     }
+    await db.guardarConfigColumna(id, cfg);
     if (mounted) Navigator.pop(context);
   }
 
@@ -3586,49 +3869,54 @@ class _FormColumnaState extends State<_FormColumna> {
         ),
       ),
     );
-    Widget tipo(String id, KipuIcono icono, String titulo, String detalle) {
-      final on = _tipo == id;
-      return Expanded(
-        child: GestureDetector(
-          onTap: () => setState(() {
-            _tipo = id;
-            if (id == 'calculada' &&
-                (_codigo.text.isEmpty ||
-                    _codigo.text == widget.codigoSugerido)) {
-              _codigo.text = 'Prom.';
-            }
-          }),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: on ? Color.lerp(base, Colors.white, .93) : Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: on ? base : const Color(0xFFE6E7F0),
-                width: 1.5,
+    Widget tipo(
+      String id,
+      KipuIcono icono,
+      String titulo,
+      String detalle,
+      double ancho, {
+      bool activo = true,
+    }) {
+      final on = _modo == id;
+      return SizedBox(
+        width: ancho,
+        child: Opacity(
+          opacity: activo ? 1 : .5,
+          child: GestureDetector(
+            onTap: activo ? () => _cambiarModo(id) : null,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: on ? Color.lerp(base, Colors.white, .93) : Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: on ? base : const Color(0xFFE6E7F0),
+                  width: 1.5,
+                ),
               ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                KipuIcon(icono, size: 28, color: base),
-                const SizedBox(height: 8),
-                Text(
-                  titulo,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  KipuIcon(icono, size: 26, color: base),
+                  const SizedBox(height: 6),
+                  Text(
+                    titulo,
+                    style: const TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-                Text(
-                  detalle,
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    color: KipuColores.gris,
+                  Text(
+                    detalle,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: KipuColores.gris,
+                      height: 1.25,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -3643,19 +3931,37 @@ class _FormColumnaState extends State<_FormColumna> {
           widget.columna == null ? 'Nueva columna' : 'Editar columna',
           style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
         ),
-        etiqueta('Tipo de columna'),
-        Row(
-          children: [
-            tipo('nota', KipuIcono.notas, 'Nota', 'Pones la nota a mano'),
-            const SizedBox(width: 10),
-            tipo(
-              'calculada',
-              KipuIcono.calculadora,
-              'Calculada',
-              'Promedio · se configura después',
-            ),
-          ],
+        etiqueta('¿Cómo vas a evaluar?'),
+        LayoutBuilder(
+          builder: (context, caja) {
+            final w = (caja.maxWidth - 10) / 2;
+            return Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                tipo('mano', KipuIcono.notas, 'Nota a mano',
+                    'Escribes o tocas la nota', w),
+                tipo('instrumento', KipuIcono.rubrica, 'Con instrumento',
+                    'Rúbrica, lista, escala o examen', w),
+                tipo('asistencia', KipuIcono.asistencia, 'Asistencia',
+                    'Se llena sola con el % del periodo', w),
+                tipo('participacion', KipuIcono.participa, 'Participación',
+                    'Sale de los + y − junto a los nombres', w),
+                if (widget.columna?.tipo == 'calculada')
+                  tipo('calculada', KipuIcono.calculadora, 'Calculada',
+                      'Promedio · se configura después', w),
+              ],
+            );
+          },
         ),
+        if (widget.columna?.tipo != 'calculada')
+          const Padding(
+            padding: EdgeInsets.only(top: 6, left: 4),
+            child: Text(
+              'Columna calculada (promedios): próximamente.',
+              style: TextStyle(fontSize: 12, color: KipuColores.gris),
+            ),
+          ),
         const SizedBox(height: 16),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -3665,7 +3971,10 @@ class _FormColumnaState extends State<_FormColumna> {
               child: TextField(
                 controller: _codigo,
                 maxLength: 8,
-                onChanged: (_) => setState(() => _error = null),
+                onChanged: (_) => setState(() {
+                  _error = null;
+                  _codigoAuto = false;
+                }),
                 decoration: const InputDecoration(
                   labelText: 'Código',
                   counterText: '',
@@ -3743,7 +4052,123 @@ class _FormColumnaState extends State<_FormColumna> {
             ),
           ),
         ),
-        if (_tipo == 'nota') ...[
+        if (_modo == 'instrumento') ...[
+          etiqueta('Instrumento de evaluación'),
+          _TarjetaElegirInstrumento(
+            ins: _ins,
+            base: base,
+            onTap: _elegirInstrumento,
+            onQuitar: _ins == null
+                ? null
+                : () => setState(() {
+                    _ins = null;
+                    _insNuevo = null;
+                  }),
+          ),
+          if (_insNuevo != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Editaste este instrumento en tu biblioteca después de '
+                      'usarlo aquí.',
+                      style: TextStyle(fontSize: 12.5, color: KipuColores.gris),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => setState(() {
+                      _ins = _insNuevo;
+                      _insNuevo = null;
+                    }),
+                    child: const Text('Usar la versión nueva'),
+                  ),
+                ],
+              ),
+            ),
+          if (_cfg.competencia.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Row(
+                children: [
+                  const Text(
+                    'Competencia: ',
+                    style: TextStyle(fontSize: 13, color: KipuColores.gris),
+                  ),
+                  Expanded(
+                    child: Text(
+                      competenciaPorId(_cfg.competencia)?.nombre ??
+                          _cfg.competencia,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Quitar competencia',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () =>
+                        setState(() => _cfg = _cfg.copiar(competencia: '')),
+                    icon: const KipuIcon(
+                      KipuIcono.cerrar,
+                      size: 16,
+                      color: KipuColores.gris,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+        if (_modo == 'asistencia')
+          _NotaAyuda(
+            base: base,
+            texto:
+                'Presente (P) y tarde (T) cuentan como asistencia; la falta '
+                '(F) baja el %; la justificada (J) no cuenta. Usa las fechas '
+                'del periodo si las configuraste en Académica.',
+          ),
+        if (_modo == 'participacion') ...[
+          _NotaAyuda(
+            base: base,
+            texto:
+                'Cada (+) que anotas junto al nombre suma y cada (−) resta. '
+                'Se cuentan las del periodo.',
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Participaciones (+) para la nota máxima',
+                  style: TextStyle(fontSize: 14),
+                ),
+              ),
+              IconButton(
+                onPressed: _cfg.meta > 1
+                    ? () => setState(
+                        () => _cfg = _cfg.copiar(meta: _cfg.meta - 1),
+                      )
+                    : null,
+                icon: const Text('−', style: TextStyle(fontSize: 20)),
+              ),
+              Text(
+                '${_cfg.meta}',
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              IconButton(
+                onPressed: () =>
+                    setState(() => _cfg = _cfg.copiar(meta: _cfg.meta + 1)),
+                icon: const Text('+', style: TextStyle(fontSize: 20)),
+              ),
+            ],
+          ),
+        ],
+        if (tieneEscala(_tipo)) ...[
           etiqueta('Escala'),
           Row(
             children: [
@@ -3800,41 +4225,89 @@ class _FormColumnaState extends State<_FormColumna> {
               ],
             ],
           ),
-          etiqueta('Instrumento de evaluación'),
-          _TarjetaElegirInstrumento(
-            ins: _ins,
+          if (_escalaActual.numerica && _letras != null) ...[
+            const SizedBox(height: 10),
+            _Interruptor(
+              base: base,
+              icono: KipuIcono.notas,
+              titulo: 'Mostrar también la letra',
+              detalle:
+                  'La celda muestra «16 · A». Sirve con las dos normas.',
+              valor: _cfg.mostrarLetra,
+              onCambio: (v) =>
+                  setState(() => _cfg = _cfg.copiar(mostrarLetra: v)),
+            ),
+          ],
+          etiqueta('Así se verá'),
+          _VistaPrevia(
+            escala: _escalaActual,
+            letras: _cfg.mostrarLetra ? _letras : null,
+            config: _cfg,
+            modo: _modo,
             base: base,
-            onTap: _elegirInstrumento,
-            onQuitar: _ins == null
-                ? null
-                : () => setState(() {
-                    _ins = null;
-                    _insNuevo = null;
-                  }),
           ),
-          if (_insNuevo != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Row(
-                children: [
-                  const Expanded(
+          const SizedBox(height: 10),
+          Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              initiallyExpanded: _masOpcionesAbiertas,
+              tilePadding: const EdgeInsets.symmetric(horizontal: 4),
+              childrenPadding: EdgeInsets.zero,
+              title: const Text(
+                'Más opciones',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+              ),
+              subtitle: const Text(
+                'Decimales, equipo, recuperación, bloqueo y descarga',
+                style: TextStyle(fontSize: 12, color: KipuColores.gris),
+              ),
+              children: [
+                if (_escalaActual.numerica) ...[
+                  etiqueta('Decimales y redondeo'),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final d in const [0, 1, 2])
+                        ChoiceChip(
+                          label: Text(
+                            d == 0 ? 'Sin decimales' : '$d decimal${d > 1 ? 'es' : ''}',
+                          ),
+                          selected: _cfg.decimales == d,
+                          onSelected: (_) => setState(
+                            () => _cfg = _cfg.copiar(decimales: d),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final r in Redondeo.values)
+                        ChoiceChip(
+                          label: Text(r.nombre),
+                          selected: _cfg.redondeo == r,
+                          onSelected: (_) => setState(
+                            () => _cfg = _cfg.copiar(redondeo: r),
+                          ),
+                        ),
+                    ],
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6, left: 2),
                     child: Text(
-                      'Editaste este instrumento en tu biblioteca después de '
-                      'usarlo aquí.',
-                      style: TextStyle(fontSize: 12.5, color: KipuColores.gris),
+                      'Ejemplo: ${ejemploRedondeo(_cfg.decimales, _cfg.redondeo)}',
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: KipuColores.gris,
+                      ),
                     ),
                   ),
-                  TextButton(
-                    onPressed: () => setState(() {
-                      _ins = _insNuevo;
-                      _insNuevo = null;
-                    }),
-                    child: const Text('Usar la versión nueva'),
-                  ),
                 ],
-              ),
-            ),
-          const SizedBox(height: 12),
+                if (_tipo == 'nota') ...[
+                  const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
             decoration: BoxDecoration(
@@ -3911,6 +4384,77 @@ class _FormColumnaState extends State<_FormColumna> {
                 ],
               ),
           ],
+                  etiqueta('Recuperación'),
+                  DropdownButtonFormField<int?>(
+                    initialValue: _recuperables.any((c) => c.id == _cfg.recupera)
+                        ? _cfg.recupera
+                        : null,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Esta columna recupera a…',
+                    ),
+                    items: [
+                      const DropdownMenuItem<int?>(
+                        value: null,
+                        child: Text('Ninguna'),
+                      ),
+                      for (final c in _recuperables)
+                        DropdownMenuItem<int?>(
+                          value: c.id,
+                          child: Text(
+                            (c.tema ?? '').isEmpty
+                                ? c.codigo
+                                : '${c.codigo} · ${c.tema}',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                    onChanged: (v) => setState(
+                      () => _cfg = v == null
+                          ? _cfg.copiar(sinRecupera: true)
+                          : _cfg.copiar(recupera: v),
+                    ),
+                  ),
+                  if (_cfg.recupera != null) ...[
+                    const SizedBox(height: 8),
+                    _Interruptor(
+                      base: base,
+                      icono: KipuIcono.promedio,
+                      titulo: 'Cuenta la nota más alta',
+                      detalle: _cfg.recuperaMasAlta
+                          ? 'Si sacó más en la recuperación, se ve esa nota.'
+                          : 'La nota de recuperación reemplaza a la original.',
+                      valor: _cfg.recuperaMasAlta,
+                      onCambio: (v) => setState(
+                        () => _cfg = _cfg.copiar(recuperaMasAlta: v),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  _Interruptor(
+                    base: base,
+                    icono: KipuIcono.candado,
+                    titulo: 'Bloquear',
+                    detalle: 'Nadie cambia las notas por error hasta desbloquearla',
+                    valor: _cfg.bloqueada,
+                    onCambio: (v) =>
+                        setState(() => _cfg = _cfg.copiar(bloqueada: v)),
+                  ),
+                ],
+                const SizedBox(height: 10),
+                _Interruptor(
+                  base: base,
+                  icono: KipuIcono.ojoCerrado,
+                  titulo: 'No incluir en la descarga',
+                  detalle: 'No sale en el PDF ni en el Excel del registro',
+                  valor: _cfg.ocultaEnDescarga,
+                  onCambio: (v) =>
+                      setState(() => _cfg = _cfg.copiar(ocultaEnDescarga: v)),
+                ),
+                const SizedBox(height: 4),
+              ],
+            ),
+          ),
         ],
         const SizedBox(height: 18),
         Row(
@@ -3943,6 +4487,7 @@ Future<void> _menuColumna(
   BuildContext context,
   RegistroColumna col,
   List<RegistroColumna> columnas, {
+  ConfigColumna config = const ConfigColumna(),
   required List<GrupoEquipos> grupos,
   required List<Estudiante> estudiantes,
   required ColoresRegistro colores,
@@ -3974,18 +4519,34 @@ Future<void> _menuColumna(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _CabezaHoja(
-          icono: col.tipo == 'nota' ? KipuIcono.notas : KipuIcono.calculadora,
+          icono: switch (col.tipo) {
+            'nota' => KipuIcono.notas,
+            'asistencia' => KipuIcono.asistencia,
+            'participacion' => KipuIcono.participa,
+            _ => KipuIcono.calculadora,
+          },
           color: base,
           titulo: col.codigo,
           subtitulo: [
             if ((col.tema ?? '').isNotEmpty) col.tema!,
-            col.tipo == 'nota' ? 'Columna de notas' : 'Columna calculada',
+            switch (col.tipo) {
+              'nota' => 'Columna de notas',
+              'asistencia' => 'Asistencia del periodo',
+              'participacion' => 'Participación del periodo',
+              _ => 'Columna calculada',
+            },
           ].join(' · '),
         ),
         const SizedBox(height: 10),
         if (grupo != null)
           opcion(KipuIcono.equipo, 'Ver integrantes de los equipos', 'equipos'),
         opcion(KipuIcono.editar, 'Editar columna', 'editar'),
+        if (col.tipo == 'nota')
+          opcion(
+            KipuIcono.candado,
+            config.bloqueada ? 'Desbloquear' : 'Bloquear para no cambiar notas',
+            'bloquear',
+          ),
         opcion(
           KipuIcono.chincheta,
           col.fijada ? 'Desfijar' : 'Fijar a la derecha',
@@ -4010,7 +4571,13 @@ Future<void> _menuColumna(
         escalaDefecto: escalaDefecto,
         colores: colores,
         columna: col,
+        columnas: columnas,
         grupos: grupos,
+      );
+    case 'bloquear':
+      await db.guardarConfigColumna(
+        col.id,
+        config.copiar(bloqueada: !config.bloqueada),
       );
     case 'equipos':
       await _hoja(
@@ -5125,6 +5692,171 @@ class _TarjetaElegirInstrumento extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+
+/// Texto de ayuda con fondo suave.
+class _NotaAyuda extends StatelessWidget {
+  final String texto;
+  final Color base;
+  const _NotaAyuda({required this.texto, required this.base});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    margin: const EdgeInsets.only(top: 12),
+    padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+    decoration: BoxDecoration(
+      color: Color.lerp(base, Colors.white, .92),
+      borderRadius: BorderRadius.circular(14),
+    ),
+    child: Text(
+      texto,
+      textAlign: TextAlign.justify,
+      style: const TextStyle(fontSize: 13, height: 1.35),
+    ),
+  );
+}
+
+/// Opción con interruptor, con el mismo estilo que «En equipo».
+class _Interruptor extends StatelessWidget {
+  final Color base;
+  final KipuIcono icono;
+  final String titulo;
+  final String detalle;
+  final bool valor;
+  final ValueChanged<bool> onCambio;
+  const _Interruptor({
+    required this.base,
+    required this.icono,
+    required this.titulo,
+    required this.detalle,
+    required this.valor,
+    required this.onCambio,
+  });
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: const Color(0xFFE6E7F0), width: 1.5),
+    ),
+    child: Row(
+      children: [
+        KipuIcon(icono, size: 22, color: base),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                titulo,
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+              ),
+              Text(
+                detalle,
+                style: const TextStyle(fontSize: 12, color: KipuColores.gris),
+              ),
+            ],
+          ),
+        ),
+        Switch(
+          value: valor,
+          activeThumbColor: Colors.white,
+          activeTrackColor: base,
+          onChanged: onCambio,
+        ),
+      ],
+    ),
+  );
+}
+
+/// Cómo se verá la celda con la escala y las opciones elegidas.
+class _VistaPrevia extends StatelessWidget {
+  final Escala escala;
+  final Escala? letras;
+  final ConfigColumna config;
+  final String modo;
+  final Color base;
+  const _VistaPrevia({
+    required this.escala,
+    required this.letras,
+    required this.config,
+    required this.modo,
+    required this.base,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final String valor;
+    final String explicacion;
+    if (modo == 'asistencia' || modo == 'participacion') {
+      const pct = 85.0;
+      valor = valorDePorcentaje(
+        pct,
+        escala,
+        decimales: config.decimales,
+        redondeo: config.redondeo,
+      );
+      explicacion = modo == 'asistencia'
+          ? 'Ejemplo: asistió al 85 % de las clases.'
+          : 'Ejemplo: tiene el 85 % de la meta de participaciones.';
+    } else if (escala.numerica) {
+      final hi = escala.maximo ?? 20;
+      final crudo = hi * .775;
+      valor = numeroGuardado(
+        redondear(crudo, config.decimales, config.redondeo),
+        config.decimales,
+      );
+      explicacion =
+          'Ejemplo: ${crudo.toString().replaceAll('.', ',')} se guarda como '
+          '${valor.replaceAll('.', ',')}.';
+    } else {
+      valor = escala.valores.length > 1
+          ? escala.valores[1].codigo
+          : escala.valores.first.codigo;
+      explicacion = 'Ejemplo de una nota con esta escala.';
+    }
+    final letra = letras == null ? null : letraDeNumero(valor, escala, letras!);
+    return Row(
+      children: [
+        Container(
+          width: 92,
+          height: 54,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE6E7F0), width: 1.5),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              VistaNota(valor, escala),
+              if (letra != null) ...[
+                const SizedBox(width: 4),
+                Text(
+                  letra,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: KipuColores.gris,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            explicacion,
+            style: const TextStyle(fontSize: 12.5, color: KipuColores.gris),
+          ),
+        ),
+      ],
     );
   }
 }
