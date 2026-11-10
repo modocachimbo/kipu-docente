@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 
+import 'calculo.dart';
 import 'database.dart';
 import 'instrumentos.dart';
 import 'instrumentos_ejemplos.dart';
@@ -251,6 +252,24 @@ extension EvaluacionDb on KipuDb {
                     f.valor,
             },
           );
+
+  // Equivalencias de letras a número (para promedios que mezclan escalas)
+
+  Future<List<double>> leerEquivalencias(Escala e) async {
+    final defecto = equivalenciasPorDefecto(e);
+    final v = await leerAjuste('equivalencias_${e.id}');
+    if (v == null || v.isEmpty) return defecto;
+    try {
+      final l = [for (final x in jsonDecode(v) as List) (x as num).toDouble()];
+      return l.length == defecto.length ? l : defecto;
+    } catch (_) {
+      return defecto;
+    }
+  }
+
+  Future<void> guardarEquivalencias(Escala e, List<double>? l) => l == null
+      ? borrarAjuste('equivalencias_${e.id}')
+      : guardarAjuste('equivalencias_${e.id}', jsonEncode(l));
 
   // Conversión a la escala
 

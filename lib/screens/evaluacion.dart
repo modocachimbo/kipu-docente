@@ -2,6 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../data/academico.dart';
+import '../data/calculo.dart' show equivalenciasPorDefecto;
 import '../data/cneb.dart';
 import '../data/evaluacion_db.dart';
 import '../data/instrumentos.dart';
@@ -1728,6 +1729,9 @@ Future<void> editarTramos(BuildContext context) async {
       if (!e.numerica) e,
   ];
   final actuales = {for (final e in letras) e.id: await db.leerTramos(e)};
+  final equivalencias = {
+    for (final e in letras) e.id: await db.leerEquivalencias(e),
+  };
   if (!context.mounted) return;
   await showDialog<void>(
     context: context,
@@ -1735,7 +1739,12 @@ Future<void> editarTramos(BuildContext context) async {
       icono: KipuIcono.ajustes,
       titulo: 'Conversión a notas',
       subtitulo: 'Del % logrado a la escala del registro',
-      contenido: _Tramos(escalas: letras, actuales: actuales, config: config),
+      contenido: _Tramos(
+        escalas: letras,
+        actuales: actuales,
+        equivalencias: equivalencias,
+        config: config,
+      ),
     ),
   );
 }
@@ -1743,10 +1752,12 @@ Future<void> editarTramos(BuildContext context) async {
 class _Tramos extends StatefulWidget {
   final List<Escala> escalas;
   final Map<String, List<double>> actuales;
+  final Map<String, List<double>> equivalencias;
   final ConfigAcademica config;
   const _Tramos({
     required this.escalas,
     required this.actuales,
+    required this.equivalencias,
     required this.config,
   });
 
@@ -1762,10 +1773,22 @@ class _TramosState extends State<_Tramos> {
           TextEditingController(text: t.round().toString()),
       ],
   };
+  late final Map<String, List<TextEditingController>> _eq = {
+    for (final e in widget.escalas)
+      e.id: [
+        for (final t in widget.equivalencias[e.id]!)
+          TextEditingController(text: numeroCorto(t)),
+      ],
+  };
   String? _error;
 
   @override
   void dispose() {
+    for (final l in _eq.values) {
+      for (final c in l) {
+        c.dispose();
+      }
+    }
     for (final l in _c.values) {
       for (final c in l) {
         c.dispose();
@@ -1793,8 +1816,26 @@ class _TramosState extends State<_Tramos> {
       }
       nuevos[e] = l;
     }
+    final eqs = <Escala, List<double>>{};
+    for (final e in widget.escalas) {
+      final l = <double>[];
+      for (final c in _eq[e.id]!) {
+        final n = double.tryParse(c.text.replaceAll(',', '.').trim());
+        if (n == null || n < 0 || n > 20) {
+          setState(
+            () => _error = '${e.nombre}: cada letra debe valer de 0 a 20',
+          );
+          return;
+        }
+        l.add(n);
+      }
+      eqs[e] = l;
+    }
     for (final x in nuevos.entries) {
       await db.guardarTramos(x.key, x.value);
+    }
+    for (final x in eqs.entries) {
+      await db.guardarEquivalencias(x.key, x.value);
     }
     if (mounted) Navigator.pop(context);
   }
@@ -1804,6 +1845,10 @@ class _TramosState extends State<_Tramos> {
       final d = tramosPorDefecto(e);
       for (var i = 0; i < d.length; i++) {
         _c[e.id]![i].text = d[i].round().toString();
+      }
+      final q = equivalenciasPorDefecto(e);
+      for (var i = 0; i < q.length && i < _eq[e.id]!.length; i++) {
+        _eq[e.id]![i].text = numeroCorto(q[i]);
       }
     }
     _error = null;
@@ -1886,8 +1931,45 @@ class _TramosState extends State<_Tramos> {
               ),
             ),
         ],
+        const SizedBox(height: 18),
+        const Text(
+          'Letras a número (para promedios)',
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Cuando una columna calculada mezcla letras y números, cada letra '
+          'vale esto sobre 20.',
+          textAlign: TextAlign.justify,
+          style: TextStyle(fontSize: 12.5, color: KipuColores.gris),
+        ),
+        for (final e in widget.escalas) ...[
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              for (var i = 0; i < e.valores.length && i < _eq[e.id]!.length; i++)
+                SizedBox(
+                  width: e.valores[i].codigo.length > 3 ? 150 : 104,
+                  child: TextField(
+                    controller: _eq[e.id]![i],
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    textAlign: TextAlign.center,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      prefixText: '${e.valores[i].codigo} = ',
+                    ),
+                    onChanged: (_) => setState(() => _error = null),
+                  ),
+                ),
+            ],
+          ),
+        ],
         if (_error != null) ...[
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           Text(_error!, style: const TextStyle(color: _rojo)),
         ],
         const SizedBox(height: 14),
