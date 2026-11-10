@@ -988,6 +988,8 @@ class KipuDb extends _$KipuDb {
             'instrumento_col_$id',
             'instrumento_marcas_$id',
             'columna_cfg_$id',
+            'nota_coment_$id',
+            'calculo_manual_$id',
           ]),
         ))
         .go();

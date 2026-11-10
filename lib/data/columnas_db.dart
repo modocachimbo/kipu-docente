@@ -29,6 +29,55 @@ extension ColumnasDb on KipuDb {
         },
       );
 
+  // Comentario de una nota («Entregó tarde»…): {columnaId: {estudiante: texto}}.
+
+  static const _prefijoComent = 'nota_coment_';
+
+  Map<int, String> _mapaTexto(String? v) {
+    if (v == null || v.isEmpty) return {};
+    try {
+      return {
+        for (final e in (jsonDecode(v) as Map<String, dynamic>).entries)
+          int.parse(e.key): '${e.value}',
+      };
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Stream<Map<int, Map<int, String>>> verComentariosNotas() =>
+      (select(ajustes)..where((a) => a.clave.like('$_prefijoComent%')))
+          .watch()
+          .map(
+            (filas) => {
+              for (final f in filas)
+                ?int.tryParse(f.clave.substring(_prefijoComent.length)):
+                    _mapaTexto(f.valor),
+            },
+          );
+
+  Future<Map<int, String>> leerComentariosNota(int columnaId) async =>
+      _mapaTexto(await leerAjuste('$_prefijoComent$columnaId'));
+
+  Future<void> guardarComentarioNota(
+    int columnaId,
+    Iterable<int> estudiantes,
+    String texto,
+  ) async {
+    final m = await leerComentariosNota(columnaId);
+    for (final e in estudiantes) {
+      if (texto.trim().isEmpty) {
+        m.remove(e);
+      } else {
+        m[e] = texto.trim();
+      }
+    }
+    await guardarAjuste(
+      '$_prefijoComent$columnaId',
+      jsonEncode({for (final e in m.entries) '${e.key}': e.value}),
+    );
+  }
+
   // Notas puestas a mano en una calculada «Kipu sugiere y tú confirmas».
 
   Future<Map<int, String>> leerNotasConfirmadas(int columnaId) async {

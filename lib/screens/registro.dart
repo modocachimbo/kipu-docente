@@ -62,6 +62,7 @@ class _RegistroCursoState extends State<RegistroCurso> {
   late final _instrumentos = db.verInstrumentosDeColumnas();
   late final _gestion = db.verGestion(widget.datos.colegio.id);
   late final _configsCol = db.verConfigsColumnas();
+  late final _comentarios = db.verComentariosNotas();
 
   /// Lo último que se usó para recalcular asistencia y participación; si
   /// cambia (otro periodo, nuevas marcas de hoy…), se vuelve a calcular.
@@ -121,8 +122,11 @@ class _RegistroCursoState extends State<RegistroCurso> {
                         _gestion,
                         (gestion) => _Escucha<Map<int, ConfigColumna>>(
                         _configsCol,
-                        (configs) => _pantalla(
+                        (configs) => _Escucha<Map<int, Map<int, String>>>(
+                        _comentarios,
+                        (comentarios) => _pantalla(
                         context,
+                        comentarios: comentarios ?? const {},
                         configs: configs ?? const {},
                         gestion: gestion ?? gestionPublica,
                         instrumentos: instrumentos ?? const {},
@@ -135,6 +139,7 @@ class _RegistroCursoState extends State<RegistroCurso> {
                         conducta: conducta ?? const {},
                         grupos: grupos ?? const [],
                         asistencia: asistencia ?? const {},
+                      ),
                       ),
                       ),
                       ),
@@ -164,6 +169,7 @@ class _RegistroCursoState extends State<RegistroCurso> {
     required Map<int, Instrumento> instrumentos,
     required String gestion,
     required Map<int, ConfigColumna> configs,
+    required Map<int, Map<int, String>> comentarios,
   }) {
     final cur = widget.datos.curso;
     final periodos = config?.periodos ?? periodosDe('bimestre');
@@ -308,6 +314,7 @@ class _RegistroCursoState extends State<RegistroCurso> {
         instrumentos: instrumentos,
         configs: configs,
         letras: letras,
+        comentarios: comentarios,
         onNueva: nuevaColumna,
         onEstudiante: (e) => abrirFicha(
           context,
@@ -1715,6 +1722,7 @@ class _Tabla extends StatefulWidget {
   final Map<int, Instrumento> instrumentos;
   final Map<int, ConfigColumna> configs;
   final Escala? letras;
+  final Map<int, Map<int, String>> comentarios;
   final VoidCallback onNueva;
   final ValueChanged<Estudiante> onEstudiante;
   final ValueChanged<Estudiante> onConducta;
@@ -1733,6 +1741,7 @@ class _Tabla extends StatefulWidget {
     this.instrumentos = const {},
     this.configs = const {},
     this.letras,
+    this.comentarios = const {},
     required this.onNueva,
     required this.onEstudiante,
     required this.onConducta,
@@ -1966,6 +1975,7 @@ class _TablaState extends State<_Tabla> {
                         _Celda(
                           valor: notaDe(col, e).$1,
                           recuperada: notaDe(col, e).$2,
+                          comentario: w.comentarios[col.id]?[e.id],
                           letra: letraDe(col, notaDe(col, e).$1),
                           escala: w.escalaDe(col),
                           calculada: col.tipo == 'calculada',
@@ -2035,6 +2045,7 @@ class _TablaState extends State<_Tabla> {
                 (e, _) => _Celda(
                   valor: notaDe(fija, e).$1,
                   recuperada: notaDe(fija, e).$2,
+                  comentario: w.comentarios[fija.id]?[e.id],
                   letra: letraDe(fija, notaDe(fija, e).$1),
                   escala: w.escalaDe(fija),
                   calculada: fija.tipo == 'calculada',
@@ -2447,6 +2458,9 @@ class _Celda extends StatelessWidget {
 
   /// Letra que acompaña a la nota numérica («16 · A»).
   final String? letra;
+
+  /// Comentario de la nota: se marca con un punto en la esquina.
+  final String? comentario;
   final Escala? escala;
   final bool calculada;
 
@@ -2461,6 +2475,7 @@ class _Celda extends StatelessWidget {
     required this.valor,
     this.recuperada = false,
     this.letra,
+    this.comentario,
     required this.escala,
     required this.calculada,
     this.automatica = false,
@@ -2489,16 +2504,37 @@ class _Celda extends StatelessWidget {
               ),
             ),
           ),
-          child: (calculada || automatica) && valor == null
-              ? Text(
-                  '—',
-                  style: TextStyle(
-                    color: fijada
-                        ? Colors.white.withValues(alpha: .45)
-                        : const Color(0xFFB0B4D0),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              (calculada || automatica) && valor == null
+                  ? Text(
+                      '—',
+                      style: TextStyle(
+                        color: fijada
+                            ? Colors.white.withValues(alpha: .45)
+                            : const Color(0xFFB0B4D0),
+                      ),
+                    )
+                  : _conExtras(VistaNota(valor, escala, sobreOscuro: fijada)),
+              if ((comentario ?? '').isNotEmpty)
+                Positioned(
+                  top: 6,
+                  right: 6,
+                  child: Tooltip(
+                    message: comentario!,
+                    child: Container(
+                      width: 7,
+                      height: 7,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFE9A23B),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
                   ),
-                )
-              : _conExtras(VistaNota(valor, escala, sobreOscuro: fijada)),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -3160,6 +3196,53 @@ class _PonerNotaState extends State<_PonerNota> {
   String? _error;
   final _foco = FocusNode();
 
+  /// Comentarios de esta columna: {estudiante: texto}.
+  Map<int, String> _comentarios = {};
+  final _coment = TextEditingController();
+  final _focoComent = FocusNode();
+  bool _verComentario = false;
+
+  static const _frases = [
+    'Entregó tarde',
+    'No entregó',
+    'No asistió',
+    'Justificado',
+    'Recuperación pendiente',
+    'Copió',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    db.leerComentariosNota(widget.columna.id).then((m) {
+      if (!mounted) return;
+      setState(() {
+        _comentarios = m;
+        _abrirComentario();
+      });
+    });
+  }
+
+  void _abrirComentario() {
+    _coment.text = _comentarios[_e.id] ?? '';
+    _verComentario = _coment.text.isNotEmpty;
+  }
+
+  /// Guarda el comentario si cambió (para todo el equipo si es en equipo).
+  Future<void> _guardarComentario() async {
+    final t = _coment.text.trim();
+    if (t == (_comentarios[_e.id] ?? '')) return;
+    final ids = [for (final m in _integrantes) m.id];
+    await db.guardarComentarioNota(widget.columna.id, ids, t);
+    for (final id in ids) {
+      if (t.isEmpty) {
+        _comentarios.remove(id);
+      } else {
+        _comentarios[id] = t;
+      }
+    }
+  }
+
   Estudiante get _e => widget.estudiantes[_i];
   bool get _equipo => widget.columna.enEquipo && widget.equipos[_e.id] != null;
   List<Estudiante> get _integrantes => _equipo
@@ -3173,6 +3256,8 @@ class _PonerNotaState extends State<_PonerNota> {
   @override
   void dispose() {
     _foco.dispose();
+    _coment.dispose();
+    _focoComent.dispose();
     super.dispose();
   }
 
@@ -3203,10 +3288,13 @@ class _PonerNotaState extends State<_PonerNota> {
         _notas[m.id] = valor;
       }
     }
-    _mover(1);
+    await _mover(1);
   }
 
-  void _mover(int paso) {
+  Future<void> _mover(int paso) async {
+    // El comentario se guarda también al pasar de estudiante sin nota.
+    await _guardarComentario();
+    if (!mounted) return;
     var j = _i + paso;
     // En equipo se salta a los integrantes del mismo equipo.
     final eq = _equipo ? widget.equipos[_e.id] : null;
@@ -3225,6 +3313,7 @@ class _PonerNotaState extends State<_PonerNota> {
       _i = j;
       _texto = _actual() ?? '';
       _error = null;
+      _abrirComentario();
     });
   }
 
@@ -3243,6 +3332,8 @@ class _PonerNotaState extends State<_PonerNota> {
     if (ev is! KeyDownEvent && ev is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
+    // Lo que se escribe en el comentario no va a la nota.
+    if (_focoComent.hasFocus) return KeyEventResult.ignored;
     final k = ev.logicalKey;
     final ch = ev.character ?? '';
     final esc = widget.escala;
@@ -3279,12 +3370,40 @@ class _PonerNotaState extends State<_PonerNota> {
     return KeyEventResult.ignored;
   }
 
+  /// Notas rápidas para escalas numéricas: 20 · 18 · 16 · 14 · 12 · 11 · 10.
+  List<String> _rapidas(Escala e) {
+    final lo = e.minimo ?? 0, hi = e.maximo ?? 20;
+    final l = <double>[
+      for (final f in const [1.0, .9, .8, .7, .6]) lo + (hi - lo) * f,
+      ?e.aprueba,
+      lo + (hi - lo) * .5,
+    ];
+    final r = <String>[];
+    for (final n in l) {
+      final t = numeroGuardado(n.roundToDouble(), 0);
+      if (!r.contains(t)) r.add(t);
+    }
+    return r;
+  }
+
+  /// Nivel que corresponde a la nota que se está escribiendo.
+  ValorEscala? _nivelDe(String texto, Escala e) {
+    final n = double.tryParse(texto.replaceAll(',', '.'));
+    if (n == null) return null;
+    for (final v in e.valores) {
+      if (v.desde != null && n >= v.desde!) return v;
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final col = widget.columna;
     final esc = widget.escala;
     final base = widget.colores.calculadas;
     final total = widget.estudiantes.length;
+    final conNota = widget.estudiantes.where((e) => _notas[e.id] != null).length;
+    final antes = _actual();
     final siguiente = _i + 1 < total ? widget.estudiantes[_i + 1] : null;
     final subtitulo = [
       col.codigo,
@@ -3294,18 +3413,20 @@ class _PonerNotaState extends State<_PonerNota> {
 
     Widget contenido;
     if (esc.numerica) {
-      Widget n(String t) => _Tecla(
+      final nivel = _nivelDe(_texto, esc);
+      Widget n(String t, {String? ver}) => _Tecla(
+        alto: 50,
         onTap: () => _tecla(t),
         child: Text(
-          t,
+          ver ?? t,
           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w500),
         ),
       );
       contenido = Column(
         children: [
           Container(
-            height: 70,
-            alignment: Alignment.center,
+            height: 78,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
             decoration: BoxDecoration(
               color: _error == null
                   ? Color.lerp(base, Colors.white, .9)
@@ -3313,46 +3434,109 @@ class _PonerNotaState extends State<_PonerNota> {
               borderRadius: BorderRadius.circular(18),
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  _texto.isEmpty ? ' ' : _texto,
-                  style: TextStyle(
-                    fontSize: 38,
-                    fontWeight: FontWeight.w600,
-                    color: _error == null
-                        ? widget.colores.tintaCabecera
-                        : _rojo,
+                const SizedBox(width: 40),
+                Expanded(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        _texto.isEmpty ? ' ' : _texto,
+                        style: TextStyle(
+                          fontSize: 40,
+                          fontWeight: FontWeight.w700,
+                          color: _error == null
+                              ? widget.colores.tintaCabecera
+                              : _rojo,
+                        ),
+                      ),
+                      Container(width: 2, height: 36, color: base),
+                    ],
                   ),
                 ),
-                Container(width: 2, height: 34, color: base),
+                SizedBox(
+                  width: 40,
+                  child: _texto.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: 'Borrar',
+                          onPressed: () => setState(() {
+                            _texto = '';
+                            _error = null;
+                          }),
+                          icon: const KipuIcon(
+                            KipuIcono.cerrar,
+                            size: 18,
+                            color: KipuColores.gris,
+                          ),
+                        ),
+                ),
               ],
             ),
           ),
           SizedBox(
-            height: 26,
+            height: 28,
             child: Center(
               child: Text(
-                _error ?? 'Puedes escribir con el teclado y pulsar Enter',
+                _error ??
+                    (nivel != null
+                        ? nivel.descripcion
+                        : (antes != null
+                              ? 'Nota actual: ${mostrarNumero(antes)}'
+                              : 'Escribe la nota o elige una rápida')),
                 style: TextStyle(
-                  fontSize: 12.5,
-                  color: _error == null ? KipuColores.gris : _rojo,
+                  fontSize: 13,
+                  fontWeight: nivel != null && _error == null
+                      ? FontWeight.w600
+                      : FontWeight.w400,
+                  color: _error != null
+                      ? _rojo
+                      : (nivel != null ? Color(nivel.color) : KipuColores.gris),
                 ),
               ),
             ),
           ),
+          // Un toque guarda y pasa al siguiente.
+          SizedBox(
+            height: 40,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                for (final r in _rapidas(esc))
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: ActionChip(
+                      label: Text(
+                        r,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: _nivelDe(r, esc) == null
+                              ? KipuColores.tinta
+                              : Color(_nivelDe(r, esc)!.color),
+                        ),
+                      ),
+                      backgroundColor: Colors.white,
+                      side: const BorderSide(color: Color(0xFFE6E7F0)),
+                      onPressed: () => _guardar(r),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
           GridView.count(
             crossAxisCount: 4,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             mainAxisSpacing: 8,
             crossAxisSpacing: 8,
-            childAspectRatio: 1.75,
+            childAspectRatio: 1.9,
             children: [
               n('1'),
               n('2'),
               n('3'),
               _Tecla(
+                alto: 50,
                 onTap: () => _tecla('⌫'),
                 child: const KipuIcon(
                   KipuIcono.deshacer,
@@ -3367,39 +3551,38 @@ class _PonerNotaState extends State<_PonerNota> {
               n('7'),
               n('8'),
               n('9'),
-              _Tecla(
-                onTap: () => _guardar(null),
-                child: const Text(
-                  'Vacío',
-                  style: TextStyle(fontSize: 14, color: KipuColores.gris),
-                ),
-              ),
-              _Tecla(
-                onTap: () => _mover(-1),
-                child: const KipuIcon(
-                  KipuIcono.izquierda,
-                  size: 22,
-                  color: KipuColores.gris,
-                ),
-              ),
               n('0'),
-              _Tecla(
-                fondo: base,
-                onTap: () => _guardar(_texto.isEmpty ? null : _texto),
-                child: const KipuIcon(
-                  KipuIcono.flecha,
-                  size: 24,
-                  color: Colors.white,
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _Tecla(
+                  alto: 50,
+                  onTap: () => _guardar(null),
+                  child: const Text(
+                    'Dejar vacía',
+                    style: TextStyle(fontSize: 14, color: KipuColores.gris),
+                  ),
                 ),
               ),
-              _Tecla(
-                fondo: base,
-                onTap: () => _guardar(_texto.isEmpty ? null : _texto),
-                child: const Text(
-                  'Listo',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 2,
+                child: _Tecla(
+                  alto: 50,
+                  fondo: base,
+                  onTap: () => _texto.isEmpty
+                      ? _mover(1)
+                      : _guardar(_texto),
+                  child: Text(
+                    _i + 1 >= total ? 'Guardar y terminar' : 'Guardar y seguir',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
@@ -3430,34 +3613,78 @@ class _PonerNotaState extends State<_PonerNota> {
             ],
           ),
           const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: _Tecla(
-                  alto: 48,
-                  onTap: () => _mover(-1),
-                  child: const Text(
-                    'Anterior',
-                    style: TextStyle(color: KipuColores.gris),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _Tecla(
-                  alto: 48,
-                  onTap: () => _guardar(null),
-                  child: const Text(
-                    'Dejar vacío',
-                    style: TextStyle(color: KipuColores.gris),
-                  ),
-                ),
-              ),
-            ],
+          _Tecla(
+            alto: 46,
+            onTap: () => _guardar(null),
+            child: const Text(
+              'Dejar vacía',
+              style: TextStyle(color: KipuColores.gris),
+            ),
           ),
         ],
       );
     }
+
+    final comentario = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (!_verComentario)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => setState(() => _verComentario = true),
+              icon: KipuIcon(KipuIcono.apuntes, size: 18, color: base),
+              label: Text('Agregar comentario', style: TextStyle(color: base)),
+            ),
+          )
+        else ...[
+          TextField(
+            controller: _coment,
+            focusNode: _focoComent,
+            minLines: 1,
+            maxLines: 3,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: InputDecoration(
+              isDense: true,
+              labelText: 'Comentario (opcional)',
+              hintText: 'Se guarda junto con la nota',
+              suffixIcon: _coment.text.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: 'Quitar comentario',
+                      onPressed: () => setState(() => _coment.clear()),
+                      icon: const KipuIcon(
+                        KipuIcono.cerrar,
+                        size: 16,
+                        color: KipuColores.gris,
+                      ),
+                    ),
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final f in _frases)
+                ActionChip(
+                  label: Text(f, style: const TextStyle(fontSize: 12.5)),
+                  visualDensity: VisualDensity.compact,
+                  backgroundColor: KipuColores.fondo,
+                  side: BorderSide.none,
+                  onPressed: () => setState(() {
+                    final t = _coment.text.trim();
+                    _coment.text = t.isEmpty
+                        ? f
+                        : (t.contains(f) ? t : '$t · $f');
+                  }),
+                ),
+            ],
+          ),
+        ],
+      ],
+    );
 
     return Focus(
       focusNode: _foco,
@@ -3465,31 +3692,70 @@ class _PonerNotaState extends State<_PonerNota> {
       onKeyEvent: _teclado,
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _CabezaHoja(
-            avatar: _equipo ? null : AvatarEstudiante(_e, tam: 48),
-            icono: _equipo ? KipuIcono.equipo : null,
-            color: base,
-            titulo: _equipo
-                ? 'Equipo ${widget.equipos[_e.id]}'
-                : '${tituloNombre(_e.apellidos)}, ${tituloNombre(_e.nombres).split(' ').first}',
-            subtitulo: _equipo
-                ? '$subtitulo\n${_integrantes.map((x) => tituloNombre(x.nombres).split(' ').first).join(', ')}'
-                : subtitulo,
-            cola: Text(
-              '${_i + 1} de $total',
-              style: const TextStyle(fontSize: 13, color: KipuColores.gris),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: _CabezaHoja(
+                  avatar: _equipo ? null : AvatarEstudiante(_e, tam: 48),
+                  icono: _equipo ? KipuIcono.equipo : null,
+                  color: base,
+                  titulo: _equipo
+                      ? 'Equipo ${widget.equipos[_e.id]}'
+                      : '${tituloNombre(_e.apellidos)}, ${tituloNombre(_e.nombres).split(' ').first}',
+                  subtitulo: _equipo
+                      ? '$subtitulo\n${_integrantes.map((x) => tituloNombre(x.nombres).split(' ').first).join(', ')}'
+                      : subtitulo,
+                ),
+              ),
+              IconButton(
+                tooltip: 'Anterior',
+                onPressed: _i > 0 ? () => _mover(-1) : null,
+                icon: const KipuIcon(KipuIcono.izquierda, color: KipuColores.tinta),
+              ),
+              IconButton(
+                tooltip: 'Siguiente sin cambiar',
+                onPressed: () => _mover(1),
+                icon: const KipuIcon(KipuIcono.derecha, color: KipuColores.tinta),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
+          // Avance de la columna.
+          Row(
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: total == 0 ? 0 : conNota / total,
+                    minHeight: 6,
+                    backgroundColor: KipuColores.fondo,
+                    color: base,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                '${_i + 1} de $total · $conNota con nota',
+                style: const TextStyle(fontSize: 12.5, color: KipuColores.gris),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
           contenido,
-          if (siguiente != null && !_equipo) ...[
-            const SizedBox(height: 12),
-            Text(
-              'Siguiente · ${tituloNombre(siguiente.apellidos)}, ${tituloNombre(siguiente.nombres).split(' ').first}',
-              style: const TextStyle(fontSize: 13, color: KipuColores.gris),
+          const SizedBox(height: 6),
+          comentario,
+          if (siguiente != null && !_equipo)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                'Siguiente · ${tituloNombre(siguiente.apellidos)}, ${tituloNombre(siguiente.nombres).split(' ').first}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 12.5, color: KipuColores.gris),
+              ),
             ),
-          ],
         ],
       ),
     );
