@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'columnas.dart';
 import 'paises.dart';
 
 /// Instrumentos de evaluación: rúbrica, lista de cotejo y escala de
@@ -703,12 +704,13 @@ String valorEnEscala(
   Resultado r,
   Escala e, {
   List<double>? tramos,
+  int decimales = 0,
+  Redondeo redondeo = Redondeo.normal,
 }) {
   if (e.numerica) {
     final lo = e.minimo ?? 0, hi = e.maximo ?? 20;
     final n = lo + r.proporcion * (hi - lo);
-    final redondo = (n + 1e-9).roundToDouble();
-    return redondo.toInt().toString();
+    return numeroGuardado(redondear(n, decimales, redondeo), decimales);
   }
   final k = e.valores.length;
   if (k == 0) return '';

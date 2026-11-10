@@ -259,6 +259,30 @@ Future<void> cargarDatosDeEjemplo(KipuDb db) async {
               ),
             );
           }
+          // Participaciones (+) y (−) para la columna de participación.
+          final positivas = azar.nextInt(9);
+          for (var k = 0; k < positivas; k++) {
+            b.insert(
+              db.conductas,
+              ConductasCompanion.insert(
+                estudianteId: id,
+                fecha: fecha(elegir(dias)),
+                positiva: true,
+                motivo: 'Participa',
+              ),
+            );
+          }
+          if (azar.nextInt(4) == 0) {
+            b.insert(
+              db.conductas,
+              ConductasCompanion.insert(
+                estudianteId: id,
+                fecha: fecha(elegir(dias)),
+                positiva: false,
+                motivo: 'No trae material',
+              ),
+            );
+          }
         });
       }
       await _registroDeEjemplo(db, cursoId, alumnos, azar, fecha(hoy));
@@ -359,6 +383,9 @@ Future<void> _registroDeEjemplo(
     ('FB', 'Feedback de la práctica', 'logrado', false, 'nota', 15),
     ('Exp.', 'Exposición', 'vigesimal', true, 'nota', 20),
     ('F3', 'Enlaces químicos', 'vigesimal', false, 'nota', 27),
+    // Se llenan solas con la asistencia y las participaciones.
+    ('Asist', 'Asistencia del bimestre', 'cneb', false, 'asistencia', null),
+    ('Part', 'Participación en clase', 'vigesimal', false, 'participacion', null),
     ('Prom.', null, null, false, 'calculada', null),
   ];
   // Equipos de cuatro en el orden de la lista.
