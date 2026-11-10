@@ -1,3 +1,4 @@
+import 'dart:convert' show jsonEncode;
 import 'dart:math';
 
 import 'package:drift/drift.dart' show Value;
@@ -10,6 +11,8 @@ import 'package:intl/intl.dart';
 
 import '../data/academico.dart';
 import '../data/database.dart';
+import '../data/evaluacion_db.dart';
+import '../data/instrumentos.dart';
 import '../data/paises.dart';
 import '../data/registro.dart';
 import '../main.dart';
@@ -18,7 +21,9 @@ import '../widgets/kipu_icono.dart';
 import 'asistencia.dart';
 import 'cursos.dart' show colorColegio, confirmar;
 import 'estudiantes.dart';
+import 'evaluacion.dart' show iconoDe, PantallaEvaluacion;
 import 'ficha_estudiante.dart';
+import 'instrumento_editor.dart' show evaluarConInstrumento;
 import 'registro_exportar.dart';
 import 'shell.dart' show MenuCajon;
 
@@ -49,6 +54,7 @@ class _RegistroCursoState extends State<RegistroCurso> {
   late final _conducta = db.verConductaDelDia(_cursoId, _hoy);
   late final _asistencia = db.verAsistencia(_cursoId, _hoy);
   late final _config = db.verAnioActivo().asyncExpand(db.verConfigAcademica);
+  late final _instrumentos = db.verInstrumentosDeColumnas();
   late Stream<List<RegistroColumna>> _columnas;
   late Stream<Map<int, Map<int, String>>> _notas;
 
@@ -98,8 +104,11 @@ class _RegistroCursoState extends State<RegistroCurso> {
                     _grupos,
                     (grupos) => _Escucha<Map<int, String>>(
                       _asistencia,
-                      (asistencia) => _pantalla(
+                      (asistencia) => _Escucha<Map<int, Instrumento>>(
+                        _instrumentos,
+                        (instrumentos) => _pantalla(
                         context,
+                        instrumentos: instrumentos ?? const {},
                         ancho: ancho,
                         colores: colores,
                         config: config,
@@ -109,6 +118,7 @@ class _RegistroCursoState extends State<RegistroCurso> {
                         conducta: conducta ?? const {},
                         grupos: grupos ?? const [],
                         asistencia: asistencia ?? const {},
+                      ),
                       ),
                     ),
                   ),
@@ -132,6 +142,7 @@ class _RegistroCursoState extends State<RegistroCurso> {
     required Map<int, (int, int)> conducta,
     required List<GrupoEquipos> grupos,
     required Map<int, String> asistencia,
+    required Map<int, Instrumento> instrumentos,
   }) {
     final cur = widget.datos.curso;
     final periodos = config?.periodos ?? periodosDe('bimestre');
@@ -236,6 +247,7 @@ class _RegistroCursoState extends State<RegistroCurso> {
         conducta: conducta,
         colores: colores,
         escalaDe: escalaDe,
+        instrumentos: instrumentos,
         onNueva: nuevaColumna,
         onEstudiante: (e) => abrirFicha(
           context,
@@ -266,6 +278,20 @@ class _RegistroCursoState extends State<RegistroCurso> {
                   'Las columnas calculadas se configurarán pronto.',
                 ),
               ),
+            );
+            return;
+          }
+          final ins = instrumentos[c.id];
+          if (ins != null) {
+            evaluarConInstrumento(
+              context,
+              columna: c,
+              instrumento: ins,
+              escala: escalaDe(c) ?? escalas.values.first,
+              estudiantes: lista,
+              inicio: lista.indexOf(e),
+              equipos: grupoDe(grupos, c)?.equipos ?? const {},
+              color: colores.calculadas,
             );
             return;
           }
@@ -1584,6 +1610,7 @@ class _Tabla extends StatefulWidget {
   final Map<int, (int, int)> conducta;
   final ColoresRegistro colores;
   final Escala? Function(RegistroColumna) escalaDe;
+  final Map<int, Instrumento> instrumentos;
   final VoidCallback onNueva;
   final ValueChanged<Estudiante> onEstudiante;
   final ValueChanged<Estudiante> onConducta;
@@ -1599,6 +1626,7 @@ class _Tabla extends StatefulWidget {
     required this.conducta,
     required this.colores,
     required this.escalaDe,
+    this.instrumentos = const {},
     required this.onNueva,
     required this.onEstudiante,
     required this.onConducta,
@@ -1768,6 +1796,7 @@ class _TablaState extends State<_Tabla> {
                       _CabeceraColumna(
                         columna: col,
                         escala: w.escalaDe(col),
+                        instrumento: w.instrumentos[col.id],
                         colores: c,
                         ancho: celdaW,
                         compacta: !ancho,
@@ -1845,6 +1874,7 @@ class _TablaState extends State<_Tabla> {
               child: _CabeceraColumna(
                 columna: fija,
                 escala: w.escalaDe(fija),
+                instrumento: w.instrumentos[fija.id],
                 colores: c,
                 ancho: fijaW,
                 compacta: !ancho,
@@ -2071,6 +2101,7 @@ class _ChipConducta extends StatelessWidget {
 class _CabeceraColumna extends StatelessWidget {
   final RegistroColumna columna;
   final Escala? escala;
+  final Instrumento? instrumento;
   final ColoresRegistro colores;
   final double ancho;
   final bool compacta;
@@ -2079,6 +2110,7 @@ class _CabeceraColumna extends StatelessWidget {
   const _CabeceraColumna({
     required this.columna,
     required this.escala,
+    this.instrumento,
     required this.colores,
     required this.ancho,
     required this.compacta,
@@ -2148,6 +2180,17 @@ class _CabeceraColumna extends StatelessWidget {
                         ),
                       ),
                     ),
+                    if (instrumento != null && !calculada) ...[
+                      const SizedBox(width: 3),
+                      Tooltip(
+                        message: '${instrumento!.tipo.nombre}: ${instrumento!.nombre}',
+                        child: KipuIcon(
+                          iconoDe(instrumento!.tipo),
+                          size: compacta ? 13 : 15,
+                          color: tinta,
+                        ),
+                      ),
+                    ],
                     if (col.enEquipo) ...[
                       const SizedBox(width: 4),
                       Container(
@@ -3338,6 +3381,129 @@ class _FormColumnaState extends State<_FormColumna> {
       : grupoDe(widget.grupos, widget.columna!)?.id;
   String? _error;
 
+  /// Instrumento elegido para la columna, el que tenía al abrir y, si en la
+  /// biblioteca hay una versión editada de ese mismo instrumento, esa.
+  Instrumento? _ins;
+  Instrumento? _insOriginal;
+  Instrumento? _insNuevo;
+
+  @override
+  void initState() {
+    super.initState();
+    final col = widget.columna;
+    if (col != null) _cargarInstrumento(col.id);
+  }
+
+  Future<void> _cargarInstrumento(int columnaId) async {
+    final ins = await db.instrumentoDeColumna(columnaId);
+    if (ins == null) return;
+    final bib = await db.leerBiblioteca();
+    final nuevo = bib.where((x) => x.id == ins.id).firstOrNull;
+    if (!mounted) return;
+    setState(() {
+      _ins = _insOriginal = ins;
+      _insNuevo =
+          nuevo != null && jsonEncode(nuevo.aJson()) != jsonEncode(ins.aJson())
+          ? nuevo
+          : null;
+    });
+  }
+
+  Future<void> _elegirInstrumento() async {
+    await db.prepararBiblioteca();
+    final bib = await db.leerBiblioteca();
+    if (!mounted) return;
+    final r = await showDialog<Object>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Instrumento de evaluación'),
+        contentPadding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
+        content: SizedBox(
+          width: 460,
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              ListTile(
+                leading: KipuIcon(KipuIcono.notas, color: KipuColores.gris),
+                title: const Text('Ninguno'),
+                subtitle: const Text('Pones la nota a mano'),
+                selected: _ins == null,
+                onTap: () => Navigator.pop(ctx, 'ninguno'),
+              ),
+              for (final i in bib)
+                ListTile(
+                  leading: KipuIcon(iconoDe(i.tipo), color: KipuColores.morado),
+                  title: Text(i.nombre),
+                  subtitle: Text('${i.tipo.nombre} · ${i.resumen}'),
+                  selected: _ins?.id == i.id,
+                  onTap: () => Navigator.pop(ctx, i),
+                ),
+              if (bib.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text(
+                    'Tu biblioteca está vacía. Crea una rúbrica, lista de '
+                    'cotejo o escala en Evaluación.',
+                    style: TextStyle(color: KipuColores.gris),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'evaluacion'),
+            child: const Text('Crear o editar en Evaluación'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || r == null) return;
+    if (r == 'evaluacion') {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const PantallaEvaluacion()),
+      );
+      return;
+    }
+    setState(() {
+      _ins = r is Instrumento ? r : null;
+      _insNuevo = null;
+      final ins = _ins;
+      if (ins != null && _tema.text.trim().isEmpty) _tema.text = ins.nombre;
+    });
+  }
+
+  /// Guarda el instrumento de la columna. Si se cambia por otro y ya había
+  /// estudiantes evaluados, avisa porque esas marcas se pierden.
+  Future<bool> _guardarInstrumento(int columnaId, bool nota) async {
+    final ins = nota ? _ins : null;
+    if (ins?.id == _insOriginal?.id &&
+        (ins == null || identical(ins, _insOriginal))) {
+      return true;
+    }
+    if (_insOriginal != null && ins?.id != _insOriginal!.id) {
+      final marcas = await db.leerMarcas(columnaId);
+      if (marcas.isNotEmpty && mounted) {
+        final ok = await confirmar(
+          context,
+          '¿Cambiar el instrumento?',
+          'Ya evaluaste a ${marcas.length} con «${_insOriginal!.nombre}». '
+              'Esas marcas se borrarán; las notas puestas se quedan hasta '
+              'que vuelvas a evaluar.',
+          accion: 'Cambiar',
+        );
+        if (!ok) return false;
+      }
+    }
+    await db.vincularInstrumento(columnaId, ins);
+    return true;
+  }
+
   Future<void> _guardar() async {
     final codigo = _codigo.text.trim();
     if (codigo.isEmpty) {
@@ -3358,8 +3524,10 @@ class _FormColumnaState extends State<_FormColumna> {
       grupo: Value(nota && _enEquipo ? _grupo : null),
     );
     if (widget.columna == null) {
-      await db.crearColumna(datos.copyWith(orden: const Value(0)));
+      final id = await db.crearColumna(datos.copyWith(orden: const Value(0)));
+      if (nota && _ins != null) await db.vincularInstrumento(id, _ins);
     } else {
+      if (!await _guardarInstrumento(widget.columna!.id, nota)) return;
       await db.editarColumna(widget.columna!.id, datos);
     }
     if (mounted) Navigator.pop(context);
@@ -3593,6 +3761,40 @@ class _FormColumnaState extends State<_FormColumna> {
               ],
             ],
           ),
+          etiqueta('Instrumento de evaluación'),
+          _TarjetaElegirInstrumento(
+            ins: _ins,
+            base: base,
+            onTap: _elegirInstrumento,
+            onQuitar: _ins == null
+                ? null
+                : () => setState(() {
+                    _ins = null;
+                    _insNuevo = null;
+                  }),
+          ),
+          if (_insNuevo != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Editaste este instrumento en tu biblioteca después de '
+                      'usarlo aquí.',
+                      style: TextStyle(fontSize: 12.5, color: KipuColores.gris),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => setState(() {
+                      _ins = _insNuevo;
+                      _insNuevo = null;
+                    }),
+                    child: const Text('Usar la versión nueva'),
+                  ),
+                ],
+              ),
+            ),
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
@@ -4795,6 +4997,95 @@ class _ColoresState extends State<_Colores> {
           ],
         ),
       ],
+    );
+  }
+}
+
+
+/// Muestra el instrumento elegido para una columna (o «Ninguno»).
+class _TarjetaElegirInstrumento extends StatelessWidget {
+  final Instrumento? ins;
+  final Color base;
+  final VoidCallback onTap;
+  final VoidCallback? onQuitar;
+  const _TarjetaElegirInstrumento({
+    required this.ins,
+    required this.base,
+    required this.onTap,
+    this.onQuitar,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final i = ins;
+    return Material(
+      color: i == null ? Colors.white : Color.lerp(base, Colors.white, .93),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: i == null ? const Color(0xFFE6E7F0) : base,
+          width: 1.5,
+        ),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
+          child: Row(
+            children: [
+              KipuIcon(
+                i == null ? KipuIcono.notas : iconoDe(i.tipo),
+                size: 24,
+                color: base,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      i == null ? 'Ninguno: nota a mano' : i.nombre,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      i == null
+                          ? 'Toca para usar una rúbrica, lista de cotejo o escala'
+                          : '${i.tipo.nombre} · ${i.resumen}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: KipuColores.gris,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (onQuitar != null)
+                IconButton(
+                  tooltip: 'Quitar instrumento',
+                  onPressed: onQuitar,
+                  icon: const KipuIcon(
+                    KipuIcono.cerrar,
+                    size: 18,
+                    color: KipuColores.gris,
+                  ),
+                )
+              else
+                const Padding(
+                  padding: EdgeInsets.only(right: 8),
+                  child: KipuIcon(
+                    KipuIcono.flecha,
+                    size: 18,
+                    color: KipuColores.gris,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

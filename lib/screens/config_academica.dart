@@ -9,6 +9,7 @@ import '../widgets/calendario_rango.dart';
 import '../widgets/kipu_icono.dart';
 import '../widgets/selector_color.dart';
 import '../widgets/ventana.dart';
+import 'evaluacion.dart' show PantallaEvaluacion;
 
 /// Configuración académica: año escolar, periodos y escalas de calificación,
 /// con lo que viene listo según el país de los colegios.
@@ -143,11 +144,15 @@ class _Contenido extends StatelessWidget {
         ),
         onTap: () => editarEscalas(context, c),
       ),
-      const _Tarjeta(
+      _Tarjeta(
         icono: KipuIcono.notas,
         titulo: 'Instrumentos de evaluación',
-        resumen: 'Numérica, lista de cotejo, rúbrica, participaciones…',
-        estado: _Estado('Próximamente', _TipoEstado.pronto),
+        resumen: 'Rúbricas, listas de cotejo y escalas de valoración',
+        estado: const _Estado('Listo', _TipoEstado.listo),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const PantallaEvaluacion()),
+        ),
       ),
       _Tarjeta(
         icono: KipuIcono.diana,
