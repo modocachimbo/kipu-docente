@@ -22,10 +22,10 @@ const _rojo = Color(0xFFC2334A);
 const _linea = Color(0xFFE6E7F0);
 
 KipuIcono iconoDe(TipoInstrumento t) => switch (t) {
-  TipoInstrumento.rubrica => KipuIcono.ficha,
-  TipoInstrumento.cotejo => KipuIcono.check,
-  TipoInstrumento.escala => KipuIcono.promedio,
-  TipoInstrumento.prueba => KipuIcono.apuntes,
+  TipoInstrumento.rubrica => KipuIcono.rubrica,
+  TipoInstrumento.cotejo => KipuIcono.cotejo,
+  TipoInstrumento.escala => KipuIcono.escalaValoracion,
+  TipoInstrumento.prueba => KipuIcono.examen,
 };
 
 /// Color de un nivel de logro: del rojo (en inicio) al morado (destacado),
@@ -1247,7 +1247,7 @@ class _TarjetaCarpeta extends StatelessWidget {
                       color: color.withValues(alpha: .14),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(Icons.folder_rounded, color: color, size: 24),
+                    child: KipuIcon(KipuIcono.carpeta, color: color, size: 24),
                   ),
                   const Spacer(),
                   if (onAccion != null)
@@ -1320,7 +1320,7 @@ class _CabeceraCarpeta extends StatelessWidget {
         onPressed: onVolver,
         icon: KipuIcon(KipuIcono.izquierda, color: KipuColores.tinta),
       ),
-      Icon(Icons.folder_rounded, color: color, size: 26),
+      KipuIcon(KipuIcono.carpeta, color: color, size: 26),
       const SizedBox(width: 8),
       Expanded(
         child: Column(
@@ -1407,7 +1407,7 @@ class _OpcionCarpeta extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListTile(
-    leading: Icon(Icons.folder_rounded, color: color),
+    leading: KipuIcon(KipuIcono.carpeta, color: color),
     title: Text(
       nombre,
       style: TextStyle(fontWeight: activo ? FontWeight.w700 : FontWeight.w400),

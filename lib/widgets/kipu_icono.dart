@@ -72,6 +72,11 @@ enum KipuIcono {
   copiar,
   dado,
   descargar,
+  rubrica,
+  cotejo,
+  escalaValoracion,
+  examen,
+  carpeta,
 }
 
 // R = relleno suave, T = trazo. Ambos se reemplazan por el color al dibujar.
@@ -301,6 +306,39 @@ const _svg = <KipuIcono, String>{
 <rect x="3" y="4" width="18" height="16" rx="4" fill="R"/>
 <rect x="3" y="4" width="18" height="16" rx="4" stroke="T"/>
 <path d="m10.3 8-1.4 8M15.1 8l-1.4 8M7.6 10.6h9.4M7 13.4h9.4" stroke="T"/>''',
+  // Instrumentos de evaluación: cada tipo con su propia forma.
+  // Rúbrica: tabla de criterios × niveles.
+  KipuIcono.rubrica: '''
+<path d="M6 4h12a3 3 0 0 1 3 3v2H3V7a3 3 0 0 1 3-3Z" fill="R"/>
+<rect x="3" y="4" width="18" height="16" rx="3" stroke="T"/>
+<path d="M3 9h18M3 14.5h18M9 4v16M15 4v16" stroke="T"/>''',
+  // Lista de cotejo: casillas marcadas y una por marcar.
+  KipuIcono.cotejo: '''
+<rect x="3" y="3" width="4.5" height="4.5" rx="1.3" fill="R"/>
+<rect x="3" y="10" width="4.5" height="4.5" rx="1.3" fill="R"/>
+<rect x="3" y="3" width="4.5" height="4.5" rx="1.3" stroke="T"/>
+<rect x="3" y="10" width="4.5" height="4.5" rx="1.3" stroke="T"/>
+<rect x="3" y="17" width="4.5" height="4.5" rx="1.3" stroke="T"/>
+<path d="m4.2 5.4 1 1 1.6-1.9M4.2 12.4l1 1 1.6-1.9" stroke="T"/>
+<path d="M11 5.25h10M11 12.25h10M11 19.25h6" stroke="T"/>''',
+  // Escala de valoración: medidor de niveles.
+  KipuIcono.escalaValoracion: '''
+<path d="M3.5 17a8.5 8.5 0 0 1 17 0Z" fill="R"/>
+<path d="M3.5 17a8.5 8.5 0 0 1 17 0M2.5 20h19" stroke="T"/>
+<path d="M6 11.6l1.2.9M12 8.5V10M18 11.6l-1.2.9M12 17l3.8-5" stroke="T"/>
+<circle cx="12" cy="17" r="1.2" stroke="T"/>''',
+  // Examen: hoja de respuestas con alternativas marcadas.
+  KipuIcono.examen: '''
+<path d="M13 21H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8l4 4v4" fill="R"/>
+<path d="M13 21H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8l4 4v4" stroke="T"/>
+<path d="M14 3v4h4M7.5 9.5h6M7.5 13h4" stroke="T"/>
+<circle cx="17.5" cy="17.5" r="4" fill="R"/>
+<circle cx="17.5" cy="17.5" r="4" stroke="T"/>
+<path d="m15.7 17.6 1.3 1.3 2.4-2.6" stroke="T"/>''',
+  KipuIcono.carpeta: '''
+<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" fill="R"/>
+<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" stroke="T"/>
+<path d="M3 10h18" stroke="T"/>''',
   KipuIcono.ficha: '''
 <rect x="3" y="5" width="18" height="14" rx="3" fill="R"/>
 <rect x="3" y="5" width="18" height="14" rx="3" stroke="T"/>
