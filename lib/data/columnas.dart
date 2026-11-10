@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'calculo.dart';
 import 'instrumentos.dart';
 import 'paises.dart';
 
@@ -17,8 +18,9 @@ const tiposAutomaticos = {'asistencia', 'participacion'};
 
 bool esAutomatica(String tipo) => tiposAutomaticos.contains(tipo);
 
-/// La columna tiene escala propia (todas menos la calculada).
-bool tieneEscala(String tipo) => tipo != 'calculada';
+/// La columna tiene escala propia. Desde que la calculada da notas, todas
+/// la tienen.
+bool tieneEscala(String tipo) => true;
 
 enum Redondeo { normal, arriba, cortar }
 
@@ -56,6 +58,9 @@ class ConfigColumna {
   /// Participación: cuántas (+) netas en el periodo dan la nota máxima.
   final int meta;
 
+  /// Columna calculada: qué calcula y con qué columnas.
+  final Calculo? calculo;
+
   const ConfigColumna({
     this.decimales = 0,
     this.redondeo = Redondeo.normal,
@@ -66,6 +71,7 @@ class ConfigColumna {
     this.ocultaEnDescarga = false,
     this.competencia = '',
     this.meta = 10,
+    this.calculo,
   });
 
   ConfigColumna copiar({
@@ -79,6 +85,7 @@ class ConfigColumna {
     bool? ocultaEnDescarga,
     String? competencia,
     int? meta,
+    Calculo? calculo,
   }) => ConfigColumna(
     decimales: decimales ?? this.decimales,
     redondeo: redondeo ?? this.redondeo,
@@ -89,6 +96,7 @@ class ConfigColumna {
     ocultaEnDescarga: ocultaEnDescarga ?? this.ocultaEnDescarga,
     competencia: competencia ?? this.competencia,
     meta: meta ?? this.meta,
+    calculo: calculo ?? this.calculo,
   );
 
   Map<String, dynamic> aJson() => {
@@ -101,6 +109,7 @@ class ConfigColumna {
     if (ocultaEnDescarga) 'ocultaEnDescarga': true,
     if (competencia.isNotEmpty) 'competencia': competencia,
     if (meta != 10) 'meta': meta,
+    if (calculo != null) 'calculo': calculo!.aJson(),
   };
 
   factory ConfigColumna.deJson(Map<String, dynamic> j) => ConfigColumna(
@@ -116,6 +125,9 @@ class ConfigColumna {
     ocultaEnDescarga: j['ocultaEnDescarga'] as bool? ?? false,
     competencia: j['competencia'] as String? ?? '',
     meta: math.max(1, (j['meta'] as num?)?.toInt() ?? 10),
+    calculo: j['calculo'] is Map<String, dynamic>
+        ? Calculo.deJson(j['calculo'] as Map<String, dynamic>)
+        : null,
   );
 
   static ConfigColumna deTexto(String? v) {
@@ -247,6 +259,7 @@ String prefijoCodigo(String modo, {TipoInstrumento? instrumento}) =>
     switch (modo) {
       'asistencia' => 'Asist',
       'participacion' => 'Part',
+      'calculada' => 'Prom',
       'instrumento' => switch (instrumento) {
         TipoInstrumento.rubrica => 'R',
         TipoInstrumento.cotejo => 'L',

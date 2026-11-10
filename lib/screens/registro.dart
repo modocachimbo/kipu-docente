@@ -10,6 +10,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:intl/intl.dart';
 
 import '../data/academico.dart';
+import '../data/calculo.dart' show Calculo, TipoCalculo, validarFormula;
 import '../data/cneb.dart';
 import '../data/columnas.dart';
 import '../data/columnas_db.dart';
@@ -24,6 +25,7 @@ import '../widgets/kipu_icono.dart';
 import 'asistencia.dart';
 import 'cursos.dart' show colorColegio, confirmar;
 import 'estudiantes.dart';
+import 'calculo_form.dart' show EditorCalculo, mostrarDesglose;
 import 'evaluacion.dart' show iconoDe, PantallaEvaluacion;
 import 'ficha_estudiante.dart';
 import 'instrumento_editor.dart' show evaluarConInstrumento;
@@ -200,12 +202,17 @@ class _RegistroCursoState extends State<RegistroCurso> {
         .firstOrNull;
 
     // Asistencia y participación se recalculan solas.
-    final autos = columnas.where((c) => esAutomatica(c.tipo)).toList();
+    // Las calculadas también: se recalculan cuando cambia cualquier nota.
+    final autos = columnas
+        .where((c) => esAutomatica(c.tipo) || c.tipo == 'calculada')
+        .toList();
     final acad = config;
     if (acad != null && autos.isNotEmpty) {
+      final hayCalculadas = autos.any((c) => c.tipo == 'calculada');
       final firma = [
         _periodo,
         for (final c in autos) '${c.id}:${c.escala}:${configs[c.id]?.aTexto()}',
+        if (hayCalculadas) identityHashCode(notas),
         asistencia.entries.map((e) => '${e.key}${e.value}').join(),
         conducta.entries.map((e) => '${e.key}${e.value}').join(),
         estudiantes?.length,
@@ -331,7 +338,15 @@ class _RegistroCursoState extends State<RegistroCurso> {
                 ..hideCurrentSnackBar()
                 ..showSnackBar(SnackBar(content: Text(t), action: a));
           if (c.tipo == 'calculada') {
-            aviso('Las columnas calculadas se configurarán pronto.');
+            mostrarDesglose(
+              context,
+              columna: c,
+              estudiante: e,
+              escala: escalaDe(c) ?? escalas.values.first,
+              cfg: cfg,
+              actual: notas[c.id]?[e.id],
+              base: colores.calculadas,
+            );
             return;
           }
           if (esAutomatica(c.tipo)) {
@@ -3599,6 +3614,7 @@ class _FormColumnaState extends State<_FormColumna> {
   String get _tipo =>
       _modo == 'mano' || _modo == 'instrumento' ? 'nota' : _modo;
   ConfigColumna _cfg = const ConfigColumna();
+  Calculo get _calculo => _cfg.calculo ?? const Calculo();
 
   /// El código se va sugiriendo solo hasta que el docente lo cambie.
   late bool _codigoAuto = widget.columna == null;
@@ -3823,6 +3839,13 @@ class _FormColumnaState extends State<_FormColumna> {
       setState(() => _error = 'Elige el instrumento con el que vas a evaluar');
       return;
     }
+    if (_modo == 'calculada' && _calculo.tipo == TipoCalculo.formula) {
+      final err = validarFormula(_calculo.formula);
+      if (err != null) {
+        setState(() => _error = 'Fórmula: $err');
+        return;
+      }
+    }
     final nota = _tipo == 'nota';
     final conEscala = tieneEscala(_tipo);
     final tema = _tema.text.trim();
@@ -3839,9 +3862,10 @@ class _FormColumnaState extends State<_FormColumna> {
     );
     final conInstrumento = _modo == 'instrumento';
     // Las opciones que no aplican a este tipo no se guardan.
-    final cfg = nota
+    var cfg = nota
         ? _cfg
         : _cfg.copiar(sinRecupera: true, bloqueada: false);
+    if (_modo == 'calculada') cfg = cfg.copiar(calculo: _calculo);
     int id;
     if (widget.columna == null) {
       id = await db.crearColumna(datos.copyWith(orden: const Value(0)));
@@ -3947,21 +3971,12 @@ class _FormColumnaState extends State<_FormColumna> {
                     'Se llena sola con el % del periodo', w),
                 tipo('participacion', KipuIcono.participa, 'Participación',
                     'Sale de los + y − junto a los nombres', w),
-                if (widget.columna?.tipo == 'calculada')
-                  tipo('calculada', KipuIcono.calculadora, 'Calculada',
-                      'Promedio · se configura después', w),
+                tipo('calculada', KipuIcono.calculadora, 'Calculada',
+                    'Promedio, nivel, suma o fórmula', w),
               ],
             );
           },
         ),
-        if (widget.columna?.tipo != 'calculada')
-          const Padding(
-            padding: EdgeInsets.only(top: 6, left: 4),
-            child: Text(
-              'Columna calculada (promedios): próximamente.',
-              style: TextStyle(fontSize: 12, color: KipuColores.gris),
-            ),
-          ),
         const SizedBox(height: 16),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -4225,6 +4240,17 @@ class _FormColumnaState extends State<_FormColumna> {
               ],
             ],
           ),
+          if (_modo == 'calculada')
+            EditorCalculo(
+              cursoId: widget.cursoId,
+              periodo: widget.periodo,
+              columnaId: widget.columna?.id,
+              calculo: _calculo,
+              cfg: _cfg,
+              salida: _escalaActual,
+              base: base,
+              onCambio: (c) => setState(() => _cfg = _cfg.copiar(calculo: c)),
+            ),
           if (_escalaActual.numerica && _letras != null) ...[
             const SizedBox(height: 10),
             _Interruptor(
@@ -4238,6 +4264,7 @@ class _FormColumnaState extends State<_FormColumna> {
                   setState(() => _cfg = _cfg.copiar(mostrarLetra: v)),
             ),
           ],
+          if (_modo != 'calculada') ...[
           etiqueta('Así se verá'),
           _VistaPrevia(
             escala: _escalaActual,
@@ -4246,6 +4273,7 @@ class _FormColumnaState extends State<_FormColumna> {
             modo: _modo,
             base: base,
           ),
+          ],
           const SizedBox(height: 10),
           Theme(
             data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
