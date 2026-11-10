@@ -746,7 +746,11 @@ String describirResultado(Instrumento ins, Resultado r) {
   final niveles = ins.escala.length;
   final medio = 1 + r.nivelMedio * (niveles - 1);
   final txt = medio.toStringAsFixed(1).replaceAll('.', ',');
-  return 'Nivel medio $txt de $niveles · $pct$extra';
+  // Con pesos los puntos no se suman tal cual: solo se muestran sin pesos.
+  final pts = ins.ponderada
+      ? ''
+      : ' · ${_numTxt(r.puntos)} de ${_numTxt(r.posibles)} pts';
+  return 'Nivel medio $txt de $niveles$pts · $pct$extra';
 }
 
 /// Texto de los tramos para mostrar: «AD ≥ 90 % · A ≥ 70 % · …».

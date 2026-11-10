@@ -89,6 +89,13 @@ void main() {
       expect(valorEnEscala(rub, calcular(rub, todos(0))!, vigesimal), '5');
     });
 
+    test('el resumen muestra los puntos', () {
+      expect(
+        describirResultado(rub, calcular(rub, todos(2))!),
+        'Nivel medio 3,0 de 4 · 12 de 16 pts · 75 %',
+      );
+    });
+
     test('nivel medio mezclado se redondea', () {
       final ind = ejemplosInstrumentos.firstWhere((e) => e.id == 'ej-indagacion');
       // 3 criterios en «Logro esperado» y 2 en «Logro destacado».
