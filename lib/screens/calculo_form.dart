@@ -383,10 +383,10 @@ class _EditorCalculoState extends State<EditorCalculo> {
   }
 
   Future<void> _elegirCompetencia() async {
-    final ids = <String>[
+    final ids = <String>{
       for (final x in _todas)
         if (x.periodo == widget.periodo && x.competencia.isNotEmpty) x.competencia,
-    ].toSet().toList();
+    }.toList();
     if (ids.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

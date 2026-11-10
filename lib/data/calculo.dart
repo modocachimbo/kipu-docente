@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 
 import 'columnas.dart';
-import 'instrumentos.dart';
 import 'paises.dart';
 
 /// Columna calculada del registro: qué calcula, con qué columnas y cómo.
@@ -87,7 +86,7 @@ class Calculo {
   final SinNota sinNota;
   final ModoNivel nivel;
 
-  /// Fórmula: números, «+ - * / ( )» y columnas como «c:<id>».
+  /// Fórmula: números, «+ - * / ( )» y columnas como `c:<id>`.
   final List<String> formula;
 
   const Calculo({
