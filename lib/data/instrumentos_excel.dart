@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:excel/excel.dart' as xl;
 
+import 'cneb.dart';
 import 'instrumentos.dart';
 
 /// Plantillas de Excel para crear instrumentos fuera de la app (en la
@@ -41,21 +42,48 @@ String normalizar(String s) {
 }
 
 /// Filas de texto que representan un instrumento (lo que va al Excel o CSV).
+/// «A–D», «V/F» o «Desarrollo».
+String tipoPreguntaTexto(ItemInstrumento i) => i.desarrollo
+    ? 'Desarrollo'
+    : (i.opciones == 2 ? 'V/F' : 'A–${String.fromCharCode(64 + i.opciones)}');
+
 List<List<Object?>> filasDeInstrumento(Instrumento ins) {
   final rubrica = ins.tipo == TipoInstrumento.rubrica;
   final opciones = [
     if (ins.noObservado) 'No observado',
-    if (ins.ponderada) 'Ponderada',
+    if (ins.ponderada && ins.tipo != TipoInstrumento.prueba) 'Ponderada',
   ].join(', ');
-  return [
+  final cabecera = <List<Object?>>[
     ['KIPU · INSTRUMENTO DE EVALUACIÓN'],
     ['NOMBRE', ins.nombre],
     ['TIPO', _tipoTexto(ins.tipo)],
     ['DESCRIPCIÓN', ins.descripcion],
     ['NIVEL EDUCATIVO', ins.niveles.join(', ')],
     ['ÁREA', ins.area],
+    [
+      'COMPETENCIAS',
+      [
+        for (final id in ins.competencias) competenciaPorId(id)?.nombre ?? id,
+      ].join('; '),
+    ],
     ['OPCIONES', opciones],
     [],
+  ];
+  if (ins.tipo == TipoInstrumento.prueba) {
+    return [
+      ...cabecera,
+      ['PREGUNTA', 'PUNTOS', 'TIPO DE PREGUNTA', 'CLAVE'],
+      for (final it in ins.items)
+        [
+          it.texto,
+          it.peso,
+          tipoPreguntaTexto(it),
+          it.desarrollo || it.clave == null ? '' : it.letras[it.clave!],
+        ],
+    ];
+  }
+  return [
+    ...cabecera,
     ['NIVELES', '', for (final n in ins.escala) n.nombre],
     ['PUNTOS', '', for (final n in ins.escala) n.puntos],
     [rubrica ? 'CRITERIO' : 'ÍTEM', rubrica ? 'PESO %' : 'PESO'],
@@ -113,6 +141,21 @@ Instrumento plantillaDe(TipoInstrumento t) => switch (t) {
       ItemInstrumento(id: '3', texto: 'Escribe aquí el ítem 3'),
     ],
   ),
+  TipoInstrumento.prueba => const Instrumento(
+    id: 'plantilla',
+    tipo: TipoInstrumento.prueba,
+    nombre: 'Mi examen',
+    niveles: ['Secundaria'],
+    area: 'Matemática',
+    ponderada: true,
+    items: [
+      ItemInstrumento(id: '1', texto: 'Pregunta 1 (opcional: escribe el enunciado)', peso: 4, opciones: 4, clave: 1),
+      ItemInstrumento(id: '2', texto: '', peso: 4, opciones: 4, clave: 0),
+      ItemInstrumento(id: '3', texto: '', peso: 2, opciones: 2, clave: 0),
+      ItemInstrumento(id: '4', texto: '', peso: 2, opciones: 2, clave: 1),
+      ItemInstrumento(id: '5', texto: 'Problema de desarrollo', peso: 8),
+    ],
+  ),
   TipoInstrumento.escala => Instrumento(
     id: 'plantilla',
     tipo: t,
@@ -132,10 +175,16 @@ List<String> _instrucciones(TipoInstrumento t) => [
   '',
   '1. Escribe el NOMBRE del instrumento (columna B).',
   '2. No cambies las palabras de la columna A: NOMBRE, TIPO, NIVELES, PUNTOS…',
-  '3. TIPO puede ser: Rúbrica, Lista de cotejo o Escala de valoración.',
+  '3. TIPO puede ser: Rúbrica, Lista de cotejo, Escala de valoración o Examen con clave.',
+  '   COMPETENCIAS (opcional): nombres del Currículo Nacional separados por «;».',
   '4. NIVEL EDUCATIVO: Inicial, Primaria o Secundaria (puedes poner varios separados por coma).',
   '5. OPCIONES (opcional): «No observado» agrega esa marca; «Ponderada» usa la columna PESO.',
-  if (t == TipoInstrumento.rubrica) ...[
+  if (t == TipoInstrumento.prueba) ...[
+    '6. Debajo de PREGUNTA, una fila por pregunta. El enunciado es opcional.',
+    '7. PUNTOS: cuánto vale la pregunta. Lo ideal es que todo sume 20.',
+    '8. TIPO DE PREGUNTA: A–D (opción múltiple de A a D), A–C, A–E, V/F o Desarrollo.',
+    '9. CLAVE: la respuesta correcta (A, B, C… o V / F). En desarrollo déjala vacía.',
+  ] else if (t == TipoInstrumento.rubrica) ...[
     '6. NIVELES: escribe los niveles de logro de MENOR a MAYOR, desde la columna C.',
     '7. PUNTOS: cuánto vale cada nivel (por ejemplo 1, 2, 3, 4).',
     '8. Debajo de CRITERIO, una fila por criterio: en A el criterio, en B su peso en % y',
@@ -196,8 +245,11 @@ Uint8List excelDeInstrumento(Instrumento ins) {
     final fila = filas[f];
     for (var c = 0; c < fila.length; c++) {
       final v = fila[c];
+      final primera = fila.isEmpty ? '' : normalizar('${fila.first}');
       final esEtiqueta =
-          f >= 1 && (c == 0 && f <= 10 || f == 8 || f == 9 || f == 10);
+          f >= 1 &&
+          ((c == 0 && _etiquetas.contains(primera)) ||
+              _filasCabecera.contains(primera));
       h.updateCell(
         xl.CellIndex.indexByColumnRow(columnIndex: c, rowIndex: f),
         switch (v) {
@@ -213,6 +265,11 @@ Uint8List excelDeInstrumento(Instrumento ins) {
   }
   h.setColumnWidth(0, 34);
   h.setColumnWidth(1, 10);
+  if (ins.tipo == TipoInstrumento.prueba) {
+    h.setColumnWidth(0, 46);
+    h.setColumnWidth(2, 20);
+    h.setColumnWidth(3, 10);
+  }
   for (var c = 0; c < ins.escala.length; c++) {
     h.setColumnWidth(c + 2, ins.tipo == TipoInstrumento.rubrica ? 30 : 16);
   }
@@ -230,6 +287,17 @@ Uint8List excelDeInstrumento(Instrumento ins) {
   x.setDefaultSheet(_hojaInstrumento);
   return Uint8List.fromList(x.encode()!);
 }
+
+const _etiquetas = {
+  'NOMBRE',
+  'TIPO',
+  'DESCRIPCION',
+  'NIVEL EDUCATIVO',
+  'AREA',
+  'COMPETENCIAS',
+  'OPCIONES',
+};
+const _filasCabecera = {'NIVELES', 'PUNTOS', 'CRITERIO', 'ITEM', 'PREGUNTA'};
 
 /// Nombre de archivo seguro: «rubrica-exposicion-oral.xlsx».
 String nombreArchivo(Instrumento ins, {String ext = 'xlsx'}) {
@@ -365,7 +433,8 @@ Lectura leerFilas(List<List<String>> filas) {
   String celda(List<String> f, int i) => i < f.length ? f[i].trim() : '';
 
   String nombre = '', tipoTxt = '', descripcion = '', nivelTxt = '', area = '';
-  String opciones = '';
+  String opciones = '', competenciasTxt = '';
+  var esPrueba = false;
   List<String>? nombresNiveles;
   List<String>? puntosTxt;
   var filaNiveles = 0;
@@ -399,6 +468,13 @@ Lectura leerFilas(List<List<String>> filas) {
         case 'OPCIONES':
           opciones = celda(fila, 1);
           continue;
+        case 'COMPETENCIAS' || 'COMPETENCIA':
+          competenciasTxt = celda(fila, 1);
+          continue;
+        case 'PREGUNTA' || 'PREGUNTAS':
+          enItems = true;
+          esPrueba = true;
+          continue;
         case 'NIVELES' || 'ESCALA' || 'ETIQUETAS':
           // Quitamos celdas vacías del final.
           final n = [...resto];
@@ -424,7 +500,10 @@ Lectura leerFilas(List<List<String>> filas) {
       }
     }
     if (a.isEmpty) {
-      if (resto.any((c) => c.isNotEmpty)) {
+      // En el examen el enunciado es opcional: basta con los puntos.
+      if (esPrueba && celda(fila, 1).isNotEmpty) {
+        items.add((f + 1, fila));
+      } else if (resto.any((c) => c.isNotEmpty)) {
         errores.add('Fila ${f + 1}: falta el texto del criterio o ítem (columna A).');
       }
       continue;
@@ -435,7 +514,9 @@ Lectura leerFilas(List<List<String>> filas) {
   // Tipo
   final tn = normalizar(tipoTxt);
   TipoInstrumento? tipo;
-  if (tn.contains('RUBRICA')) {
+  if (tn.contains('EXAMEN') || tn.contains('PRUEBA') || (tn.isEmpty && esPrueba)) {
+    tipo = TipoInstrumento.prueba;
+  } else if (tn.contains('RUBRICA')) {
     tipo = TipoInstrumento.rubrica;
   } else if (tn.contains('COTEJO')) {
     tipo = TipoInstrumento.cotejo;
@@ -466,13 +547,114 @@ Lectura leerFilas(List<List<String>> filas) {
   }
   if (tipo == null) return Lectura(null, errores, avisos);
 
+  final comps = <String>[];
+  for (final parte in competenciasTxt.split(RegExp(r'[;\n]'))) {
+    final q = normalizar(parte);
+    if (q.isEmpty) continue;
+    final c = competenciasCneb.where(
+      (c) =>
+          normalizar(c.nombre) == q ||
+          normalizar(c.corto) == q ||
+          normalizar(c.id) == q ||
+          normalizar(c.nombre).startsWith(q),
+    );
+    if (c.isEmpty) {
+      avisos.add('No se reconoce la competencia «${parte.trim()}»; se ignoró.');
+    } else if (!comps.contains(c.first.id)) {
+      comps.add(c.first.id);
+    }
+  }
+  final niv = [
+    for (final n in nivelesEducativos)
+      if (normalizar(nivelTxt).contains(normalizar(n))) n,
+  ];
+
+  if (tipo == TipoInstrumento.prueba) {
+    final its = <ItemInstrumento>[];
+    for (final (fila, celdas) in items) {
+      final pesoTxt = celda(celdas, 1);
+      final peso = pesoTxt.isEmpty ? 1.0 : _numero(pesoTxt);
+      if (peso == null || peso <= 0) {
+        errores.add('Fila $fila: PUNTOS «$pesoTxt» debe ser un número mayor que 0.');
+      }
+      final tp = normalizar(celda(celdas, 2)).replaceAll(' ', '');
+      final claveTxt = normalizar(celda(celdas, 3));
+      var opciones = 0;
+      if (tp.contains('DESARROLLO') || (tp.isEmpty && claveTxt.isEmpty)) {
+        opciones = 0;
+      } else if (tp.contains('V/F') || tp == 'VF' || tp.contains('VERDADERO') ||
+          (tp.isEmpty && (claveTxt == 'V' || claveTxt == 'F'))) {
+        opciones = 2;
+      } else {
+        final m = RegExp(r'^A[-–—AL]*([B-F])$').firstMatch(tp);
+        final n = int.tryParse(tp);
+        if (m != null) {
+          opciones = m.group(1)!.codeUnitAt(0) - 64;
+        } else if (n != null && n >= 2 && n <= 6) {
+          opciones = n;
+        } else if (tp.isEmpty) {
+          opciones = 4;
+        } else {
+          errores.add(
+            'Fila $fila: TIPO DE PREGUNTA «${celda(celdas, 2)}» no se reconoce. '
+            'Usa A–D, A–E, V/F o Desarrollo.',
+          );
+        }
+      }
+      int? clave;
+      if (opciones > 0) {
+        final letras = opciones == 2
+            ? const ['V', 'F']
+            : [for (var k = 0; k < opciones; k++) String.fromCharCode(65 + k)];
+        final k = letras.indexOf(claveTxt.isEmpty ? '' : claveTxt.substring(0, 1));
+        if (k < 0) {
+          errores.add(
+            'Fila $fila: falta la CLAVE o no es válida (${letras.join(', ')}).',
+          );
+        } else {
+          clave = k;
+        }
+      }
+      its.add(
+        ItemInstrumento(
+          id: nuevoId(),
+          texto: celda(celdas, 0),
+          peso: peso ?? 1,
+          opciones: opciones,
+          clave: clave,
+        ),
+      );
+    }
+    final ins = Instrumento(
+      id: nuevoId(),
+      tipo: tipo,
+      nombre: nombre,
+      descripcion: descripcion,
+      niveles: niv,
+      area: area,
+      competencias: comps,
+      ponderada: true,
+      items: its,
+    );
+    if (errores.isEmpty) errores.addAll(ins.validar());
+    final total = ins.puntajeTotal;
+    if (errores.isEmpty && (total - 20).abs() > .01) {
+      avisos.add(
+        'El examen suma ${total.toStringAsFixed(total == total.roundToDouble() ? 0 : 1)} '
+        'puntos. Kipu lo convierte igual a la escala de la columna.',
+      );
+    }
+    return Lectura(errores.isEmpty ? ins : null, errores, avisos);
+  }
+
   // Niveles y puntos
   var niveles = nombresNiveles ?? const <String>[];
   if (niveles.isEmpty) {
     final defecto = switch (tipo) {
       TipoInstrumento.rubrica => plantillaNivelesRubrica,
       TipoInstrumento.cotejo => etiquetasCotejo.first.niveles,
-      TipoInstrumento.escala => nivelesEscala.first.niveles,
+      TipoInstrumento.escala ||
+      TipoInstrumento.prueba => nivelesEscala.first.niveles,
     };
     niveles = [for (final n in defecto) n.nombre];
     avisos.add('No se encontró la fila NIVELES; se usaron: ${niveles.join(', ')}.');
@@ -492,7 +674,8 @@ Lectura leerFilas(List<List<String>> filas) {
     final defecto = switch (tipo) {
       TipoInstrumento.rubrica => (k + 1).toDouble(),
       TipoInstrumento.cotejo => k == 0 ? 1.0 : 0.0,
-      TipoInstrumento.escala => (niveles.length - 1 - k).toDouble(),
+      TipoInstrumento.escala ||
+      TipoInstrumento.prueba => (niveles.length - 1 - k).toDouble(),
     };
     final txt = puntosTxt != null && k < puntosTxt.length ? puntosTxt[k] : '';
     final p = txt.isEmpty ? defecto : _numero(txt);
@@ -546,14 +729,10 @@ Lectura leerFilas(List<List<String>> filas) {
     }
   }
 
-  final niv = [
-    for (final n in nivelesEducativos)
-      if (normalizar(nivelTxt).contains(normalizar(n))) n,
-  ];
-
   final ins = Instrumento(
     id: nuevoId(),
     tipo: tipo,
+    competencias: comps,
     nombre: nombre,
     descripcion: descripcion,
     niveles: niv,

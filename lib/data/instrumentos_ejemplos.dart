@@ -499,6 +499,109 @@ final List<Instrumento> ejemplosInstrumentos = [
     ],
     ejemplo: true,
   ),
+
+  // ──────────────────── EXÁMENES Y TRABAJO DIARIO ────────────────────
+  Instrumento(
+    id: 'ej-practica',
+    tipo: TipoInstrumento.prueba,
+    nombre: 'Práctica calificada (10 preguntas)',
+    descripcion:
+        'Opción múltiple A–D, 2 puntos cada una. Cambia la clave según tu '
+        'práctica. Puedes dictar las respuestas de corrido: «BADC…».',
+    niveles: const [_p, _s],
+    ponderada: true,
+    items: [
+      for (var k = 0; k < 10; k++)
+        ItemInstrumento(id: 'p$k', texto: '', peso: 2, opciones: 4, clave: const [1, 0, 3, 2, 1, 2, 0, 3, 1, 0][k]),
+    ],
+    ejemplo: true,
+  ),
+  Instrumento(
+    id: 'ej-bimestral',
+    tipo: TipoInstrumento.prueba,
+    nombre: 'Examen bimestral mixto',
+    descripcion:
+        '8 de opción múltiple (1,5 pts), 4 de verdadero o falso (0,5 pts) y 2 '
+        'problemas de desarrollo (3 pts). Total: 20.',
+    niveles: const [_s],
+    ponderada: true,
+    items: [
+      for (var k = 0; k < 8; k++)
+        ItemInstrumento(id: 'm$k', texto: '', peso: 1.5, opciones: 4, clave: const [0, 2, 1, 3, 0, 1, 2, 3][k]),
+      for (var k = 0; k < 4; k++)
+        ItemInstrumento(id: 'v$k', texto: '', peso: .5, opciones: 2, clave: k.isEven ? 0 : 1),
+      const ItemInstrumento(id: 'd0', texto: 'Problema 1', peso: 3),
+      const ItemInstrumento(id: 'd1', texto: 'Problema 2', peso: 3),
+    ],
+    ejemplo: true,
+  ),
+  Instrumento(
+    id: 'ej-control-lectura',
+    tipo: TipoInstrumento.prueba,
+    nombre: 'Control de lectura',
+    descripcion:
+        '5 preguntas literales e inferenciales (A–C) y 2 preguntas de opinión '
+        'que se corrigen a mano.',
+    niveles: const [_p, _s],
+    area: 'Comunicación',
+    ponderada: true,
+    items: [
+      const ItemInstrumento(id: 'a', texto: '¿Quién es el personaje principal?', peso: 2, opciones: 3, clave: 0),
+      const ItemInstrumento(id: 'b', texto: '¿Dónde ocurre la historia?', peso: 2, opciones: 3, clave: 1),
+      const ItemInstrumento(id: 'c', texto: '¿Qué problema enfrenta el personaje?', peso: 2, opciones: 3, clave: 2),
+      const ItemInstrumento(id: 'd', texto: '¿Por qué el personaje toma esa decisión?', peso: 2, opciones: 3, clave: 0),
+      const ItemInstrumento(id: 'e', texto: '¿Cuál es el tema del texto?', peso: 2, opciones: 3, clave: 1),
+      const ItemInstrumento(id: 'f', texto: '¿Estás de acuerdo con el final? Explica.', peso: 5),
+      const ItemInstrumento(id: 'g', texto: '¿Qué le aconsejarías al personaje?', peso: 5),
+    ],
+    ejemplo: true,
+  ),
+  Instrumento(
+    id: 'ej-quiz-vf',
+    tipo: TipoInstrumento.prueba,
+    nombre: 'Quiz de verdadero o falso',
+    descripcion: '10 afirmaciones de 2 puntos. Ideal para iniciar o cerrar la clase.',
+    niveles: const [_p, _s],
+    ponderada: true,
+    items: [
+      for (var k = 0; k < 10; k++)
+        ItemInstrumento(id: 'q$k', texto: '', peso: 2, opciones: 2, clave: const [0, 1, 1, 0, 0, 1, 0, 1, 0, 0][k]),
+    ],
+    ejemplo: true,
+  ),
+  Instrumento(
+    id: 'ej-tareas',
+    tipo: TipoInstrumento.cotejo,
+    nombre: 'Revisión de tareas',
+    descripcion: 'Lista ponderada para la tarea del día o de la semana.',
+    niveles: const [_p, _s],
+    escala: etiquetasCotejo[2].niveles,
+    ponderada: true,
+    items: [
+      _i('a', 'La entregó a tiempo', peso: 2),
+      _i('b', 'Está completa', peso: 4),
+      _i('c', 'Las respuestas son correctas', peso: 10),
+      _i('d', 'Está ordenada y limpia', peso: 2),
+      _i('e', 'Corrigió lo observado', peso: 2),
+    ],
+    ejemplo: true,
+  ),
+  Instrumento(
+    id: 'ej-actitudinal',
+    tipo: TipoInstrumento.escala,
+    nombre: 'Actitud en clase',
+    descripcion: 'Escala actitudinal del periodo. Con caritas se entiende rápido.',
+    niveles: const [_p, _s],
+    escala: nivelesEscala[3].niveles,
+    items: [
+      _i('a', 'Llega puntual'),
+      _i('b', 'Respeta a sus compañeros y docentes'),
+      _i('c', 'Cumple con sus responsabilidades'),
+      _i('d', 'Mantiene el orden y la limpieza'),
+      _i('e', 'Participa con entusiasmo'),
+    ],
+    ejemplo: true,
+  ),
 ];
 
 /// Lo que se agrega a la biblioteca la primera vez, para no empezar vacío.

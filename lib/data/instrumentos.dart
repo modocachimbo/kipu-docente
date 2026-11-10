@@ -13,19 +13,21 @@ import 'paises.dart';
 ///   evaluaciones ya hechas.
 /// - `instrumento_marcas_<columnaId>`: lo marcado a cada estudiante.
 /// - `tramos_<escalaId>`: % mínimo de cada valor de una escala de letras.
-enum TipoInstrumento { rubrica, cotejo, escala }
+enum TipoInstrumento { rubrica, cotejo, escala, prueba }
 
 extension TipoInstrumentoTexto on TipoInstrumento {
   String get nombre => switch (this) {
     TipoInstrumento.rubrica => 'Rúbrica',
     TipoInstrumento.cotejo => 'Lista de cotejo',
     TipoInstrumento.escala => 'Escala de valoración',
+    TipoInstrumento.prueba => 'Examen con clave',
   };
 
   String get plural => switch (this) {
     TipoInstrumento.rubrica => 'Rúbricas',
     TipoInstrumento.cotejo => 'Listas de cotejo',
     TipoInstrumento.escala => 'Escalas de valoración',
+    TipoInstrumento.prueba => 'Exámenes',
   };
 
   /// Qué es y cuándo conviene, para ayudar al docente a elegir.
@@ -40,6 +42,9 @@ extension TipoInstrumentoTexto on TipoInstrumento {
     TipoInstrumento.escala =>
       'Cada ítem se valora en grados (siempre, a veces, nunca…). Para '
           'hábitos, actitudes, participación, auto y coevaluación.',
+    TipoInstrumento.prueba =>
+      'Preguntas con puntaje: opción múltiple, verdadero o falso y de '
+          'desarrollo. Marcas lo que respondió y Kipu corrige con la clave.',
   };
 }
 
@@ -71,22 +76,43 @@ class ItemInstrumento {
   /// Solo rúbrica: un descriptor por nivel, en el orden de los niveles.
   final List<String> descriptores;
 
+  /// Solo examen: 0 = desarrollo (puntaje a mano), 2 = verdadero o falso,
+  /// 3 a 6 = opción múltiple A–C … A–F.
+  final int opciones;
+
+  /// Solo examen: índice de la respuesta correcta (0 = A o V).
+  final int? clave;
+
   const ItemInstrumento({
     required this.id,
     required this.texto,
     this.peso = 1,
     this.descriptores = const [],
+    this.opciones = 0,
+    this.clave,
   });
+
+  bool get desarrollo => opciones == 0;
+
+  /// Letras de las opciones: [V, F] o [A, B, C, D].
+  List<String> get letras => opciones == 2
+      ? const ['V', 'F']
+      : [for (var k = 0; k < opciones; k++) String.fromCharCode(65 + k)];
 
   ItemInstrumento copiar({
     String? texto,
     double? peso,
     List<String>? descriptores,
+    int? opciones,
+    int? clave,
+    bool sinClave = false,
   }) => ItemInstrumento(
     id: id,
     texto: texto ?? this.texto,
     peso: peso ?? this.peso,
     descriptores: descriptores ?? this.descriptores,
+    opciones: opciones ?? this.opciones,
+    clave: sinClave ? null : (clave ?? this.clave),
   );
 
   Map<String, dynamic> aJson() => {
@@ -94,6 +120,8 @@ class ItemInstrumento {
     'texto': texto,
     'peso': peso,
     if (descriptores.isNotEmpty) 'descriptores': descriptores,
+    if (opciones != 0) 'opciones': opciones,
+    if (clave != null) 'clave': clave,
   };
 
   factory ItemInstrumento.deJson(Map<String, dynamic> j) => ItemInstrumento(
@@ -103,6 +131,8 @@ class ItemInstrumento {
     descriptores: [
       for (final d in (j['descriptores'] as List?) ?? const []) '$d',
     ],
+    opciones: (j['opciones'] as num?)?.toInt() ?? 0,
+    clave: (j['clave'] as num?)?.toInt(),
   );
 }
 
@@ -115,6 +145,10 @@ class Instrumento {
   /// Inicial, Primaria, Secundaria. Vacío = cualquiera.
   final List<String> niveles;
   final String area;
+
+  /// Ids de las competencias del CNEB que evalúa (ver cneb.dart). Sirven para
+  /// filtrar y para el registro por competencias.
+  final List<String> competencias;
 
   /// Rúbrica: columnas de menor a mayor logro (como se ven en la tabla).
   /// Escala: de mejor a peor (el mejor arriba). Lista de cotejo: [positiva,
@@ -132,6 +166,9 @@ class Instrumento {
   /// Viene de los ejemplos de Kipu (se muestra la marca «Ejemplo»).
   final bool ejemplo;
 
+  /// Id del ejemplo del que se copió, para saber cuáles ya se agregaron.
+  final String origen;
+
   const Instrumento({
     required this.id,
     required this.tipo,
@@ -139,11 +176,13 @@ class Instrumento {
     this.descripcion = '',
     this.niveles = const [],
     this.area = '',
-    required this.escala,
+    this.competencias = const [],
+    this.escala = const [],
     required this.items,
     this.noObservado = false,
     this.ponderada = false,
     this.ejemplo = false,
+    this.origen = '',
   });
 
   Instrumento copiar({
@@ -152,11 +191,13 @@ class Instrumento {
     String? descripcion,
     List<String>? niveles,
     String? area,
+    List<String>? competencias,
     List<NivelInstrumento>? escala,
     List<ItemInstrumento>? items,
     bool? noObservado,
     bool? ponderada,
     bool? ejemplo,
+    String? origen,
   }) => Instrumento(
     id: id ?? this.id,
     tipo: tipo,
@@ -164,11 +205,13 @@ class Instrumento {
     descripcion: descripcion ?? this.descripcion,
     niveles: niveles ?? this.niveles,
     area: area ?? this.area,
+    competencias: competencias ?? this.competencias,
     escala: escala ?? this.escala,
     items: items ?? this.items,
     noObservado: noObservado ?? this.noObservado,
     ponderada: ponderada ?? this.ponderada,
     ejemplo: ejemplo ?? this.ejemplo,
+    origen: origen ?? this.origen,
   );
 
   /// Puntos del mejor y del peor nivel.
@@ -176,7 +219,11 @@ class Instrumento {
   double get puntosMin => escala.isEmpty ? 0 : escala.map((n) => n.puntos).reduce(math.min);
 
   /// Peso efectivo de un ítem.
-  double pesoDe(ItemInstrumento i) => ponderada ? math.max(0, i.peso) : 1;
+  double pesoDe(ItemInstrumento i) =>
+      ponderada || tipo == TipoInstrumento.prueba ? math.max(0, i.peso) : 1;
+
+  /// Puntaje total del examen.
+  double get puntajeTotal => items.fold(0, (s, i) => s + math.max(0, i.peso));
 
   /// Resumen corto: «6 criterios · 4 niveles».
   String get resumen {
@@ -188,6 +235,8 @@ class Instrumento {
         '$n ${n == 1 ? 'ítem' : 'ítems'} · ${escala.map((e) => e.nombre).join(' / ')}',
       TipoInstrumento.escala =>
         '$n ${n == 1 ? 'ítem' : 'ítems'} · ${escala.length} niveles',
+      TipoInstrumento.prueba =>
+        '$n ${n == 1 ? 'pregunta' : 'preguntas'} · ${_numTxt(puntajeTotal)} puntos',
     };
   }
 
@@ -195,6 +244,16 @@ class Instrumento {
   List<String> validar() {
     final r = <String>[];
     if (nombre.trim().isEmpty) r.add('Escribe un nombre');
+    if (tipo == TipoInstrumento.prueba) {
+      if (items.isEmpty) r.add('Agrega al menos una pregunta');
+      for (final (k, i) in items.indexed) {
+        if (i.peso <= 0) r.add('La pregunta ${k + 1} debe valer más de 0 puntos');
+        if (!i.desarrollo && (i.clave == null || i.clave! >= i.opciones)) {
+          r.add('Marca la respuesta correcta de la pregunta ${k + 1}');
+        }
+      }
+      return r;
+    }
     if (items.isEmpty) {
       r.add(
         tipo == TipoInstrumento.rubrica
@@ -229,11 +288,13 @@ class Instrumento {
     if (descripcion.isNotEmpty) 'descripcion': descripcion,
     if (niveles.isNotEmpty) 'niveles': niveles,
     if (area.isNotEmpty) 'area': area,
+    if (competencias.isNotEmpty) 'competencias': competencias,
     'escala': [for (final n in escala) n.aJson()],
     'items': [for (final i in items) i.aJson()],
     'noObservado': noObservado,
     'ponderada': ponderada,
     if (ejemplo) 'ejemplo': true,
+    if (origen.isNotEmpty) 'origen': origen,
   };
 
   factory Instrumento.deJson(Map<String, dynamic> j) => Instrumento(
@@ -246,6 +307,9 @@ class Instrumento {
     descripcion: j['descripcion'] as String? ?? '',
     niveles: [for (final n in (j['niveles'] as List?) ?? const []) '$n'],
     area: j['area'] as String? ?? '',
+    competencias: [
+      for (final c in (j['competencias'] as List?) ?? const []) '$c',
+    ],
     escala: [
       for (final n in (j['escala'] as List?) ?? const [])
         NivelInstrumento.deJson(n as Map<String, dynamic>),
@@ -257,6 +321,7 @@ class Instrumento {
     noObservado: j['noObservado'] as bool? ?? false,
     ponderada: j['ponderada'] as bool? ?? false,
     ejemplo: j['ejemplo'] as bool? ?? false,
+    origen: j['origen'] as String? ?? '',
   );
 
   static List<Instrumento> listaDeJson(String? v) {
@@ -306,6 +371,16 @@ class Instrumento {
         escala: nivelesEscala.first.niveles,
         items: [ItemInstrumento(id: nuevoId(), texto: '')],
       ),
+      TipoInstrumento.prueba => Instrumento(
+        id: id,
+        tipo: tipo,
+        nombre: '',
+        ponderada: true,
+        items: [
+          for (var k = 0; k < 5; k++)
+            ItemInstrumento(id: nuevoId(), texto: '', peso: 4, opciones: 4),
+        ],
+      ),
     };
   }
 }
@@ -326,6 +401,7 @@ Instrumento duplicar(Instrumento i, {String? nombre, bool ejemplo = false}) =>
       id: nuevoId(),
       nombre: nombre ?? i.nombre,
       ejemplo: ejemplo,
+      origen: ejemplo ? i.id : '',
       items: [
         for (final x in i.items)
           ItemInstrumento(
@@ -333,6 +409,8 @@ Instrumento duplicar(Instrumento i, {String? nombre, bool ejemplo = false}) =>
             texto: x.texto,
             peso: x.peso,
             descriptores: [...x.descriptores],
+            opciones: x.opciones,
+            clave: x.clave,
           ),
       ],
     );
@@ -478,12 +556,18 @@ class Resultado {
   /// Nivel promedio de 0 (el más bajo) a 1 (el más alto).
   final double nivelMedio;
 
+  /// Puntos obtenidos y posibles (en el examen, el puntaje).
+  final double puntos;
+  final double posibles;
+
   const Resultado({
     required this.aplicables,
     required this.total,
     required this.logrados,
     required this.proporcion,
     required this.nivelMedio,
+    this.puntos = 0,
+    this.posibles = 0,
   });
 
   double get porcentaje => proporcion * 100;
@@ -492,6 +576,7 @@ class Resultado {
 /// Calcula el resultado. Devuelve null si no hay nada marcado que cuente.
 /// Los ítems sin marcar no cuentan (así se puede evaluar por partes).
 Resultado? calcular(Instrumento ins, Marcas m) {
+  if (ins.tipo == TipoInstrumento.prueba) return _calcularPrueba(ins, m);
   final max = ins.puntosMax, min = ins.puntosMin;
   var obtenidos = 0.0, posibles = 0.0, sumaNivel = 0.0, sumaPeso = 0.0;
   var aplicables = 0, logrados = 0;
@@ -515,8 +600,76 @@ Resultado? calcular(Instrumento ins, Marcas m) {
     logrados: logrados,
     proporcion: posibles <= 0 ? 0 : obtenidos / posibles,
     nivelMedio: sumaPeso <= 0 ? 0 : sumaNivel / sumaPeso,
+    puntos: obtenidos,
+    posibles: posibles,
   );
 }
+
+/// En el examen la marca es la opción que eligió el estudiante (o -1 si no
+/// respondió) y, en desarrollo, los medios puntos obtenidos (3 = 1,5 pts).
+/// Las preguntas sin marcar cuentan como no respondidas: el total es siempre
+/// el puntaje del examen.
+Resultado? _calcularPrueba(Instrumento ins, Marcas m) {
+  if (m.porItem.isEmpty) return null;
+  var obtenidos = 0.0, aplicables = 0, correctas = 0;
+  final total = ins.puntajeTotal;
+  for (final it in ins.items) {
+    final k = m.porItem[it.id];
+    final w = math.max(0.0, it.peso);
+    if (k != null) aplicables++;
+    if (k == null || k < 0) continue;
+    if (it.desarrollo) {
+      final p = math.min(w, k / 2);
+      obtenidos += p;
+      if (p >= w) correctas++;
+    } else if (k == it.clave) {
+      obtenidos += w;
+      correctas++;
+    }
+  }
+  final prop = total <= 0 ? 0.0 : obtenidos / total;
+  return Resultado(
+    aplicables: aplicables,
+    total: ins.items.length,
+    logrados: correctas,
+    proporcion: prop,
+    nivelMedio: prop,
+    puntos: obtenidos,
+    posibles: total,
+  );
+}
+
+/// Convierte respuestas escritas de corrido («ABDC VF-B») en marcas: una
+/// letra por pregunta objetiva, en orden; «-» o «.» = no respondió. Las
+/// preguntas de desarrollo se saltan y conservan su marca.
+Map<String, int> respuestasRapidas(
+  Instrumento ins,
+  String texto,
+  Map<String, int> actuales,
+) {
+  final letras = texto
+      .toUpperCase()
+      .replaceAll(RegExp(r'[\s,;]'), '')
+      .split('');
+  final r = {...actuales};
+  var j = 0;
+  for (final it in ins.items) {
+    if (it.desarrollo) continue;
+    if (j >= letras.length) break;
+    final l = letras[j++];
+    if (l == '-' || l == '.' || l == '_') {
+      r[it.id] = marcaNoObservado;
+      continue;
+    }
+    final k = it.letras.indexOf(l);
+    if (k >= 0) r[it.id] = k;
+  }
+  return r;
+}
+
+String _numTxt(double n) => n == n.roundToDouble()
+    ? n.round().toString()
+    : n.toStringAsFixed(1).replaceAll('.', ',');
 
 /// % mínimo de cada valor de una escala de letras, del mejor al penúltimo
 /// (el último va desde 0). Para AD/A/B/C: 90, 70, 55.
@@ -551,7 +704,9 @@ String valorEnEscala(
   }
   final k = e.valores.length;
   if (k == 0) return '';
-  if (ins.tipo != TipoInstrumento.cotejo && ins.escala.length == k) {
+  if ((ins.tipo == TipoInstrumento.rubrica ||
+          ins.tipo == TipoInstrumento.escala) &&
+      ins.escala.length == k) {
     // 0 = el mejor valor de la escala de letras.
     final i = ((1 - r.nivelMedio) * (k - 1) + 1e-9).round().clamp(0, k - 1).toInt();
     return e.valores[i].codigo;
@@ -571,6 +726,12 @@ String describirResultado(Instrumento ins, Resultado r) {
   final extra = noObs > 0 ? ' · $noObs sin marcar' : '';
   if (ins.tipo == TipoInstrumento.cotejo) {
     return '${r.logrados} de ${r.aplicables} logrados · $pct$extra';
+  }
+  if (ins.tipo == TipoInstrumento.prueba) {
+    final sin = r.total - r.aplicables;
+    return '${_numTxt(r.puntos)} de ${_numTxt(r.posibles)} puntos · '
+        '${r.logrados} correctas · $pct'
+        '${sin > 0 ? ' · $sin sin marcar' : ''}';
   }
   final niveles = ins.escala.length;
   final medio = 1 + r.nivelMedio * (niveles - 1);

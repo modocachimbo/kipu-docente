@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/cneb.dart';
 import '../data/database.dart';
 import '../data/evaluacion_db.dart';
 import '../data/instrumentos.dart';
@@ -9,7 +10,7 @@ import '../main.dart';
 import '../theme.dart';
 import '../widgets/kipu_icono.dart';
 import 'cursos.dart' show confirmar;
-import 'evaluacion.dart' show numeroCorto;
+import 'evaluacion.dart' show colorNivel, numeroCorto;
 
 const _linea = Color(0xFFE6E7F0);
 const _rojo = Color(0xFFC2334A);
@@ -46,6 +47,7 @@ class _EditorInstrumentoState extends State<EditorInstrumento> {
 
   bool get _rubrica => _x.tipo == TipoInstrumento.rubrica;
   bool get _cotejo => _x.tipo == TipoInstrumento.cotejo;
+  bool get _prueba => _x.tipo == TipoInstrumento.prueba;
 
   void _set(Instrumento n, {bool refrescar = false}) => setState(() {
     _x = n;
@@ -59,6 +61,24 @@ class _EditorInstrumentoState extends State<EditorInstrumento> {
 
   void _agregarItem() {
     final n = _x.items.length;
+    if (_prueba) {
+      // Copia el tipo de la última pregunta para ir más rápido.
+      final ultima = _x.items.lastOrNull;
+      _set(
+        _x.copiar(
+          items: [
+            ..._x.items,
+            ItemInstrumento(
+              id: nuevoId(),
+              texto: '',
+              peso: ultima?.peso ?? 2,
+              opciones: ultima?.opciones ?? 4,
+            ),
+          ],
+        ),
+      );
+      return;
+    }
     _set(
       _x.copiar(
         items: [
@@ -225,7 +245,7 @@ class _EditorInstrumentoState extends State<EditorInstrumento> {
                   titulo: 'DATOS',
                   child: _Datos(x: _x, v: _v, onCambio: _set),
                 ),
-                if (!_rubrica)
+                if (!_rubrica && !_prueba)
                   _Seccion(
                     titulo: _cotejo ? 'TIPO DE LISTA' : 'TIPO DE ESCALA',
                     child: _TipoLista(x: _x, onCambio: _set),
@@ -240,7 +260,7 @@ class _EditorInstrumentoState extends State<EditorInstrumento> {
                       onNivel: _nivel,
                     ),
                   )
-                else if (!_rubrica)
+                else if (!_rubrica && !_prueba)
                   _Seccion(
                     titulo: 'NIVELES DE LA ESCALA (${_x.escala.length}) · EL MEJOR ARRIBA',
                     child: _NivelesEscala(
@@ -252,7 +272,21 @@ class _EditorInstrumentoState extends State<EditorInstrumento> {
                       onAgregar: _agregarNivel,
                     ),
                   ),
-                if (_rubrica)
+                if (_prueba)
+                  _Seccion(
+                    titulo:
+                        'PREGUNTAS (${_x.items.length}) · ${numeroCorto(_x.puntajeTotal)} PUNTOS',
+                    child: _Preguntas(
+                      x: _x,
+                      v: _v,
+                      onCambio: _set,
+                      onItem: _item,
+                      onQuitar: _quitarItem,
+                      onMover: _moverItem,
+                      onAgregar: _agregarItem,
+                    ),
+                  )
+                else if (_rubrica)
                   _Seccion(
                     titulo: 'RÚBRICA · ${_x.items.length} CRITERIOS × ${_x.escala.length} NIVELES',
                     child: _TablaRubrica(
@@ -295,6 +329,10 @@ class _EditorInstrumentoState extends State<EditorInstrumento> {
                       TipoInstrumento.rubrica =>
                         'Con AD/A/B/C y 4 niveles, la nota es el nivel promedio. '
                             'Con nota numérica: puntos obtenidos ÷ máximo × nota máxima.',
+                      TipoInstrumento.prueba =>
+                        'Al evaluar marcas lo que respondió cada estudiante y Kipu '
+                            'corrige con la clave. Puntaje ÷ total × escala de la '
+                            'columna (0–20 o AD/A/B/C con la conversión).',
                     },
                     style: const TextStyle(fontSize: 12.5, color: KipuColores.gris),
                   ),
@@ -434,6 +472,341 @@ class _Datos extends StatelessWidget {
                   ),
                 ),
               ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _Competencias(x: x, onCambio: onCambio),
+      ],
+    );
+  }
+}
+
+/// Competencias del CNEB que evalúa el instrumento (opcional). Sirven para
+/// filtrar y para el registro por competencias del colegio público.
+class _Competencias extends StatelessWidget {
+  final Instrumento x;
+  final void Function(Instrumento, {bool refrescar}) onCambio;
+  const _Competencias({required this.x, required this.onCambio});
+
+  Future<void> _elegir(BuildContext context) async {
+    final niveles = x.niveles.isEmpty ? nivelesEducativos : x.niveles;
+    final lista = [
+      for (final c in competenciasCneb)
+        if (c.niveles.any(niveles.contains)) c,
+    ];
+    final elegidas = {...x.competencias};
+    final r = await showDialog<Set<String>>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) {
+          String areaDe(Competencia c) =>
+              c.areas[niveles.firstWhere(c.areas.containsKey, orElse: () => c.niveles.first)]!;
+          final porArea = <String, List<Competencia>>{};
+          for (final c in lista) {
+            (porArea[areaDe(c)] ??= []).add(c);
+          }
+          final areas = porArea.keys.toList()
+            ..sort((a, b) => ordenAreas.indexOf(a).compareTo(ordenAreas.indexOf(b)));
+          return AlertDialog(
+            title: const Text('Competencias que evalúa'),
+            contentPadding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
+            content: SizedBox(
+              width: 520,
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  for (final a in areas) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                      child: Text(
+                        a.toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          letterSpacing: .5,
+                          fontWeight: FontWeight.w600,
+                          color: KipuColores.gris,
+                        ),
+                      ),
+                    ),
+                    for (final c in porArea[a]!)
+                      CheckboxListTile(
+                        dense: true,
+                        value: elegidas.contains(c.id),
+                        title: Text(c.nombre),
+                        controlAffinity: ListTileControlAffinity.leading,
+                        onChanged: (on) => setState(() {
+                          if (on == true) {
+                            elegidas.add(c.id);
+                          } else {
+                            elegidas.remove(c.id);
+                          }
+                        }),
+                      ),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancelar'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, elegidas),
+                child: const Text('Listo'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    if (r == null) return;
+    onCambio(
+      x.copiar(
+        competencias: [
+          for (final c in competenciasCneb)
+            if (r.contains(c.id)) c.id,
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        const Text('Competencias:', style: TextStyle(color: KipuColores.gris)),
+        for (final id in x.competencias)
+          InputChip(
+            label: Text(competenciaPorId(id)?.corto ?? id),
+            backgroundColor: KipuColores.moradoClaro,
+            side: BorderSide.none,
+            onDeleted: () => onCambio(
+              x.copiar(
+                competencias: [
+                  for (final c in x.competencias)
+                    if (c != id) c,
+                ],
+              ),
+            ),
+          ),
+        ActionChip(
+          label: Text(x.competencias.isEmpty ? '+ Elegir (opcional)' : '+ Cambiar'),
+          backgroundColor: Colors.white,
+          side: const BorderSide(color: _linea),
+          onPressed: () => _elegir(context),
+        ),
+      ],
+    );
+  }
+}
+
+/// Editor de las preguntas del examen: tipo, puntos y clave.
+class _Preguntas extends StatelessWidget {
+  final Instrumento x;
+  final int v;
+  final void Function(Instrumento, {bool refrescar}) onCambio;
+  final void Function(int, ItemInstrumento) onItem;
+  final ValueChanged<int> onQuitar;
+  final void Function(int, int) onMover;
+  final VoidCallback onAgregar;
+  const _Preguntas({
+    required this.x,
+    required this.v,
+    required this.onCambio,
+    required this.onItem,
+    required this.onQuitar,
+    required this.onMover,
+    required this.onAgregar,
+  });
+
+  static const _tipos = {
+    3: 'A–C',
+    4: 'A–D',
+    5: 'A–E',
+    2: 'V / F',
+    0: 'Desarrollo',
+  };
+
+  void _agregarVarias(int cuantas) {
+    final peso = x.items.lastOrNull?.peso ?? 2;
+    onCambio(
+      x.copiar(
+        items: [
+          ...x.items,
+          for (var k = 0; k < cuantas; k++)
+            ItemInstrumento(id: nuevoId(), texto: '', peso: peso, opciones: 4),
+        ],
+      ),
+      refrescar: true,
+    );
+  }
+
+  /// Reparte los puntos en proporción para que el total sea 20.
+  void _ajustarA20() {
+    final total = x.puntajeTotal;
+    if (total <= 0) return;
+    onCambio(
+      x.copiar(
+        items: [
+          for (final it in x.items)
+            it.copiar(peso: ((it.peso / total * 20) * 2).round() / 2),
+        ],
+      ),
+      refrescar: true,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final total = x.puntajeTotal;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < x.items.length; i++)
+          Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
+            decoration: BoxDecoration(
+              border: Border.all(color: _linea),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    SizedBox(
+                      width: 30,
+                      child: Text(
+                        '${i + 1}.',
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    Expanded(
+                      child: TextFormField(
+                        key: ValueKey('pq-${x.items[i].id}-$v'),
+                        initialValue: x.items[i].texto,
+                        minLines: 1,
+                        maxLines: 3,
+                        textCapitalization: TextCapitalization.sentences,
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          hintText: 'Enunciado (opcional)',
+                        ),
+                        onChanged: (t) => onItem(i, x.items[i].copiar(texto: t)),
+                      ),
+                    ),
+                    PopupMenuButton<String>(
+                      tooltip: 'Opciones de la pregunta',
+                      icon: const Icon(Icons.more_vert, color: KipuColores.gris),
+                      onSelected: (a) {
+                        if (a == 'arriba') {
+                          onMover(i, -1);
+                        } else if (a == 'abajo') {
+                          onMover(i, 1);
+                        } else {
+                          onQuitar(i);
+                        }
+                      },
+                      itemBuilder: (_) => [
+                        if (i > 0)
+                          const PopupMenuItem(value: 'arriba', child: Text('Subir')),
+                        if (i < x.items.length - 1)
+                          const PopupMenuItem(value: 'abajo', child: Text('Bajar')),
+                        const PopupMenuItem(value: 'quitar', child: Text('Quitar')),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    DropdownButton<int>(
+                      value: _tipos.containsKey(x.items[i].opciones)
+                          ? x.items[i].opciones
+                          : 4,
+                      underline: const SizedBox(),
+                      borderRadius: BorderRadius.circular(12),
+                      items: [
+                        for (final e in _tipos.entries)
+                          DropdownMenuItem(value: e.key, child: Text(e.value)),
+                      ],
+                      onChanged: (o) {
+                        if (o == null) return;
+                        final it = x.items[i];
+                        onItem(
+                          i,
+                          it.copiar(
+                            opciones: o,
+                            sinClave: it.clave == null || it.clave! >= o || o == 0,
+                          ),
+                        );
+                      },
+                    ),
+                    _CampoPuntos(
+                      campo: ValueKey('pp-${x.items[i].id}-$v'),
+                      valor: x.items[i].peso,
+                      onCambio: (p) => onItem(i, x.items[i].copiar(peso: p)),
+                    ),
+                    if (!x.items[i].desarrollo) ...[
+                      const Text('Clave:', style: TextStyle(color: KipuColores.gris)),
+                      for (final (k, l) in x.items[i].letras.indexed)
+                        ChoiceChip(
+                          label: Text(l),
+                          selected: x.items[i].clave == k,
+                          showCheckmark: false,
+                          visualDensity: VisualDensity.compact,
+                          selectedColor: KipuColores.morado,
+                          labelStyle: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: x.items[i].clave == k
+                                ? Colors.white
+                                : KipuColores.tinta,
+                          ),
+                          onSelected: (_) => onItem(i, x.items[i].copiar(clave: k)),
+                        ),
+                    ] else
+                      const Text(
+                        'Se corrige a mano',
+                        style: TextStyle(fontSize: 12.5, color: KipuColores.gris),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Total: ${numeroCorto(total)} puntos',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: (total - 20).abs() < .01 ? KipuColores.tinta : _rojo,
+                ),
+              ),
+            ),
+            if ((total - 20).abs() >= .01 && total > 0)
+              TextButton(onPressed: _ajustarA20, child: const Text('Ajustar a 20')),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            OutlinedButton(onPressed: onAgregar, child: const Text('+ Pregunta')),
+            OutlinedButton(
+              onPressed: () => _agregarVarias(5),
+              child: const Text('+ 5 de opción múltiple'),
+            ),
           ],
         ),
       ],
@@ -1340,9 +1713,12 @@ class _EvaluarInstrumentoState extends State<EvaluarInstrumento> {
     final r = _resultado;
     final valor = _valor;
     final total = widget.estudiantes.length;
-    final mejor = _ins.tipo == TipoInstrumento.rubrica
-        ? _ins.escala.last.nombre
-        : _ins.escala.first.nombre;
+    final prueba = _ins.tipo == TipoInstrumento.prueba;
+    final mejor = prueba || _ins.escala.isEmpty
+        ? ''
+        : (_ins.tipo == TipoInstrumento.rubrica
+              ? _ins.escala.last.nombre
+              : _ins.escala.first.nombre);
     return Scaffold(
       appBar: AppBar(
         title: Column(
@@ -1376,7 +1752,9 @@ class _EvaluarInstrumentoState extends State<EvaluarInstrumento> {
                       valor: valor,
                       escala: widget.escala,
                       detalle: r == null
-                          ? 'Marca los ítems para calcular la nota'
+                          ? (prueba
+                                ? 'Marca lo que respondió en cada pregunta'
+                                : 'Marca los ítems para calcular la nota')
                           : describirResultado(_ins, r),
                       color: base,
                       equipo: _equipo
@@ -1385,15 +1763,31 @@ class _EvaluarInstrumentoState extends State<EvaluarInstrumento> {
                           : null,
                     ),
                     const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: _todoMejor,
-                        child: Text('Lo que falta: «$mejor»'),
+                    if (prueba)
+                      _RespuestasRapidas(
+                        key: ValueKey('rr-${_e.id}'),
+                        onAplicar: (t) => setState(
+                          () => _m = respuestasRapidas(_ins, t, _m),
+                        ),
+                      )
+                    else
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: _todoMejor,
+                          child: Text('Lo que falta: «$mejor»'),
+                        ),
                       ),
-                    ),
                     for (final (n, it) in _ins.items.indexed)
-                      _ins.tipo == TipoInstrumento.rubrica
+                      prueba
+                      ? _PreguntaEvaluar(
+                          n: n,
+                          item: it,
+                          marca: _m[it.id],
+                          color: base,
+                          onMarca: (k) => _marcar(it.id, k),
+                        )
+                      : _ins.tipo == TipoInstrumento.rubrica
                           ? _CriterioEvaluar(
                               n: n,
                               item: it,
@@ -1712,6 +2106,177 @@ class _CriterioEvaluar extends StatelessWidget {
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+
+/// «BADC VF…»: dictar o escribir las respuestas de corrido.
+class _RespuestasRapidas extends StatefulWidget {
+  final ValueChanged<String> onAplicar;
+  const _RespuestasRapidas({super.key, required this.onAplicar});
+
+  @override
+  State<_RespuestasRapidas> createState() => _RespuestasRapidasState();
+}
+
+class _RespuestasRapidasState extends State<_RespuestasRapidas> {
+  final _c = TextEditingController();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  void _aplicar() {
+    if (_c.text.trim().isEmpty) return;
+    widget.onAplicar(_c.text);
+    FocusScope.of(context).unfocus();
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: _c,
+            textCapitalization: TextCapitalization.characters,
+            decoration: const InputDecoration(
+              isDense: true,
+              labelText: 'Respuestas de corrido (opcional)',
+              hintText: 'Ej. BADC VF-A  («-» = no respondió)',
+            ),
+            onSubmitted: (_) => _aplicar(),
+          ),
+        ),
+        const SizedBox(width: 8),
+        FilledButton.tonal(onPressed: _aplicar, child: const Text('Aplicar')),
+      ],
+    ),
+  );
+}
+
+/// Una pregunta del examen: se marca lo que respondió el estudiante y se ve
+/// al momento si es correcto. En desarrollo se eligen los puntos.
+class _PreguntaEvaluar extends StatelessWidget {
+  final int n;
+  final ItemInstrumento item;
+  final int? marca;
+  final Color color;
+  final ValueChanged<int> onMarca;
+  const _PreguntaEvaluar({
+    required this.n,
+    required this.item,
+    required this.marca,
+    required this.color,
+    required this.onMarca,
+  });
+
+  static const _verde = Color(0xFF0E7A5F);
+
+  @override
+  Widget build(BuildContext context) {
+    final it = item;
+    final respondio = marca != null && marca! >= 0;
+    final bien = it.desarrollo
+        ? (respondio && marca! / 2 >= it.peso)
+        : (respondio && marca == it.clave);
+    Widget chip(int k, String t, {Color? c}) {
+      final on = marca == k;
+      final tono = c ?? color;
+      return ChoiceChip(
+        label: Text(t),
+        selected: on,
+        showCheckmark: false,
+        visualDensity: VisualDensity.compact,
+        selectedColor: tono,
+        backgroundColor: Colors.white,
+        side: BorderSide(color: on ? tono : _linea),
+        labelStyle: TextStyle(
+          color: on ? Colors.white : KipuColores.tinta,
+          fontWeight: FontWeight.w600,
+        ),
+        onSelected: (_) => onMarca(k),
+      );
+    }
+
+    // Desarrollo: de medio en medio punto si vale 5 o menos; si no, de 1 en 1.
+    final paso = it.peso <= 5 ? 1 : 2;
+    final maximo = (it.peso * 2).round();
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: !respondio && marca == null
+              ? Colors.white
+              : (bien ? _verde : _rojo).withValues(alpha: .4),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('${n + 1}. ', style: const TextStyle(fontWeight: FontWeight.w700)),
+              Expanded(
+                child: Text(
+                  it.texto.isEmpty
+                      ? (it.desarrollo ? 'Desarrollo' : 'Pregunta ${n + 1}')
+                      : it.texto,
+                  style: const TextStyle(fontSize: 14.5),
+                ),
+              ),
+              Text(
+                '${numeroCorto(it.peso)} pts',
+                style: const TextStyle(fontSize: 12, color: KipuColores.gris),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: it.desarrollo
+                ? [
+                    for (final k in [
+                      for (var j = 0; j < maximo; j += paso) j,
+                      maximo,
+                    ])
+                      chip(
+                        k,
+                        numeroCorto(k / 2),
+                        c: colorNivel(k, maximo + 1),
+                      ),
+                  ]
+                : [
+                    for (final (k, l) in it.letras.indexed)
+                      chip(
+                        k,
+                        l,
+                        c: marca == k ? (k == it.clave ? _verde : _rojo) : null,
+                      ),
+                    chip(marcaNoObservado, 'En blanco', c: KipuColores.gris),
+                    if (respondio && !bien && it.clave != null)
+                      Text(
+                        'Correcta: ${it.letras[it.clave!]}',
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: _verde,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                  ],
+          ),
         ],
       ),
     );
