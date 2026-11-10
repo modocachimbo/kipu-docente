@@ -97,14 +97,19 @@ class _EditorCalculoState extends State<EditorCalculo> {
     if (mounted && n == _pedido) setState(() => _muestra = r);
   }
 
-  ColumnaDato get _propia => ColumnaDato(
-    id: widget.columnaId ?? -1,
-    codigo: '',
-    periodo: widget.periodo,
-    orden: 1 << 30,
-    tipo: 'calculada',
-    escala: widget.salida,
-  );
+  ColumnaDato get _propia {
+    // Una columna nueva va al final: todas quedan antes que ella.
+    final yo = _todas.where((x) => x.id == widget.columnaId).firstOrNull;
+    return ColumnaDato(
+      id: widget.columnaId ?? -1,
+      codigo: '',
+      periodo: widget.periodo,
+      orden: yo?.orden ?? 1 << 30,
+      fijada: yo?.fijada ?? false,
+      tipo: 'calculada',
+      escala: widget.salida,
+    );
+  }
 
   List<ColumnaDato> get _entran => columnasDelCalculo(c, _propia, _todas);
 
@@ -221,6 +226,11 @@ class _EditorCalculoState extends State<EditorCalculo> {
             runSpacing: 8,
             children: [
               _chip(
+                'Las anteriores',
+                c.seleccion == Seleccion.anteriores,
+                () => _set(c.copiar(seleccion: Seleccion.anteriores)),
+              ),
+              _chip(
                 'Todas las del periodo',
                 c.seleccion == Seleccion.todas,
                 () => _set(c.copiar(seleccion: Seleccion.todas)),
@@ -241,7 +251,8 @@ class _EditorCalculoState extends State<EditorCalculo> {
                   ? 'Todavía no hay columnas que entren en el cálculo.'
                   : 'Entran ${entran.length}: '
                         '${entran.map((x) => x.periodo == widget.periodo ? x.codigo : '${x.codigo} (${x.periodo}.°)').join(', ')}'
-                        '${c.seleccion == Seleccion.todas ? '. Las que crees después también entran.' : ''}',
+                        '${c.seleccion == Seleccion.todas ? '. Las que crees después también entran.' : ''}'
+                        '${c.seleccion == Seleccion.anteriores ? '. Las que agregues a su izquierda también entran.' : ''}',
               style: const TextStyle(fontSize: 12.5, color: KipuColores.gris),
             ),
           ),

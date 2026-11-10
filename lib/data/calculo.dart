@@ -29,7 +29,8 @@ extension TipoCalculoTexto on TipoCalculo {
 }
 
 /// Qué columnas entran en el cálculo.
-enum Seleccion { todas, porTipo, porCompetencia, manual }
+/// «anteriores» = las que están a la izquierda de la columna calculada.
+enum Seleccion { anteriores, todas, porTipo, porCompetencia, manual }
 
 /// Qué hacer con las notas vacías.
 enum SinNota { noCuenta, cero, esperar }
@@ -91,12 +92,12 @@ class Calculo {
 
   const Calculo({
     this.tipo = TipoCalculo.promedio,
-    this.seleccion = Seleccion.todas,
+    this.seleccion = Seleccion.anteriores,
     this.filtro = '',
     this.columnas = const [],
     this.porGrupos = false,
     this.grupos = const [],
-    this.sinNota = SinNota.noCuenta,
+    this.sinNota = SinNota.cero,
     this.nivel = ModoNivel.frecuente,
     this.formula = const [],
   });
@@ -130,7 +131,7 @@ class Calculo {
     if (columnas.isNotEmpty) 'cols': columnas,
     if (porGrupos) 'porGrupos': true,
     if (grupos.isNotEmpty) 'grupos': [for (final g in grupos) g.aJson()],
-    if (sinNota != SinNota.noCuenta) 'sinNota': sinNota.name,
+    'sinNota': sinNota.name,
     if (nivel != ModoNivel.frecuente) 'nivel': nivel.name,
     if (formula.isNotEmpty) 'formula': formula,
   };
@@ -148,6 +149,7 @@ class Calculo {
         for (final g in (j['grupos'] as List?) ?? const [])
           GrupoPeso.deJson(g as Map<String, dynamic>),
       ],
+      // Cálculos guardados antes de que existiera esta opción: no cuenta.
       sinNota: de(SinNota.values, j['sinNota'], SinNota.noCuenta),
       nivel: de(ModoNivel.values, j['nivel'], ModoNivel.frecuente),
       formula: [for (final t in (j['formula'] as List?) ?? const []) '$t'],
@@ -165,6 +167,9 @@ class ColumnaDato {
   final String tipo;
   final Escala escala;
   final String competencia;
+
+  /// Fijada a la derecha del registro (entonces todas quedan «antes»).
+  final bool fijada;
   const ColumnaDato({
     required this.id,
     required this.codigo,
@@ -174,6 +179,7 @@ class ColumnaDato {
     required this.tipo,
     required this.escala,
     this.competencia = '',
+    this.fijada = false,
   });
 }
 
@@ -237,6 +243,10 @@ List<ColumnaDato> columnasDelCalculo(
       if (x.periodo == propia.periodo && x.tipo != 'calculada' && valida(x)) x,
   ];
   final r = switch (c.seleccion) {
+    Seleccion.anteriores => [
+      for (final x in delPeriodo)
+        if (propia.fijada || x.orden < propia.orden) x,
+    ],
     Seleccion.todas => delPeriodo,
     Seleccion.porTipo => [
       for (final x in delPeriodo)
@@ -573,6 +583,7 @@ Desglose calcularCelda({
 String calculoEnPalabras(Calculo c, List<ColumnaDato> cols) {
   final codigos = {for (final col in cols) col.id: col.codigo};
   final cuales = switch (c.seleccion) {
+    Seleccion.anteriores => 'las columnas anteriores',
     Seleccion.todas => 'todas las columnas del periodo',
     Seleccion.porTipo => 'las columnas ${c.filtro.toUpperCase()}',
     Seleccion.porCompetencia => 'las columnas de la competencia',
