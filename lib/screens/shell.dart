@@ -18,6 +18,7 @@ import 'horario.dart';
 import 'horario_datos.dart';
 import 'inicio.dart';
 import 'proximamente.dart';
+import 'reportes.dart';
 
 class _Seccion {
   final String titulo;
@@ -55,10 +56,7 @@ final _secciones = <_Seccion>[
   _Seccion(
     'Reportes',
     KipuIcono.reportes,
-    () => const Proximamente(
-      'Reportes',
-      'Registro auxiliar, consolidado y libretas en PDF y Excel.',
-    ),
+    () => const PantallaReportes(),
   ),
   _Seccion(
     'Mi diario',
