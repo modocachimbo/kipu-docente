@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:intl/intl.dart';
 
+import '../data/colores_notas.dart';
 import '../data/academico.dart';
 import '../data/calculo.dart' show Calculo, TipoCalculo, validarFormula;
 import '../data/cneb.dart';
@@ -2630,19 +2631,41 @@ class VistaNota extends StatelessWidget {
     }
     if (e == null || e.numerica) {
       final n = double.tryParse(v.replaceAll(',', '.'));
-      final bajo = n != null && e?.aprueba != null && n < e!.aprueba!;
       final texto = mostrarNumero(v);
-      if (bajo && !sobreOscuro) {
-        return _Pastilla(texto, const Color(0xFFFCE8EB), _rojo);
-      }
-      return Text(
-        texto,
-        style: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
-          color: sobreOscuro ? Colors.white : KipuColores.tinta,
-          fontFeatures: const [FontFeature.tabularFigures()],
-        ),
+      return ValueListenableBuilder<ColoresNotas>(
+        valueListenable: coloresNotas,
+        builder: (context, cn, _) {
+          final tramo = n == null ? null : cn.tramoDe(n, e);
+          // Sin colores: solo se marca en rojo la desaprobada.
+          if (tramo == null) {
+            final bajo = n != null && e?.aprueba != null && n < e!.aprueba!;
+            if (bajo && !sobreOscuro) {
+              return _Pastilla(texto, const Color(0xFFFCE8EB), _rojo);
+            }
+          }
+          final color = tramo == null ? null : Color(cn.tramos[tramo].color);
+          // El tramo más bajo va resaltado con fondo, como hasta ahora.
+          if (tramo == 0 && !sobreOscuro) {
+            return _Pastilla(
+              texto,
+              Color.lerp(color, Colors.white, .88)!,
+              color!,
+            );
+          }
+          return Text(
+            texto,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: color == null ? FontWeight.w500 : FontWeight.w600,
+              color: sobreOscuro
+                  ? (color == null
+                        ? Colors.white
+                        : Color.lerp(color, Colors.white, .55))
+                  : (color ?? KipuColores.tinta),
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          );
+        },
       );
     }
     final i = e.valores.indexWhere((x) => x.codigo == v);
@@ -3505,6 +3528,14 @@ class _PonerNotaState extends State<_PonerNota> {
     return r;
   }
 
+  /// Color elegido para esa nota (Colores del registro), si hay.
+  Color? _colorNota(String texto) {
+    final n = double.tryParse(texto.replaceAll(',', '.'));
+    if (n == null) return null;
+    final c = coloresNotas.value.colorDe(n, _escala);
+    return c == null ? null : Color(c);
+  }
+
   /// Nivel que corresponde a la nota que se está escribiendo.
   ValorEscala? _nivelDe(String texto, Escala e) {
     final n = double.tryParse(texto.replaceAll(',', '.'));
@@ -3655,7 +3686,8 @@ class _PonerNotaState extends State<_PonerNota> {
                           fontSize: 40,
                           fontWeight: FontWeight.w700,
                           color: _error == null
-                              ? widget.colores.tintaCabecera
+                              ? (_colorNota(_texto) ??
+                                    widget.colores.tintaCabecera)
                               : _rojo,
                         ),
                       ),
@@ -3753,9 +3785,10 @@ class _PonerNotaState extends State<_PonerNota> {
                                 style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w700,
-                                  color: _nivelDe(r, esc) == null
-                                      ? KipuColores.tinta
-                                      : Color(_nivelDe(r, esc)!.color),
+                                  color: _colorNota(r) ??
+                                      (_nivelDe(r, esc) == null
+                                          ? KipuColores.tinta
+                                          : Color(_nivelDe(r, esc)!.color)),
                                 ),
                               ),
                             ),
@@ -5981,6 +6014,152 @@ class _Colores extends StatefulWidget {
 
 class _ColoresState extends State<_Colores> {
   late var _c = widget.actuales;
+  var _cn = coloresNotas.value;
+
+  Future<void> _guardarNotas() async {
+    coloresNotas.value = _cn;
+    await db.guardarAjuste(claveColoresNotas, _cn.aTexto());
+  }
+
+  void _tramos(List<TramoColor> l) =>
+      setState(() => _cn = ColoresNotas(activo: _cn.activo, tramos: l));
+
+  /// Colores de las notas: 0–10 rojo, 11–13 naranja… (para todos los registros).
+  Widget _seccionNotas() {
+    final l = _cn.tramos;
+    String n(double x) => mostrarNumero(numeroGuardado(x, 0));
+    Widget fila(int i) {
+      final t = l[i];
+      final hasta = i + 1 < l.length ? l[i + 1].desde - 1 : 20.0;
+      final puedeBajar = i > 0 && t.desde - 1 > l[i - 1].desde;
+      final puedeSubir = i > 0 && t.desde + 1 <= hasta;
+      Widget paso(KipuIcono ic, bool activo, int d) => IconButton(
+        visualDensity: VisualDensity.compact,
+        onPressed: activo
+            ? () => _tramos([
+                for (var k = 0; k < l.length; k++)
+                  k == i ? TramoColor(t.desde + d, t.color) : l[k],
+              ])
+            : null,
+        icon: KipuIcon(
+          ic,
+          size: 18,
+          color: activo ? KipuColores.tinta : const Color(0xFFD4D6E2),
+        ),
+      );
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(
+          children: [
+            PopupMenuButton<int>(
+              tooltip: 'Cambiar color',
+              onSelected: (c) => _tramos([
+                for (var k = 0; k < l.length; k++)
+                  k == i ? TramoColor(l[k].desde, c) : l[k],
+              ]),
+              itemBuilder: (_) => [
+                for (final c in ColoresNotas.paleta)
+                  PopupMenuItem(
+                    value: c,
+                    child: Container(
+                      height: 26,
+                      decoration: BoxDecoration(
+                        color: Color(c),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+              ],
+              child: Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: Color(t.color),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                  boxShadow: const [
+                    BoxShadow(color: Color(0xFFE3E4EE), spreadRadius: 1),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                '${n(t.desde)} a ${n(hasta)}',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: Color(t.color),
+                ),
+              ),
+            ),
+            if (i > 0) ...[
+              const Text(
+                'desde',
+                style: TextStyle(fontSize: 12, color: KipuColores.gris),
+              ),
+              paso(KipuIcono.izquierda, puedeBajar, -1),
+              SizedBox(
+                width: 26,
+                child: Text(
+                  n(t.desde),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+              paso(KipuIcono.derecha, puedeSubir, 1),
+            ],
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Color de las notas',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                    ),
+                    Text(
+                      'Para todos los registros · rangos de 0 a 20; en otras '
+                      'escalas se ajustan en proporción',
+                      style: TextStyle(fontSize: 12, color: KipuColores.gris),
+                    ),
+                  ],
+                ),
+              ),
+              Switch(
+                value: _cn.activo,
+                onChanged: (v) => setState(
+                  () => _cn = ColoresNotas(activo: v, tramos: _cn.tramos),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (_cn.activo) ...[
+          for (var i = 0; i < l.length; i++) fila(i),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => _tramos(ColoresNotas.tramosPorDefecto),
+              child: const Text('Valores por defecto'),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
   late final _colegio = ColoresRegistro.delColegio(widget.actuales.base);
 
   ColoresRegistro _con({
@@ -6142,6 +6321,7 @@ class _ColoresState extends State<_Colores> {
           _c.fijada,
           (c) => _c = _con(fijada: c),
         ),
+        _seccionNotas(),
         const SizedBox(height: 18),
         Row(
           children: [
@@ -6149,6 +6329,7 @@ class _ColoresState extends State<_Colores> {
               child: OutlinedButton.icon(
                 onPressed: () async {
                   await db.guardarColoresRegistro(widget.cursoId, null);
+                  await _guardarNotas();
                   if (context.mounted) Navigator.pop(context);
                 },
                 icon: const KipuIcon(
@@ -6165,6 +6346,7 @@ class _ColoresState extends State<_Colores> {
                 style: FilledButton.styleFrom(backgroundColor: _c.calculadas),
                 onPressed: () async {
                   await db.guardarColoresRegistro(widget.cursoId, _c);
+                  await _guardarNotas();
                   if (context.mounted) Navigator.pop(context);
                 },
                 child: const Text('Guardar'),
