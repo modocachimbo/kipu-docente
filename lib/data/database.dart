@@ -5,6 +5,26 @@ import 'package:drift_flutter/drift_flutter.dart';
 
 part 'database.g.dart';
 
+/// ¿Un evento del [inicio] que se repite así ([repetir]) cae en [fecha]?
+/// Fechas en yyyy-MM-dd.
+bool ocurreEl(String inicio, String? repetir, String fecha) {
+  if (fecha == inicio) return true;
+  if (repetir == null || fecha.compareTo(inicio) < 0) return false;
+  DateTime d(String x) => DateTime.utc(
+    int.parse(x.substring(0, 4)),
+    int.parse(x.substring(5, 7)),
+    int.parse(x.substring(8, 10)),
+  );
+  final a = d(inicio), b = d(fecha);
+  return switch (repetir) {
+    'semanal' => b.difference(a).inDays % 7 == 0,
+    'mensual' => b.day == a.day,
+    'anual' => b.day == a.day && b.month == a.month,
+    'diario' => true,
+    _ => false,
+  };
+}
+
 /// Pares clave-valor: perfil del docente y preferencias.
 class Ajustes extends Table {
   TextColumn get clave => text()();
@@ -142,7 +162,52 @@ class Eventos extends Table {
   TextColumn get titulo => text()();
   TextColumn get etiqueta => text().nullable()();
   TextColumn get tipo =>
-      text().withDefault(const Constant('tarea'))(); // tarea, cumple
+      text().withDefault(const Constant('tarea'))(); // tarea, cumple, reunion…
+  /// Minutos antes para avisar (0 = a la hora); null = sin aviso.
+  IntColumn get recordar => integer().nullable()();
+  /// null = una vez · semanal · mensual · anual.
+  TextColumn get repetir => text().nullable()();
+  IntColumn get cursoId => integer().nullable()();
+  TextColumn get detalle => text().nullable()();
+}
+
+/// Lista rápida de cosas por hacer (Mi diario).
+class Pendientes extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get texto => text()();
+  BoolColumn get hecho => boolean().withDefault(const Constant(false))();
+  TextColumn get vence => text().nullable()(); // yyyy-MM-dd
+  IntColumn get cursoId => integer().nullable()();
+  IntColumn get estudianteId => integer().nullable()();
+  DateTimeColumn get creado => dateTime().withDefault(currentDateAndTime)();
+}
+
+/// Anecdotario: lo que pasó con un estudiante. También guarda las reuniones
+/// con padres (categoria = 'reunion', con apoderado, acuerdos y seguimiento).
+class Anecdotas extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get estudianteId =>
+      integer().references(Estudiantes, #id, onDelete: KeyAction.cascade)();
+  TextColumn get fecha => text()(); // yyyy-MM-dd
+  TextColumn get tipo =>
+      text().withDefault(const Constant('neutro'))(); // positivo, negativo, neutro
+  TextColumn get categoria => text().withDefault(const Constant('otro'))();
+  TextColumn get texto => text()();
+  BlobColumn get foto => blob().nullable()();
+  TextColumn get apoderado => text().nullable()();
+  TextColumn get acuerdos => text().nullable()();
+  TextColumn get seguimiento => text().nullable()(); // yyyy-MM-dd
+}
+
+/// Diario de clase: qué se trabajó en una sesión de un curso.
+class ClasesDiario extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get cursoId =>
+      integer().references(Cursos, #id, onDelete: KeyAction.cascade)();
+  TextColumn get fecha => text()(); // yyyy-MM-dd
+  TextColumn get trabajado => text()();
+  TextColumn get falta => text().nullable()();
+  TextColumn get material => text().nullable()();
 }
 
 /// Bloques del horario semanal: un curso en un día y rango de horas.
@@ -232,13 +297,16 @@ class CursoConColegio {
     RegistroColumnas,
     RegistroNotas,
     Conductas,
+    Pendientes,
+    Anecdotas,
+    ClasesDiario,
   ],
 )
 class KipuDb extends _$KipuDb {
   KipuDb([QueryExecutor? executor]) : super(executor ?? _abrir());
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -266,6 +334,15 @@ class KipuDb extends _$KipuDb {
         await m.addColumn(asistencias, asistencias.nota);
       }
       if (from < 11) await m.createTable(franjas);
+      if (from < 12) {
+        await m.addColumn(eventos, eventos.recordar);
+        await m.addColumn(eventos, eventos.repetir);
+        await m.addColumn(eventos, eventos.cursoId);
+        await m.addColumn(eventos, eventos.detalle);
+        await m.createTable(pendientes);
+        await m.createTable(anecdotas);
+        await m.createTable(clasesDiario);
+      }
       if (from < 9) {
         await m.addColumn(cursos, cursos.tutor);
         await m.addColumn(cursos, cursos.tutorCelular);
@@ -851,10 +928,16 @@ class KipuDb extends _$KipuDb {
             etiqueta: '${c.grado} ${c.seccion} · ${c.nombre}',
             tipo: 'cumple',
           ),
-        ...await (select(eventos)
-              ..where((e) => e.fecha.equals(fecha))
-              ..orderBy([(e) => OrderingTerm.asc(e.hora)]))
-            .get(),
+        ...(await (select(eventos)
+                  ..where(
+                    (e) =>
+                        e.fecha.equals(fecha) |
+                        (e.repetir.isNotNull() &
+                            e.fecha.isSmallerOrEqualValue(fecha)),
+                  )
+                  ..orderBy([(e) => OrderingTerm.asc(e.hora)]))
+                .get())
+            .where((e) => ocurreEl(e.fecha, e.repetir, fecha)),
       ];
     });
   }
@@ -885,6 +968,14 @@ class KipuDb extends _$KipuDb {
                   .get())
             r.read(eventos.fecha)!,
         };
+        // Los que se repiten (cada semana, mes o año).
+        final repetidos = await (select(eventos)
+              ..where(
+                (e) =>
+                    e.repetir.isNotNull() &
+                    e.fecha.isSmallerOrEqualValue(hasta),
+              ))
+            .get();
         final cumples = {
           for (final r
               in await (selectOnly(estudiantes)
@@ -904,6 +995,9 @@ class KipuDb extends _$KipuDb {
           final k =
               '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
           if (cumples.contains(k.substring(5))) fechas.add(k);
+          if (repetidos.any((e) => ocurreEl(e.fecha, e.repetir, k))) {
+            fechas.add(k);
+          }
         }
         return fechas;
       });
@@ -1097,6 +1191,7 @@ class KipuDb extends _$KipuDb {
   /// Borra todo (colegios, cursos, estudiantes, asistencia, notas, eventos).
   Future<void> borrarTodo() => transaction(() async {
     await delete(eventos).go();
+    await delete(pendientes).go();
     await delete(colegios).go();
   });
 

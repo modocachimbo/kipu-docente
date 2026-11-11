@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'data/colores_notas.dart';
 import 'data/database.dart';
+import 'data/recordatorios.dart';
 import 'screens/bienvenida.dart';
 import 'screens/shell.dart';
 import 'theme.dart';
@@ -17,6 +20,8 @@ Future<void> main() async {
   coloresNotas.value = ColoresNotas.deTexto(
     await db.leerAjuste(claveColoresNotas),
   );
+  // Los avisos no deben impedir que abra la app.
+  unawaited(recordatorios.iniciar(db).catchError((_) {}));
   runApp(const KipuApp());
 }
 
