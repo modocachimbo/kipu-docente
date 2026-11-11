@@ -8,6 +8,7 @@ import 'calculo.dart';
 import 'columnas.dart';
 import 'columnas_db.dart';
 import 'database.dart';
+import 'demo_planificacion.dart';
 import 'evaluacion_db.dart';
 import 'paises.dart';
 import 'registro.dart';
@@ -469,6 +470,13 @@ Future<void> cargarDatosDeEjemplo(KipuDb db) async {
     );
     await db.guardarConfigAcademica(config);
     await db.guardarAjuste('anio_activo', '$anio');
+    await planificacionDeEjemplo(
+      db,
+      idCursos: idCursos,
+      periodos: periodos,
+      anio: anio,
+      hoy: hoy,
+    );
     // Asistencia, participación y promedios ya calculados, para que el
     // registro y los reportes no tengan que escribirlos al abrir.
     for (final id in idCursos) {
