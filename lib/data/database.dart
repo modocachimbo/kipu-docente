@@ -236,6 +236,61 @@ class Franjas extends Table {
   BoolColumn get recreo => boolean().withDefault(const Constant(false))();
 }
 
+/// Unidad o experiencia de aprendizaje de un curso en un periodo del año.
+@DataClassName('Unidad')
+class Unidades extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get cursoId =>
+      integer().references(Cursos, #id, onDelete: KeyAction.cascade)();
+  IntColumn get anio => integer()();
+  IntColumn get periodo => integer()(); // posición del periodo, desde 1
+  IntColumn get orden => integer()();
+  TextColumn get titulo => text()();
+  TextColumn get desde => text().nullable()(); // yyyy-MM-dd
+  TextColumn get hasta => text().nullable()(); // yyyy-MM-dd
+
+  /// Ids de competencias del CNEB separados por coma.
+  TextColumn get competencias => text().withDefault(const Constant(''))();
+  TextColumn get situacion => text().nullable()();
+  TextColumn get temas => text().nullable()();
+  TextColumn get producto => text().nullable()();
+
+  /// Enfoques transversales separados por «|».
+  TextColumn get enfoques => text().withDefault(const Constant(''))();
+
+  /// Propósitos de aprendizaje en JSON (ver planificacion.dart).
+  TextColumn get propositos => text().nullable()();
+  TextColumn get materiales => text().nullable()();
+}
+
+/// Sesión de aprendizaje de una unidad.
+@DataClassName('Sesion')
+class Sesiones extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get unidadId =>
+      integer().references(Unidades, #id, onDelete: KeyAction.cascade)();
+  IntColumn get orden => integer()();
+  TextColumn get titulo => text()();
+  TextColumn get fecha => text().nullable()(); // yyyy-MM-dd
+  TextColumn get hora => text().nullable()(); // HH:mm, inicio de la clase
+  TextColumn get competencia => text().nullable()();
+  TextColumn get proposito => text().nullable()();
+
+  /// Momentos (colegio público) o actividades (privado: solo [desarrollo]).
+  TextColumn get inicio => text().nullable()();
+  TextColumn get desarrollo => text().nullable()();
+  TextColumn get cierre => text().nullable()();
+  IntColumn get minInicio => integer().nullable()();
+  IntColumn get minDesarrollo => integer().nullable()();
+  IntColumn get minCierre => integer().nullable()();
+  TextColumn get materiales => text().nullable()();
+  TextColumn get tarea => text().nullable()();
+  BoolColumn get hecha => boolean().withDefault(const Constant(false))();
+
+  /// Columna del registro creada desde la sesión.
+  IntColumn get columnaId => integer().nullable()();
+}
+
 final _azar = Random.secure();
 
 /// Contraseña inicial fácil de dictar: dos letras y cuatro cifras, sin las
@@ -305,13 +360,15 @@ class CursoConColegio {
     Pendientes,
     Anecdotas,
     ClasesDiario,
+    Unidades,
+    Sesiones,
   ],
 )
 class KipuDb extends _$KipuDb {
   KipuDb([QueryExecutor? executor]) : super(executor ?? _abrir());
 
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 14;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -349,6 +406,10 @@ class KipuDb extends _$KipuDb {
         await m.createTable(clasesDiario);
       }
       if (from < 13) await m.addColumn(eventos, eventos.colegioId);
+      if (from < 14) {
+        await m.createTable(unidades);
+        await m.createTable(sesiones);
+      }
       if (from < 9) {
         await m.addColumn(cursos, cursos.tutor);
         await m.addColumn(cursos, cursos.tutorCelular);

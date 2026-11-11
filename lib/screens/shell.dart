@@ -17,6 +17,7 @@ import 'evaluacion.dart' show PantallaEvaluacion;
 import 'horario.dart';
 import 'horario_datos.dart';
 import 'inicio.dart';
+import 'planificacion.dart';
 import 'proximamente.dart';
 import 'reportes.dart';
 
@@ -66,10 +67,7 @@ final _secciones = <_Seccion>[
   _Seccion(
     'Planificación',
     KipuIcono.planificacion,
-    () => const Proximamente(
-      'Planificación',
-      'Planificación anual, unidades y sesiones de aprendizaje.',
-    ),
+    () => const PantallaPlanificacion(),
   ),
   _Seccion(
     'Evaluación',
