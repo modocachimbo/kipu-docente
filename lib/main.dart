@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
+import 'data/colores_notas.dart';
 import 'data/database.dart';
 import 'screens/bienvenida.dart';
 import 'screens/shell.dart';
@@ -13,6 +14,9 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('es_PE');
   estiloActual.value = estiloPorId(await db.leerAjuste('estilo'));
+  coloresNotas.value = ColoresNotas.deTexto(
+    await db.leerAjuste(claveColoresNotas),
+  );
   runApp(const KipuApp());
 }
 
