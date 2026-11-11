@@ -3486,6 +3486,22 @@ class _PonerNotaState extends State<_PonerNota> {
     return KeyEventResult.ignored;
   }
 
+  /// Notas rápidas para escalas numéricas: 20 · 18 · 16 · 14 · 12 · 11 · 10.
+  List<String> _rapidas(Escala e) {
+    final lo = e.minimo ?? 0, hi = e.maximo ?? 20;
+    final l = <double>[
+      for (final f in const [1.0, .9, .8, .7, .6]) lo + (hi - lo) * f,
+      ?e.aprueba,
+      lo + (hi - lo) * .5,
+    ];
+    final r = <String>[];
+    for (final n in l) {
+      final t = numeroGuardado(n.roundToDouble(), 0);
+      if (!r.contains(t)) r.add(t);
+    }
+    return r;
+  }
+
   /// Nivel que corresponde a la nota que se está escribiendo.
   ValorEscala? _nivelDe(String texto, Escala e) {
     final n = double.tryParse(texto.replaceAll(',', '.'));
