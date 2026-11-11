@@ -46,8 +46,15 @@ Future<void> _whatsapp(String celular, String texto) => launchUrl(
 /// Filtro por curso arriba de las listas.
 class _FiltroCurso extends StatelessWidget {
   final int? cursoId;
+  final int? colegioId;
   final ValueChanged<int?> onCambio;
-  const _FiltroCurso({required this.cursoId, required this.onCambio});
+  final ValueChanged<int?>? onColegio;
+  const _FiltroCurso({
+    required this.cursoId,
+    required this.onCambio,
+    this.colegioId,
+    this.onColegio,
+  });
 
   @override
   Widget build(BuildContext context) => Container(
@@ -63,8 +70,12 @@ class _FiltroCurso extends StatelessWidget {
         Expanded(
           child: ElegirCurso(
             cursoId: cursoId,
-            vacio: 'Todos los cursos',
+            colegioId: colegioId,
+            vacio: colegioId == null
+                ? 'Todos los cursos'
+                : 'Todos los cursos de este colegio',
             onCambio: onCambio,
+            onColegio: onColegio,
           ),
         ),
       ],
@@ -101,11 +112,13 @@ class _Vacio extends StatelessWidget {
 /// Elige curso y estudiante.
 class _ElegirEstudiante extends StatelessWidget {
   final int? cursoId;
+  final int? colegioId;
   final int? estudianteId;
   final ValueChanged<int?> onCurso;
   final ValueChanged<Estudiante?> onEstudiante;
   const _ElegirEstudiante({
     required this.cursoId,
+    this.colegioId,
     required this.estudianteId,
     required this.onCurso,
     required this.onEstudiante,
@@ -115,7 +128,12 @@ class _ElegirEstudiante extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      ElegirCurso(cursoId: cursoId, vacio: 'Elige el curso', onCambio: onCurso),
+      ElegirCurso(
+        cursoId: cursoId,
+        colegioId: colegioId,
+        vacio: 'Elige el curso',
+        onCambio: onCurso,
+      ),
       const SizedBox(height: 8),
       if (cursoId != null)
         StreamBuilder<List<Estudiante>>(
@@ -149,6 +167,27 @@ class _ElegirEstudiante extends StatelessWidget {
   );
 }
 
+/// Curso elegido en una pestaña, que solo vale dentro de su colegio.
+mixin _FiltroPestana<T extends StatefulWidget> on State<T> {
+  int? _cursoSel;
+  int? _colegioDelCurso;
+
+  int? get _colegioSel => FiltroDiario.de(context)?.colegio;
+
+  /// Curso del filtro, si es del colegio elegido arriba.
+  int? get _curso =>
+      _colegioSel == null || _colegioDelCurso == _colegioSel ? _cursoSel : null;
+
+  Widget _filtro() => _FiltroCurso(
+    cursoId: _curso,
+    colegioId: _colegioSel,
+    onCambio: (v) => setState(() => _cursoSel = v),
+    onColegio: (c) => _colegioDelCurso = c,
+  );
+
+  bool _ve(Curso c) => _colegioSel == null || c.colegioId == _colegioSel;
+}
+
 // ───────────────────────── Anecdotario ─────────────────────────
 
 class Anecdotario extends StatefulWidget {
@@ -158,18 +197,22 @@ class Anecdotario extends StatefulWidget {
   State<Anecdotario> createState() => AnecdotarioState();
 }
 
-class AnecdotarioState extends State<Anecdotario> {
-  int? _curso;
+class AnecdotarioState extends State<Anecdotario>
+    with _FiltroPestana<Anecdotario> {
   String? _tipo;
 
-  void nueva() => editarAnecdota(context, cursoId: _curso);
+  void nueva() =>
+      editarAnecdota(context, cursoId: _curso, colegioId: _colegioSel);
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<AnecdotaCompleta>>(
       stream: db.verAnecdotas(cursoId: _curso),
       builder: (context, snap) {
-        final todas = snap.data ?? const <AnecdotaCompleta>[];
+        final todas = [
+          for (final x in snap.data ?? const <AnecdotaCompleta>[])
+            if (_ve(x.$3)) x,
+        ];
         final lista = [
           for (final x in todas)
             if (_tipo == null || x.$1.tipo == _tipo) x,
@@ -177,10 +220,7 @@ class AnecdotarioState extends State<Anecdotario> {
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
           children: [
-            _FiltroCurso(
-              cursoId: _curso,
-              onCambio: (v) => setState(() => _curso = v),
-            ),
+            _filtro(),
             const SizedBox(height: 10),
             ChipsDiario<String?>(
               opciones: [
@@ -220,6 +260,9 @@ class TarjetaAnecdota extends StatelessWidget {
   Widget build(BuildContext context) {
     final (a, e, c) = x;
     final color = Color(colorTipoAnecdota(a.tipo));
+    final filtro = FiltroDiario.de(context);
+    final verColegio =
+        conNombre && filtro != null && filtro.varios && filtro.colegio == null;
     final tipo = tiposAnecdota.where((t) => t.$1 == a.tipo).firstOrNull?.$2;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -263,6 +306,31 @@ class TarjetaAnecdota extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 12.5, color: color),
                     ),
+                    if (verColegio)
+                      Row(
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            margin: const EdgeInsets.only(right: 6),
+                            decoration: BoxDecoration(
+                              color: filtro.colorDe(c.colegioId),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              filtro.nombreDe(c.colegioId) ?? '',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: KipuColores.gris,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     const SizedBox(height: 4),
                     Text(a.texto, style: const TextStyle(fontSize: 14)),
                   ],
@@ -293,12 +361,14 @@ Future<void> editarAnecdota(
   Anecdota? anecdota,
   Estudiante? estudiante,
   int? cursoId,
+  int? colegioId,
 }) => hojaDiario(
   context,
   _EditorAnecdota(
     anecdota: anecdota,
     estudiante: estudiante,
     cursoId: cursoId ?? estudiante?.cursoId,
+    colegioId: colegioId,
   ),
 );
 
@@ -306,7 +376,13 @@ class _EditorAnecdota extends StatefulWidget {
   final Anecdota? anecdota;
   final Estudiante? estudiante;
   final int? cursoId;
-  const _EditorAnecdota({this.anecdota, this.estudiante, this.cursoId});
+  final int? colegioId;
+  const _EditorAnecdota({
+    this.anecdota,
+    this.estudiante,
+    this.cursoId,
+    this.colegioId,
+  });
 
   @override
   State<_EditorAnecdota> createState() => _EditorAnecdotaState();
@@ -374,6 +450,7 @@ class _EditorAnecdotaState extends State<_EditorAnecdota> {
         if (widget.estudiante == null)
           _ElegirEstudiante(
             cursoId: _curso,
+            colegioId: widget.colegioId,
             estudianteId: _est,
             onCurso: (v) => setState(() {
               _curso = v;
@@ -511,24 +588,29 @@ class DiarioClases extends StatefulWidget {
   State<DiarioClases> createState() => DiarioClasesState();
 }
 
-class DiarioClasesState extends State<DiarioClases> {
-  int? _curso;
-
-  void nueva() => anotarClase(context, cursoId: _curso, fecha: DateTime.now());
+class DiarioClasesState extends State<DiarioClases>
+    with _FiltroPestana<DiarioClases> {
+  void nueva() => anotarClase(
+    context,
+    cursoId: _curso,
+    colegioId: _colegioSel,
+    fecha: DateTime.now(),
+  );
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<(ClaseDiario, Curso)>>(
       stream: db.verClasesDiario(cursoId: _curso),
       builder: (context, snap) {
-        final lista = snap.data ?? const <(ClaseDiario, Curso)>[];
+        final lista = [
+          for (final x in snap.data ?? const <(ClaseDiario, Curso)>[])
+            if (_ve(x.$2)) x,
+        ];
+        final filtro = FiltroDiario.de(context);
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
           children: [
-            _FiltroCurso(
-              cursoId: _curso,
-              onCambio: (v) => setState(() => _curso = v),
-            ),
+            _filtro(),
             const SizedBox(height: 12),
             if (snap.hasData && lista.isEmpty)
               const _Vacio(
@@ -543,6 +625,14 @@ class DiarioClasesState extends State<DiarioClases> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
+                  border: filtro != null && filtro.varios
+                      ? Border(
+                          left: BorderSide(
+                            color: filtro.colorDe(c.colegioId),
+                            width: 4,
+                          ),
+                        )
+                      : null,
                 ),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(16),
@@ -553,7 +643,14 @@ class DiarioClasesState extends State<DiarioClases> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${fechaCorta(k.fecha)} · ${_textoCurso(c)}',
+                          [
+                            fechaCorta(k.fecha),
+                            _textoCurso(c),
+                            if (filtro != null &&
+                                filtro.varios &&
+                                filtro.colegio == null)
+                              ?filtro.nombreDe(c.colegioId),
+                          ].join(' · '),
                           style: TextStyle(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w600,
@@ -608,6 +705,7 @@ Future<void> anotarClase(
   BuildContext context, {
   CursoConColegio? curso,
   int? cursoId,
+  int? colegioId,
   DateTime? fecha,
   ClaseDiario? clase,
 }) async {
@@ -618,15 +716,26 @@ Future<void> anotarClase(
   if (!context.mounted) return;
   await hojaDiario(
     context,
-    _EditorClase(clase: existente, cursoId: id, fecha: f),
+    _EditorClase(
+      clase: existente,
+      cursoId: id,
+      colegioId: colegioId,
+      fecha: f,
+    ),
   );
 }
 
 class _EditorClase extends StatefulWidget {
   final ClaseDiario? clase;
   final int? cursoId;
+  final int? colegioId;
   final String fecha;
-  const _EditorClase({this.clase, this.cursoId, required this.fecha});
+  const _EditorClase({
+    this.clase,
+    this.cursoId,
+    this.colegioId,
+    required this.fecha,
+  });
 
   @override
   State<_EditorClase> createState() => _EditorClaseState();
@@ -689,6 +798,7 @@ class _EditorClaseState extends State<_EditorClase> {
         const SizedBox(height: 12),
         ElegirCurso(
           cursoId: _curso,
+          colegioId: widget.clase == null ? widget.colegioId : null,
           vacio: 'Elige el curso',
           onCambio: (v) => setState(() {
             _curso = v;
@@ -780,10 +890,9 @@ class Reuniones extends StatefulWidget {
   State<Reuniones> createState() => ReunionesState();
 }
 
-class ReunionesState extends State<Reuniones> {
-  int? _curso;
-
-  void nueva() => editarReunion(context, cursoId: _curso);
+class ReunionesState extends State<Reuniones> with _FiltroPestana<Reuniones> {
+  void nueva() =>
+      editarReunion(context, cursoId: _curso, colegioId: _colegioSel);
 
   @override
   Widget build(BuildContext context) {
@@ -791,14 +900,15 @@ class ReunionesState extends State<Reuniones> {
     return StreamBuilder<List<AnecdotaCompleta>>(
       stream: db.verAnecdotas(cursoId: _curso, reuniones: true),
       builder: (context, snap) {
-        final lista = snap.data ?? const <AnecdotaCompleta>[];
+        final lista = [
+          for (final x in snap.data ?? const <AnecdotaCompleta>[])
+            if (_ve(x.$3)) x,
+        ];
+        final filtro = FiltroDiario.de(context);
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
           children: [
-            _FiltroCurso(
-              cursoId: _curso,
-              onCambio: (v) => setState(() => _curso = v),
-            ),
+            _filtro(),
             const SizedBox(height: 12),
             if (snap.hasData && lista.isEmpty)
               const _Vacio(
@@ -812,6 +922,14 @@ class ReunionesState extends State<Reuniones> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
+                  border: filtro != null && filtro.varios
+                      ? Border(
+                          left: BorderSide(
+                            color: filtro.colorDe(c.colegioId),
+                            width: 4,
+                          ),
+                        )
+                      : null,
                 ),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(16),
@@ -841,6 +959,10 @@ class ReunionesState extends State<Reuniones> {
                                   if ((a.apoderado ?? '').isNotEmpty)
                                     a.apoderado!,
                                   _textoCurso(c),
+                                  if (filtro != null &&
+                                      filtro.varios &&
+                                      filtro.colegio == null)
+                                    ?filtro.nombreDe(c.colegioId),
                                 ].join(' · '),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -885,12 +1007,14 @@ Future<void> editarReunion(
   Anecdota? reunion,
   Estudiante? estudiante,
   int? cursoId,
+  int? colegioId,
 }) => hojaDiario(
   context,
   _EditorReunion(
     reunion: reunion,
     estudiante: estudiante,
     cursoId: cursoId ?? estudiante?.cursoId,
+    colegioId: colegioId,
   ),
 );
 
@@ -898,7 +1022,13 @@ class _EditorReunion extends StatefulWidget {
   final Anecdota? reunion;
   final Estudiante? estudiante;
   final int? cursoId;
-  const _EditorReunion({this.reunion, this.estudiante, this.cursoId});
+  final int? colegioId;
+  const _EditorReunion({
+    this.reunion,
+    this.estudiante,
+    this.cursoId,
+    this.colegioId,
+  });
 
   @override
   State<_EditorReunion> createState() => _EditorReunionState();
@@ -1010,6 +1140,7 @@ class _EditorReunionState extends State<_EditorReunion> {
         if (widget.estudiante == null)
           _ElegirEstudiante(
             cursoId: _curso,
+            colegioId: widget.colegioId,
             estudianteId: _est?.id,
             onCurso: (v) => setState(() {
               _curso = v;

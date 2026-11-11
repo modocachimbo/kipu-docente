@@ -84,6 +84,7 @@ class Recordatorios {
             db.pendientes,
             db.estudiantes,
             db.ajustes,
+            db.colegios,
           },
         )
         .watch()
@@ -149,6 +150,9 @@ class Recordatorios {
   Future<DatosAvisos> _datos(KipuDb db) async {
     final anio = DateTime.now().year;
     return DatosAvisos(
+      colegios: {
+        for (final c in await db.verColegios().first) c.id: c.nombre,
+      },
       eventos: await db.verTodosEventos().first,
       clases: await db.verHorario().first,
       cumples: await db.estudiantesConCumple(),

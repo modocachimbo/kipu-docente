@@ -169,6 +169,8 @@ class Eventos extends Table {
   TextColumn get repetir => text().nullable()();
   IntColumn get cursoId => integer().nullable()();
   TextColumn get detalle => text().nullable()();
+  /// Colegio del evento; null = para todos (p. ej. un feriado nacional).
+  IntColumn get colegioId => integer().nullable()();
 }
 
 /// Lista rápida de cosas por hacer (Mi diario).
@@ -309,7 +311,7 @@ class KipuDb extends _$KipuDb {
   KipuDb([QueryExecutor? executor]) : super(executor ?? _abrir());
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -346,6 +348,7 @@ class KipuDb extends _$KipuDb {
         await m.createTable(anecdotas);
         await m.createTable(clasesDiario);
       }
+      if (from < 13) await m.addColumn(eventos, eventos.colegioId);
       if (from < 9) {
         await m.addColumn(cursos, cursos.tutor);
         await m.addColumn(cursos, cursos.tutorCelular);
@@ -930,6 +933,7 @@ class KipuDb extends _$KipuDb {
                 '${e.apellidos.split(' ').first} ${e.nombres.split(' ').first}',
             etiqueta: '${c.grado} ${c.seccion} · ${c.nombre}',
             tipo: 'cumple',
+            colegioId: c.colegioId,
           ),
         ...(await (select(eventos)
                   ..where(

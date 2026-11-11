@@ -60,4 +60,37 @@ void main() {
     expect(horaBonita('00:05'), '12:05 a. m.');
     expect(horaBonita('12:00'), '12:00 p. m.');
   });
+
+  test('feriado de un colegio no quita las clases de otro', () {
+    final t = DateTime(2026);
+    Colegio col(int id) => Colegio(id: id, nombre: 'Colegio $id', pais: 'PE', creado: t);
+    Curso cur(int id, int colegio) => Curso(
+          id: id,
+          colegioId: colegio,
+          nivel: 'Secundaria',
+          grado: '1.°',
+          seccion: 'A',
+          nombre: 'Curso $id',
+          creado: t,
+        );
+    // 2026-11-12 es jueves (4).
+    final clases = [
+      (Horario(id: 1, cursoId: 1, dia: 4, inicio: '08:00', fin: '09:00'), CursoConColegio(cur(1, 1), col(1), 0)),
+      (Horario(id: 2, cursoId: 2, dia: 4, inicio: '14:00', fin: '15:00'), CursoConColegio(cur(2, 2), col(2), 0)),
+    ];
+    final feriado = Evento(id: 9, fecha: '2026-11-12', titulo: 'Aniversario', tipo: 'feriado', colegioId: 1);
+    final d = DatosAvisos(
+      clases: clases,
+      eventos: [feriado],
+      colegios: const {1: 'Colegio 1', 2: 'Colegio 2'},
+      ajustes: const AjustesAvisos(clases: true, cumples: false, cierre: false, pendientes: false),
+    );
+    final r = calcularAvisos(d, DateTime(2026, 11, 12), DateTime(2026, 11, 13));
+    expect(r.map((a) => a.clave), ['c:2:2026-11-12']);
+    expect(r.single.cuerpo, contains('Colegio 2'));
+    // Feriado para todos: ninguna clase.
+    final todos = Evento(id: 9, fecha: '2026-11-12', titulo: 'Feriado', tipo: 'feriado');
+    final d2 = DatosAvisos(clases: clases, eventos: [todos], ajustes: d.ajustes);
+    expect(calcularAvisos(d2, DateTime(2026, 11, 12), DateTime(2026, 11, 13)), isEmpty);
+  });
 }
