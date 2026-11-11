@@ -11,7 +11,7 @@ import '../theme.dart';
 import '../widgets/kipu_icono.dart';
 import '../widgets/ventana.dart';
 import 'asistencia.dart' show estadosAsistencia, fechaClave;
-import 'configuracion.dart' show editarPerfil;
+import 'cuenta.dart' show abrirMenuCuenta;
 
 String _mayuscula(String s) =>
     s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
@@ -311,10 +311,14 @@ class _Saludo extends StatefulWidget {
 class _SaludoState extends State<_Saludo> {
   late final Timer _reloj;
   DateTime _ahora = DateTime.now();
+  DateTime? _cumple;
 
   @override
   void initState() {
     super.initState();
+    db.leerAjuste('cumple').then((c) {
+      if (mounted) setState(() => _cumple = DateTime.tryParse(c ?? ''));
+    });
     _reloj = Timer.periodic(
       const Duration(seconds: 20),
       (_) => setState(() => _ahora = DateTime.now()),
@@ -327,7 +331,14 @@ class _SaludoState extends State<_Saludo> {
     super.dispose();
   }
 
-  String get _frase => switch (_ahora.weekday) {
+  bool get _esCumple =>
+      _cumple != null &&
+      _cumple!.month == _ahora.month &&
+      _cumple!.day == _ahora.day;
+
+  String get _frase => _esCumple
+      ? '¡Feliz cumpleaños! Que tengas un día increíble.'
+      : switch (_ahora.weekday) {
     DateTime.monday => '¡Que tengas un gran inicio de semana!',
     DateTime.friday => '¡Último empujón de la semana!',
     DateTime.saturday ||
@@ -1195,10 +1206,10 @@ class _Avatar extends StatelessWidget {
     return StreamBuilder<String?>(
       stream: db.verAjuste('genero'),
       builder: (context, genero) => Tooltip(
-        message: 'Mi perfil',
+        message: 'Mi perfil y mi plan',
         child: InkWell(
           customBorder: const CircleBorder(),
-          onTap: () => editarPerfil(context),
+          onTap: () => abrirMenuCuenta(context),
           child: Container(
             width: 52,
             height: 52,
