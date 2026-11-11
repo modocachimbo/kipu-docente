@@ -580,12 +580,10 @@ class _Tarjeta extends StatelessWidget {
   final String titulo;
   final String? subtitulo;
   final Widget hijo;
-  final Widget? accion;
   const _Tarjeta({
     required this.titulo,
     required this.hijo,
     this.subtitulo,
-    this.accion,
   });
 
   @override
@@ -623,7 +621,6 @@ class _Tarjeta extends StatelessWidget {
                 ],
               ),
             ),
-            ?accion,
           ],
         ),
         const SizedBox(height: 14),
@@ -642,7 +639,6 @@ class _Kpi extends StatelessWidget {
   final double? cambio;
   final String? sufijo;
   final String? nota;
-  final bool menosEsMejor;
   const _Kpi({
     required this.titulo,
     required this.valor,
@@ -651,13 +647,12 @@ class _Kpi extends StatelessWidget {
     this.cambio,
     this.sufijo,
     this.nota,
-    this.menosEsMejor = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final c = cambio;
-    final bueno = c == null ? null : (menosEsMejor ? c < 0 : c > 0);
+    final bueno = c == null ? null : c > 0;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       decoration: BoxDecoration(
@@ -746,8 +741,8 @@ class _Kpi extends StatelessWidget {
 /// Rejilla adaptable de tarjetas.
 class _Rejilla extends StatelessWidget {
   final List<Widget> hijos;
-  final double minimo;
-  const _Rejilla(this.hijos, {this.minimo = 220});
+  static const minimo = 220.0;
+  const _Rejilla(this.hijos);
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
