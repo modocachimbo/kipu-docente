@@ -101,6 +101,12 @@ final _secciones = <_Seccion>[
 /// registro) la cambian desde su menú ☰.
 final seccionShell = ValueNotifier<int>(0);
 
+/// Abre la sección del menú con ese título (por ejemplo «General»).
+void irASeccion(String titulo) {
+  final i = _secciones.indexWhere((s) => s.titulo == titulo);
+  if (i >= 0) seccionShell.value = i;
+}
+
 /// Menú de la app que se desliza encima de una pantalla completa.
 class MenuCajon extends StatelessWidget {
   const MenuCajon({super.key});
