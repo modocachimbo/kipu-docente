@@ -172,6 +172,7 @@ class Eventos extends Table {
 }
 
 /// Lista rápida de cosas por hacer (Mi diario).
+@DataClassName('Pendiente')
 class Pendientes extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get texto => text()();
@@ -184,6 +185,7 @@ class Pendientes extends Table {
 
 /// Anecdotario: lo que pasó con un estudiante. También guarda las reuniones
 /// con padres (categoria = 'reunion', con apoderado, acuerdos y seguimiento).
+@DataClassName('Anecdota')
 class Anecdotas extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get estudianteId =>
@@ -200,6 +202,7 @@ class Anecdotas extends Table {
 }
 
 /// Diario de clase: qué se trabajó en una sesión de un curso.
+@DataClassName('ClaseDiario')
 class ClasesDiario extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get cursoId =>

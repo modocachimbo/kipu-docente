@@ -192,3 +192,107 @@ extension DiarioDb on KipuDb {
     ];
   }
 }
+
+/// Tipo de una anotación del anecdotario: (id, nombre, color).
+const tiposAnecdota = <(String, String, int)>[
+  ('positivo', 'Positivo', 0xFF16A37F),
+  ('negativo', 'Por mejorar', 0xFFC2334A),
+  ('neutro', 'Neutro', 0xFF6E6A80),
+];
+
+const categoriasAnecdota = <(String, String)>[
+  ('conducta', 'Conducta'),
+  ('logro', 'Logro'),
+  ('academico', 'Académico'),
+  ('salud', 'Salud'),
+  ('familia', 'Familia'),
+  ('otro', 'Otro'),
+];
+
+int colorTipoAnecdota(String t) =>
+    tiposAnecdota.where((x) => x.$1 == t).firstOrNull?.$3 ?? 0xFF6E6A80;
+
+String nombreCategoria(String c) => c == 'reunion'
+    ? 'Reunión con padres'
+    : categoriasAnecdota.where((x) => x.$1 == c).firstOrNull?.$2 ?? 'Otro';
+
+/// Una anotación con su estudiante y curso.
+typedef AnecdotaCompleta = (Anecdota, Estudiante, Curso);
+
+extension DiarioEstudiantesDb on KipuDb {
+  /// Anecdotario (sin reuniones) o solo reuniones, del más nuevo al más viejo.
+  Stream<List<AnecdotaCompleta>> verAnecdotas({
+    int? cursoId,
+    int? estudianteId,
+    bool reuniones = false,
+  }) {
+    final q = select(anecdotas).join([
+      innerJoin(estudiantes, estudiantes.id.equalsExp(anecdotas.estudianteId)),
+      innerJoin(cursos, cursos.id.equalsExp(estudiantes.cursoId)),
+    ]);
+    Expression<bool> w = reuniones
+        ? anecdotas.categoria.equals('reunion')
+        : anecdotas.categoria.equals('reunion').not();
+    if (cursoId != null) w = w & estudiantes.cursoId.equals(cursoId);
+    if (estudianteId != null) w = w & anecdotas.estudianteId.equals(estudianteId);
+    q
+      ..where(w)
+      ..orderBy([
+        OrderingTerm.desc(anecdotas.fecha),
+        OrderingTerm.desc(anecdotas.id),
+      ]);
+    return q.watch().map(
+      (filas) => [
+        for (final r in filas)
+          (r.readTable(anecdotas), r.readTable(estudiantes), r.readTable(cursos)),
+      ],
+    );
+  }
+
+  Future<int> guardarAnecdota(AnecdotasCompanion a) async {
+    if (a.id.present) {
+      await (update(anecdotas)..where((x) => x.id.equals(a.id.value))).write(a);
+      return a.id.value;
+    }
+    return into(anecdotas).insert(a);
+  }
+
+  Future<void> borrarAnecdota(int id) =>
+      (delete(anecdotas)..where((a) => a.id.equals(id))).go();
+
+  // Diario de clase
+
+  Stream<List<(ClaseDiario, Curso)>> verClasesDiario({int? cursoId}) {
+    final q = select(clasesDiario).join([
+      innerJoin(cursos, cursos.id.equalsExp(clasesDiario.cursoId)),
+    ]);
+    if (cursoId != null) q.where(clasesDiario.cursoId.equals(cursoId));
+    q.orderBy([
+      OrderingTerm.desc(clasesDiario.fecha),
+      OrderingTerm.desc(clasesDiario.id),
+    ]);
+    return q.watch().map(
+      (filas) => [
+        for (final r in filas) (r.readTable(clasesDiario), r.readTable(cursos)),
+      ],
+    );
+  }
+
+  Future<ClaseDiario?> leerClaseDiario(int cursoId, String fecha) =>
+      (select(clasesDiario)
+            ..where((c) => c.cursoId.equals(cursoId) & c.fecha.equals(fecha))
+            ..limit(1))
+          .getSingleOrNull();
+
+  Future<int> guardarClaseDiario(ClasesDiarioCompanion c) async {
+    if (c.id.present) {
+      await (update(clasesDiario)..where((x) => x.id.equals(c.id.value)))
+          .write(c);
+      return c.id.value;
+    }
+    return into(clasesDiario).insert(c);
+  }
+
+  Future<void> borrarClaseDiario(int id) =>
+      (delete(clasesDiario)..where((c) => c.id.equals(id))).go();
+}

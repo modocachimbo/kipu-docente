@@ -1,3 +1,5 @@
+import '../data/diario_db.dart' show AnecdotaCompleta, DiarioEstudiantesDb;
+import 'diario_estudiantes.dart' show TarjetaAnecdota, editarAnecdota;
 import 'dart:math';
 
 import 'package:drift/drift.dart' show Value;
@@ -982,6 +984,7 @@ class _Resumen extends StatefulWidget {
 class _ResumenState extends State<_Resumen> {
   _FichaState get f => widget.estado;
   late Stream<ResumenFicha> _datos = _abrir();
+  late final _anecdotas = db.verAnecdotas(estudianteId: f.e!.id);
 
   Stream<ResumenFicha> _abrir() {
     final ps = f.widget.periodos;
@@ -1336,6 +1339,45 @@ class _ResumenState extends State<_Resumen> {
               ],
             ],
           ),
+        ),
+        // Anecdotario (Mi diario).
+        _Seccion(
+          t: t,
+          icono: KipuIcono.apuntes,
+          titulo: 'Anecdotario',
+          accion: TextButton(
+            onPressed: () => editarAnecdota(context, estudiante: f.e!),
+            child: const Text('Anotar'),
+          ),
+        ),
+        StreamBuilder<List<AnecdotaCompleta>>(
+          stream: _anecdotas,
+          builder: (context, s) {
+            final l = s.data ?? const <AnecdotaCompleta>[];
+            if (l.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.only(bottom: 8),
+                child: Text(
+                  'Sin anotaciones todavía.',
+                  style: TextStyle(fontSize: 13, color: KipuColores.gris),
+                ),
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final x in l.take(5)) TarjetaAnecdota(x, conNombre: false),
+                if (l.length > 5)
+                  Text(
+                    'y ${l.length - 5} más en Mi diario › Anecdotario',
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      color: KipuColores.gris,
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
       ],
     );
