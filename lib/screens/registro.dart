@@ -3050,9 +3050,12 @@ Future<T?> _hoja<T>(
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
     child: ConstrainedBox(
       constraints: BoxConstraints(maxWidth: ancho),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(22, 20, 22, 22),
-        child: contenido,
+      child: ScrollConfiguration(
+        behavior: ScrollConfiguration.of(ctx).copyWith(scrollbars: false),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(22, 20, 22, 22),
+          child: contenido,
+        ),
       ),
     ),
   ),
@@ -3512,6 +3515,13 @@ class _PonerNotaState extends State<_PonerNota> {
     return null;
   }
 
+  /// PC o tablet horizontal con poca altura: todo más compacto para que la
+  /// hoja entre sin desplazarse. En celular se desliza sin barra visible.
+  bool get compacto {
+    final t = MediaQuery.sizeOf(context);
+    return t.width >= 600 && t.height < 820;
+  }
+
   /// Flechas alrededor del valor: ▲ ▼ estudiante, ◄ ► columna.
   Widget _cruceta(Widget centro) {
     final base = widget.colores.calculadas;
@@ -3566,7 +3576,7 @@ class _PonerNotaState extends State<_PonerNota> {
           borderRadius: BorderRadius.circular(14),
           onTap: activo ? () => _mover(paso) : null,
           child: SizedBox(
-            height: 34,
+            height: compacto ? 24 : 34,
             child: Center(
               child: KipuIcon(
                 paso < 0 ? KipuIcono.arriba : KipuIcono.abajo,
@@ -3613,7 +3623,7 @@ class _PonerNotaState extends State<_PonerNota> {
     if (esc.numerica) {
       final nivel = _nivelDe(_texto, esc);
       Widget n(String t, {String? ver}) => _Tecla(
-        alto: 50,
+        alto: compacto ? 44 : 50,
         onTap: () => _tecla(t),
         child: Text(
           ver ?? t,
@@ -3624,7 +3634,7 @@ class _PonerNotaState extends State<_PonerNota> {
         children: [
           _cruceta(
           Container(
-            height: 78,
+            height: compacto ? 62 : 78,
             padding: const EdgeInsets.symmetric(horizontal: 14),
             decoration: BoxDecoration(
               color: _error == null
@@ -3675,7 +3685,7 @@ class _PonerNotaState extends State<_PonerNota> {
           ),
           ),
           SizedBox(
-            height: 28,
+            height: compacto ? 22 : 28,
             child: Center(
               child: Text(
                 _error ??
@@ -3696,49 +3706,66 @@ class _PonerNotaState extends State<_PonerNota> {
               ),
             ),
           ),
-          // Un toque guarda y pasa al siguiente.
+          // Un toque guarda y pasa al siguiente. Caben a lo ancho,
+          // sin barra de desplazamiento.
           if (_verRapidas)
-          SizedBox(
-            height: 40,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: ActionChip(
-                    tooltip: 'Ocultar notas rápidas',
-                    avatar: const KipuIcon(
-                      KipuIcono.cerrar,
-                      size: 14,
-                      color: KipuColores.gris,
-                    ),
-                    label: const Text('Rápidas', style: TextStyle(fontSize: 12.5)),
-                    backgroundColor: KipuColores.fondo,
-                    side: BorderSide.none,
-                    onPressed: () => _cambiarRapidas(false),
-                  ),
-                ),
-                for (final r in _rapidas(esc))
-                  Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: ActionChip(
-                      label: Text(
-                        r,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: _nivelDe(r, esc) == null
-                              ? KipuColores.tinta
-                              : Color(_nivelDe(r, esc)!.color),
+            SizedBox(
+              height: compacto ? 34 : 38,
+              child: Row(
+                children: [
+                  Tooltip(
+                    message: 'Ocultar notas rápidas',
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(10),
+                      onTap: () => _cambiarRapidas(false),
+                      child: Ink(
+                        width: 34,
+                        decoration: BoxDecoration(
+                          color: KipuColores.fondo,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Center(
+                          child: KipuIcon(
+                            KipuIcono.cerrar,
+                            size: 14,
+                            color: KipuColores.gris,
+                          ),
                         ),
                       ),
-                      backgroundColor: Colors.white,
-                      side: const BorderSide(color: Color(0xFFE6E7F0)),
-                      onPressed: () => _guardar(r),
                     ),
                   ),
-              ],
+                  for (final r in _rapidas(esc))
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 6),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(10),
+                          onTap: () => _guardar(r),
+                          child: Ink(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFFE6E7F0)),
+                            ),
+                            child: Center(
+                              child: Text(
+                                r,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: _nivelDe(r, esc) == null
+                                      ? KipuColores.tinta
+                                      : Color(_nivelDe(r, esc)!.color),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
           if (!_verRapidas)
             Align(
               alignment: Alignment.center,
@@ -3756,15 +3783,15 @@ class _PonerNotaState extends State<_PonerNota> {
             crossAxisCount: 4,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 8,
+            mainAxisSpacing: compacto ? 6 : 8,
             crossAxisSpacing: 8,
-            childAspectRatio: 1.9,
+            childAspectRatio: compacto ? 3.0 : 1.9,
             children: [
               n('1'),
               n('2'),
               n('3'),
               _Tecla(
-                alto: 50,
+                alto: compacto ? 44 : 50,
                 onTap: () => _tecla('⌫'),
                 child: const KipuIcon(
                   KipuIcono.deshacer,
@@ -3787,7 +3814,7 @@ class _PonerNotaState extends State<_PonerNota> {
             children: [
               Expanded(
                 child: _Tecla(
-                  alto: 50,
+                  alto: compacto ? 44 : 50,
                   onTap: () => _guardar(null),
                   child: const Text(
                     'Dejar vacía',
@@ -3799,7 +3826,7 @@ class _PonerNotaState extends State<_PonerNota> {
               Expanded(
                 flex: 2,
                 child: _Tecla(
-                  alto: 50,
+                  alto: compacto ? 44 : 50,
                   fondo: base,
                   onTap: () => _texto.isEmpty
                       ? _mover(1)
@@ -3965,7 +3992,7 @@ class _PonerNotaState extends State<_PonerNota> {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: compacto ? 8 : 14),
           contenido,
           const SizedBox(height: 6),
           comentario,
