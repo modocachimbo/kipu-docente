@@ -397,16 +397,33 @@ class _RegistroCursoState extends State<RegistroCurso> {
             );
             return;
           }
+          // Columnas donde se puede escribir, en el orden de la pantalla:
+          // con ◄ ► se pasa de una a otra sin cerrar la hoja.
+          final editables = [
+            for (final x in [
+              ...columnas.where((x) => !x.fijada),
+              ...columnas.where((x) => x.fijada),
+            ])
+              if (x.id == c.id ||
+                  (x.tipo != 'calculada' &&
+                      !esAutomatica(x.tipo) &&
+                      instrumentos[x.id] == null &&
+                      !(configs[x.id]?.bloqueada ?? false)))
+                _ColNota(
+                  columna: x,
+                  escala: escalaDe(x) ?? escalas.values.first,
+                  config: configs[x.id] ?? const ConfigColumna(),
+                  equipos: grupoDe(grupos, x)?.equipos ?? const {},
+                  notas: notas[x.id] ?? const {},
+                ),
+          ];
           _ponerNota(
             context,
-            columna: c,
-            escala: escalaDe(c) ?? escalas.values.first,
+            columnas: editables,
+            columna: editables.indexWhere((x) => x.columna.id == c.id),
             estudiantes: lista,
             inicio: lista.indexOf(e),
-            notas: notas[c.id] ?? const {},
-            equipos: grupoDe(grupos, c)?.equipos ?? const {},
             colores: colores,
-            config: cfg,
           );
         },
       );
@@ -3140,48 +3157,53 @@ class _Tecla extends StatelessWidget {
 
 // Poner nota
 
+/// Una columna en la que se puede poner nota desde la hoja.
+class _ColNota {
+  final RegistroColumna columna;
+  final Escala escala;
+  final ConfigColumna config;
+  final Map<int, int> equipos;
+  final Map<int, String> notas;
+
+  const _ColNota({
+    required this.columna,
+    required this.escala,
+    required this.config,
+    required this.equipos,
+    required this.notas,
+  });
+}
+
 Future<void> _ponerNota(
   BuildContext context, {
-  required RegistroColumna columna,
-  required Escala escala,
+  required List<_ColNota> columnas,
+  required int columna,
   required List<Estudiante> estudiantes,
   required int inicio,
-  required Map<int, String> notas,
-  required Map<int, int> equipos,
   required ColoresRegistro colores,
-  ConfigColumna config = const ConfigColumna(),
 }) => _hoja(
   context,
   _PonerNota(
-    config: config,
-    columna: columna,
-    escala: escala,
+    columnas: columnas,
+    columna: columna < 0 ? 0 : columna,
     estudiantes: estudiantes,
     inicio: inicio,
-    notas: notas,
-    equipos: equipos,
     colores: colores,
   ),
 );
 
 class _PonerNota extends StatefulWidget {
-  final ConfigColumna config;
-  final RegistroColumna columna;
-  final Escala escala;
+  final List<_ColNota> columnas;
+  final int columna;
   final List<Estudiante> estudiantes;
   final int inicio;
-  final Map<int, String> notas;
-  final Map<int, int> equipos;
   final ColoresRegistro colores;
 
   const _PonerNota({
-    this.config = const ConfigColumna(),
+    required this.columnas,
     required this.columna,
-    required this.escala,
     required this.estudiantes,
     required this.inicio,
-    required this.notas,
-    required this.equipos,
     required this.colores,
   });
 
@@ -3191,13 +3213,18 @@ class _PonerNota extends StatefulWidget {
 
 class _PonerNotaState extends State<_PonerNota> {
   late int _i = widget.inicio;
-  late final Map<int, String> _notas = {...widget.notas};
-  late String _texto = _actual() ?? '';
+  late int _c = widget.columna;
+
+  /// Notas de cada columna, se van actualizando al guardar.
+  late final List<Map<int, String>> _todas = [
+    for (final x in widget.columnas) {...x.notas},
+  ];
+  late String _texto = _inicial();
   String? _error;
   final _foco = FocusNode();
 
-  /// Comentarios de esta columna: {estudiante: texto}.
-  Map<int, String> _comentarios = {};
+  /// Comentarios por columna: {columna: {estudiante: texto}}.
+  final Map<int, Map<int, String>> _coments = {};
   final _coment = TextEditingController();
   final _focoComent = FocusNode();
   bool _verComentario = false;
@@ -3211,20 +3238,50 @@ class _PonerNotaState extends State<_PonerNota> {
     'Copió',
   ];
 
+  _ColNota get _cn => widget.columnas[_c];
+  RegistroColumna get _columna => _cn.columna;
+  Escala get _escala => _cn.escala;
+  ConfigColumna get _config => _cn.config;
+  Map<int, int> get _equipos => _cn.equipos;
+  Map<int, String> get _notas => _todas[_c];
+  Map<int, String> get _comentarios =>
+      _coments.putIfAbsent(_columna.id, () => {});
+
   @override
   void initState() {
     super.initState();
-    db.leerComentariosNota(widget.columna.id).then((m) {
+    _cargarComentarios();
+    db.leerAjuste(_claveRapidas).then((v) {
+      if (mounted && v != null) setState(() => _verRapidas = v != '0');
+    });
+  }
+
+  void _cargarComentarios() {
+    final id = _columna.id;
+    if (_coments.containsKey(id)) {
+      _abrirComentario();
+      return;
+    }
+    db.leerComentariosNota(id).then((m) {
       if (!mounted) return;
       setState(() {
-        _comentarios = m;
-        _abrirComentario();
+        _coments[id] = m;
+        if (_columna.id == id) _abrirComentario();
       });
     });
   }
 
+  /// Notas rápidas (20 · 18 · 16…): el profesor decide si las ve.
+  bool _verRapidas = true;
+  static const _claveRapidas = 'registro_notas_rapidas';
+
+  void _cambiarRapidas(bool ver) {
+    setState(() => _verRapidas = ver);
+    db.guardarAjuste(_claveRapidas, ver ? '1' : '0');
+  }
+
   void _abrirComentario() {
-    _coment.text = _comentarios[_e.id] ?? '';
+    _coment.text = _coments[_columna.id]?[_e.id] ?? '';
     _verComentario = _coment.text.isNotEmpty;
   }
 
@@ -3233,25 +3290,32 @@ class _PonerNotaState extends State<_PonerNota> {
     final t = _coment.text.trim();
     if (t == (_comentarios[_e.id] ?? '')) return;
     final ids = [for (final m in _integrantes) m.id];
-    await db.guardarComentarioNota(widget.columna.id, ids, t);
+    final mapa = _comentarios;
+    await db.guardarComentarioNota(_columna.id, ids, t);
     for (final id in ids) {
       if (t.isEmpty) {
-        _comentarios.remove(id);
+        mapa.remove(id);
       } else {
-        _comentarios[id] = t;
+        mapa[id] = t;
       }
     }
   }
 
   Estudiante get _e => widget.estudiantes[_i];
-  bool get _equipo => widget.columna.enEquipo && widget.equipos[_e.id] != null;
+  bool get _equipo => _columna.enEquipo && _equipos[_e.id] != null;
   List<Estudiante> get _integrantes => _equipo
       ? widget.estudiantes
-            .where((x) => widget.equipos[x.id] == widget.equipos[_e.id])
+            .where((x) => _equipos[x.id] == _equipos[_e.id])
             .toList()
       : [_e];
 
   String? _actual() => _notas[widget.estudiantes[_i].id];
+
+  /// Lo que se muestra al llegar a una celda: su nota (14.5 → 14,5).
+  String _inicial() {
+    final a = _actual() ?? '';
+    return _escala.numerica ? a.replaceAll('.', ',') : a;
+  }
 
   @override
   void dispose() {
@@ -3261,8 +3325,9 @@ class _PonerNotaState extends State<_PonerNota> {
     super.dispose();
   }
 
-  Future<void> _guardar(String? valor) async {
-    final esc = widget.escala;
+  /// Guarda la nota de la celda actual. Devuelve false si no es válida.
+  Future<bool> _escribir(String? valor) async {
+    final esc = _escala;
     if (valor != null && esc.numerica) {
       final n = double.tryParse(valor.replaceAll(',', '.'));
       final min = esc.minimo ?? 0, max = esc.maximo ?? 20;
@@ -3271,49 +3336,93 @@ class _PonerNotaState extends State<_PonerNota> {
           () => _error =
               'Escribe una nota de ${mostrarNumero('$min')} a ${mostrarNumero('$max')}',
         );
-        return;
+        return false;
       }
       // Decimales y redondeo de la columna: 14,5 → 15 con «Normal».
-      final cfg = widget.config;
+      final cfg = _config;
       valor = numeroGuardado(
         redondear(n, cfg.decimales, cfg.redondeo),
         cfg.decimales,
       );
     }
+    final mapa = _notas;
     for (final m in _integrantes) {
-      await db.ponerNota(widget.columna.id, m.id, valor);
+      await db.ponerNota(_columna.id, m.id, valor);
       if (valor == null) {
-        _notas.remove(m.id);
+        mapa.remove(m.id);
       } else {
-        _notas[m.id] = valor;
+        mapa[m.id] = valor;
       }
     }
-    await _mover(1);
+    if (mounted) setState(() => _texto = _inicial());
+    return true;
   }
 
-  Future<void> _mover(int paso) async {
+  Future<void> _guardar(String? valor) async {
+    if (await _escribir(valor)) await _mover(1, cerrarAlFinal: true);
+  }
+
+  /// Si se escribió una nota distinta y se mueve con las flechas, se guarda.
+  Future<bool> _guardarEscrito() async {
+    if (!_escala.numerica || _texto.isEmpty) return true;
+    final n = double.tryParse(_texto.replaceAll(',', '.'));
+    final a = double.tryParse((_actual() ?? '').replaceAll(',', '.'));
+    if (n != null && n == a) return true;
+    return _escribir(_texto);
+  }
+
+  bool _hayOtro(int paso) {
+    var j = _i + paso;
+    final eq = _equipo ? _equipos[_e.id] : null;
+    while (eq != null &&
+        j >= 0 &&
+        j < widget.estudiantes.length &&
+        _equipos[widget.estudiantes[j].id] == eq) {
+      j += paso;
+    }
+    return j >= 0 && j < widget.estudiantes.length;
+  }
+
+  /// ▲ ▼: estudiante anterior o siguiente en la misma columna.
+  Future<void> _mover(int paso, {bool cerrarAlFinal = false}) async {
+    if (!await _guardarEscrito()) return;
     // El comentario se guarda también al pasar de estudiante sin nota.
     await _guardarComentario();
     if (!mounted) return;
     var j = _i + paso;
     // En equipo se salta a los integrantes del mismo equipo.
-    final eq = _equipo ? widget.equipos[_e.id] : null;
+    final eq = _equipo ? _equipos[_e.id] : null;
     while (eq != null &&
         j >= 0 &&
         j < widget.estudiantes.length &&
-        widget.equipos[widget.estudiantes[j].id] == eq) {
+        _equipos[widget.estudiantes[j].id] == eq) {
       j += paso;
     }
     if (j < 0) return;
     if (j >= widget.estudiantes.length) {
-      Navigator.pop(context);
+      if (cerrarAlFinal) Navigator.pop(context);
       return;
     }
     setState(() {
       _i = j;
-      _texto = _actual() ?? '';
+      _texto = _inicial();
       _error = null;
       _abrirComentario();
+    });
+  }
+
+  /// ◄ ►: columna anterior o siguiente con el mismo estudiante.
+  Future<void> _cambiarColumna(int paso) async {
+    final k = _c + paso;
+    if (k < 0 || k >= widget.columnas.length) return;
+    if (!await _guardarEscrito()) return;
+    await _guardarComentario();
+    if (!mounted) return;
+    setState(() {
+      _c = k;
+      _texto = _inicial();
+      _error = null;
+      _cargarComentarios();
     });
   }
 
@@ -3336,17 +3445,24 @@ class _PonerNotaState extends State<_PonerNota> {
     if (_focoComent.hasFocus) return KeyEventResult.ignored;
     final k = ev.logicalKey;
     final ch = ev.character ?? '';
-    final esc = widget.escala;
+    final esc = _escala;
     if (k == LogicalKeyboardKey.enter || k == LogicalKeyboardKey.numpadEnter) {
-      if (esc.numerica) _guardar(_texto.isEmpty ? null : _texto);
+      if (esc.numerica) {
+        _texto.isEmpty
+            ? _mover(1, cerrarAlFinal: true)
+            : _guardar(_texto);
+      }
       return KeyEventResult.handled;
     }
-    if (k == LogicalKeyboardKey.arrowDown) {
-      _mover(1);
-      return KeyEventResult.handled;
-    }
-    if (k == LogicalKeyboardKey.arrowUp) {
-      _mover(-1);
+    final flechas = {
+      LogicalKeyboardKey.arrowDown: () => _mover(1),
+      LogicalKeyboardKey.arrowUp: () => _mover(-1),
+      LogicalKeyboardKey.arrowRight: () => _cambiarColumna(1),
+      LogicalKeyboardKey.arrowLeft: () => _cambiarColumna(-1),
+    };
+    final f = flechas[k];
+    if (f != null) {
+      f();
       return KeyEventResult.handled;
     }
     if (esc.numerica) {
@@ -3396,10 +3512,92 @@ class _PonerNotaState extends State<_PonerNota> {
     return null;
   }
 
+  /// Flechas alrededor del valor: ▲ ▼ estudiante, ◄ ► columna.
+  Widget _cruceta(Widget centro) {
+    final base = widget.colores.calculadas;
+    const apagado = Color(0xFFD4D6E2);
+    Widget lado(int paso) {
+      final k = _c + paso;
+      final activo = k >= 0 && k < widget.columnas.length;
+      final otra = activo ? widget.columnas[k].columna.codigo : '';
+      return SizedBox(
+        width: 46,
+        child: Tooltip(
+          message: activo
+              ? (paso < 0 ? 'Columna anterior · $otra' : 'Columna siguiente · $otra')
+              : (paso < 0 ? 'Es la primera columna' : 'Es la última columna'),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: activo ? () => _cambiarColumna(paso) : null,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  KipuIcon(
+                    paso < 0 ? KipuIcono.izquierda : KipuIcono.derecha,
+                    size: 26,
+                    color: activo ? base : apagado,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    otra,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: KipuColores.gris,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    Widget vertical(int paso) {
+      final activo = _hayOtro(paso);
+      return Tooltip(
+        message: paso < 0 ? 'Estudiante anterior' : 'Estudiante siguiente',
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: activo ? () => _mover(paso) : null,
+          child: SizedBox(
+            height: 34,
+            child: Center(
+              child: KipuIcon(
+                paso < 0 ? KipuIcono.arriba : KipuIcono.abajo,
+                size: 26,
+                color: activo ? base : apagado,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        lado(-1),
+        Expanded(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [vertical(-1), centro, vertical(1)],
+          ),
+        ),
+        lado(1),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final col = widget.columna;
-    final esc = widget.escala;
+    final col = _columna;
+    final esc = _escala;
     final base = widget.colores.calculadas;
     final total = widget.estudiantes.length;
     final conNota = widget.estudiantes.where((e) => _notas[e.id] != null).length;
@@ -3424,6 +3622,7 @@ class _PonerNotaState extends State<_PonerNota> {
       );
       contenido = Column(
         children: [
+          _cruceta(
           Container(
             height: 78,
             padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -3474,6 +3673,7 @@ class _PonerNotaState extends State<_PonerNota> {
               ],
             ),
           ),
+          ),
           SizedBox(
             height: 28,
             child: Center(
@@ -3483,7 +3683,7 @@ class _PonerNotaState extends State<_PonerNota> {
                         ? nivel.descripcion
                         : (antes != null
                               ? 'Nota actual: ${mostrarNumero(antes)}'
-                              : 'Escribe la nota o elige una rápida')),
+                              : (_verRapidas ? 'Escribe la nota o elige una rápida' : 'Escribe la nota'))),
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: nivel != null && _error == null
@@ -3497,11 +3697,27 @@ class _PonerNotaState extends State<_PonerNota> {
             ),
           ),
           // Un toque guarda y pasa al siguiente.
+          if (_verRapidas)
           SizedBox(
             height: 40,
             child: ListView(
               scrollDirection: Axis.horizontal,
               children: [
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: ActionChip(
+                    tooltip: 'Ocultar notas rápidas',
+                    avatar: const KipuIcon(
+                      KipuIcono.cerrar,
+                      size: 14,
+                      color: KipuColores.gris,
+                    ),
+                    label: const Text('Rápidas', style: TextStyle(fontSize: 12.5)),
+                    backgroundColor: KipuColores.fondo,
+                    side: BorderSide.none,
+                    onPressed: () => _cambiarRapidas(false),
+                  ),
+                ),
                 for (final r in _rapidas(esc))
                   Padding(
                     padding: const EdgeInsets.only(right: 6),
@@ -3523,6 +3739,18 @@ class _PonerNotaState extends State<_PonerNota> {
               ],
             ),
           ),
+          if (!_verRapidas)
+            Align(
+              alignment: Alignment.center,
+              child: TextButton.icon(
+                onPressed: () => _cambiarRapidas(true),
+                icon: KipuIcon(KipuIcono.estrella, size: 16, color: base),
+                label: Text(
+                  'Mostrar notas rápidas',
+                  style: TextStyle(fontSize: 13, color: base),
+                ),
+              ),
+            ),
           const SizedBox(height: 8),
           GridView.count(
             crossAxisCount: 4,
@@ -3594,6 +3822,7 @@ class _PonerNotaState extends State<_PonerNota> {
       final actual = _actual();
       contenido = Column(
         children: [
+          _cruceta(
           GridView.count(
             crossAxisCount: 2,
             shrinkWrap: true,
@@ -3611,6 +3840,7 @@ class _PonerNotaState extends State<_PonerNota> {
                   onTap: () => _guardar(esc.valores[k].codigo),
                 ),
             ],
+          ),
           ),
           const SizedBox(height: 10),
           _Tecla(
@@ -3702,22 +3932,12 @@ class _PonerNotaState extends State<_PonerNota> {
                   icono: _equipo ? KipuIcono.equipo : null,
                   color: base,
                   titulo: _equipo
-                      ? 'Equipo ${widget.equipos[_e.id]}'
+                      ? 'Equipo ${_equipos[_e.id]}'
                       : '${tituloNombre(_e.apellidos)}, ${tituloNombre(_e.nombres).split(' ').first}',
                   subtitulo: _equipo
                       ? '$subtitulo\n${_integrantes.map((x) => tituloNombre(x.nombres).split(' ').first).join(', ')}'
                       : subtitulo,
                 ),
-              ),
-              IconButton(
-                tooltip: 'Anterior',
-                onPressed: _i > 0 ? () => _mover(-1) : null,
-                icon: const KipuIcon(KipuIcono.izquierda, color: KipuColores.tinta),
-              ),
-              IconButton(
-                tooltip: 'Siguiente sin cambiar',
-                onPressed: () => _mover(1),
-                icon: const KipuIcon(KipuIcono.derecha, color: KipuColores.tinta),
               ),
             ],
           ),
@@ -3738,7 +3958,9 @@ class _PonerNotaState extends State<_PonerNota> {
               ),
               const SizedBox(width: 10),
               Text(
-                '${_i + 1} de $total · $conNota con nota',
+                widget.columnas.length > 1
+                    ? '${_i + 1} de $total · $conNota con nota · col. ${_c + 1}/${widget.columnas.length}'
+                    : '${_i + 1} de $total · $conNota con nota',
                 style: const TextStyle(fontSize: 12.5, color: KipuColores.gris),
               ),
             ],
