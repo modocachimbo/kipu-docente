@@ -24,7 +24,11 @@ class DatosAvisos {
   final List<Pendiente> pendientes;
   final AjustesAvisos ajustes;
 
+  /// Nombre de cada colegio, para decir dónde es cada clase o evento.
+  final Map<int, String> colegios;
+
   const DatosAvisos({
+    this.colegios = const {},
     this.eventos = const [],
     this.clases = const [],
     this.cumples = const [],
@@ -92,12 +96,19 @@ List<Aviso> calcularAvisos(DatosAvisos d, DateTime desde, DateTime hasta) {
       x,
   ];
 
-  final feriados = <String>{
-    for (final dia in dias)
-      for (final e in d.eventos)
-        if (e.tipo == 'feriado' && ocurreEl(e.fecha, e.repetir, claveFecha(dia)))
-          claveFecha(dia),
-  };
+  // Feriados por día: los colegios sin clases (null = todos).
+  final feriados = <String, Set<int?>>{};
+  for (final dia in dias) {
+    for (final e in d.eventos) {
+      if (e.tipo == 'feriado' && ocurreEl(e.fecha, e.repetir, claveFecha(dia))) {
+        (feriados[claveFecha(dia)] ??= {}).add(e.colegioId);
+      }
+    }
+  }
+  bool sinClases(String k, int colegio) {
+    final f = feriados[k];
+    return f != null && (f.contains(null) || f.contains(colegio));
+  }
 
   for (final dia in dias) {
     final k = claveFecha(dia);
@@ -110,6 +121,7 @@ List<Aviso> calcularAvisos(DatosAvisos d, DateTime desde, DateTime hasta) {
       final cuando = base.subtract(Duration(minutes: antes));
       final cuerpo = [
         nombreTipoEvento(e.tipo),
+        if (d.colegios[e.colegioId] case final c?) c,
         e.hora == null
             ? '${_mayus(_cuandoEs(dia, cuando))}, todo el día'
             : '${_mayus(_cuandoEs(dia, cuando))} a las ${horaBonita(e.hora!)}',
@@ -118,9 +130,9 @@ List<Aviso> calcularAvisos(DatosAvisos d, DateTime desde, DateTime hasta) {
     }
 
     // Clases del horario.
-    if (d.ajustes.clases && !feriados.contains(k)) {
+    if (d.ajustes.clases) {
       for (final (h, c) in d.clases) {
-        if (h.dia != dia.weekday) continue;
+        if (h.dia != dia.weekday || sinClases(k, c.colegio.id)) continue;
         final m = d.ajustes.minutosClase;
         agregar(
           Aviso(
@@ -128,7 +140,7 @@ List<Aviso> calcularAvisos(DatosAvisos d, DateTime desde, DateTime hasta) {
             _conHora(dia, h.inicio).subtract(Duration(minutes: m)),
             m == 0 ? 'Empieza tu clase' : 'En $m min tienes clase',
             '${c.curso.nombre} · ${c.curso.grado} ${c.curso.seccion} · '
-                '${horaBonita(h.inicio)}',
+                '${c.colegio.nombre} · ${horaBonita(h.inicio)}',
           ),
         );
       }

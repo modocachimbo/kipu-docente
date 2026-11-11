@@ -9,6 +9,7 @@ import '../data/recordatorios.dart';
 import '../main.dart' show db;
 import '../theme.dart';
 import '../widgets/kipu_icono.dart';
+import 'cursos.dart' show colorColegio;
 import 'diario_estudiantes.dart';
 
 /// Mi diario: agenda con calendario, recordatorios, pendientes, anecdotario,
@@ -28,15 +29,52 @@ class _PantallaDiarioState extends State<PantallaDiario> {
   final _claveAnecdotario = GlobalKey<AnecdotarioState>();
   final _claveClases = GlobalKey<DiarioClasesState>();
   final _claveReuniones = GlobalKey<ReunionesState>();
+  final _colegios = db.verColegios();
+
+  /// Colegio elegido arriba (null = todos). Se recuerda.
+  int? _colegio;
+  static const _claveColegio = 'diario_colegio';
+
+  @override
+  void initState() {
+    super.initState();
+    db.leerAjuste(_claveColegio).then((v) {
+      if (mounted && v != null) setState(() => _colegio = int.tryParse(v));
+    });
+  }
+
+  void _elegirColegio(int? id) {
+    setState(() => _colegio = id);
+    db.guardarAjuste(_claveColegio, id?.toString() ?? '');
+  }
 
   @override
   Widget build(BuildContext context) {
+    return StreamBuilder<List<Colegio>>(
+      stream: _colegios,
+      builder: (context, snap) {
+        final colegios = snap.data ?? const <Colegio>[];
+        // Si el colegio guardado ya no existe, se ven todos.
+        final sel = colegios.any((c) => c.id == _colegio) ? _colegio : null;
+        return FiltroDiario(
+          colegio: sel,
+          colegios: colegios,
+          child: Builder(builder: (context) => _pantalla(context, sel, colegios)),
+        );
+      },
+    );
+  }
+
+  Widget _pantalla(BuildContext context, int? sel, List<Colegio> colegios) {
     final (texto, accion) = switch (_vista) {
       _Vista.agenda => (
         'Nuevo evento',
-        () => editarEvento(context, fecha: _dia),
+        () => editarEvento(context, fecha: _dia, colegioId: sel),
       ),
-      _Vista.pendientes => ('Nuevo pendiente', () => editarPendiente(context)),
+      _Vista.pendientes => (
+        'Nuevo pendiente',
+        () => editarPendiente(context, colegioId: sel),
+      ),
       _Vista.anecdotario => (
         'Anotar',
         () => _claveAnecdotario.currentState?.nueva(),
@@ -72,6 +110,15 @@ class _PantallaDiarioState extends State<PantallaDiario> {
           constraints: const BoxConstraints(maxWidth: 1100),
           child: Column(
             children: [
+              if (colegios.length > 1)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                  child: _FiltroColegio(
+                    colegios: colegios,
+                    valor: sel,
+                    onCambio: _elegirColegio,
+                  ),
+                ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                 child: _Pestanas(
@@ -94,6 +141,112 @@ class _PantallaDiarioState extends State<PantallaDiario> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Colegio elegido en Mi diario y los colores de cada colegio, para que las
+/// pestañas filtren y pinten sin pasar los datos de mano en mano.
+class FiltroDiario extends InheritedWidget {
+  final int? colegio;
+  final List<Colegio> colegios;
+  const FiltroDiario({
+    super.key,
+    required this.colegio,
+    required this.colegios,
+    required super.child,
+  });
+
+  static FiltroDiario? de(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<FiltroDiario>();
+
+  /// Hay más de un colegio: vale la pena decir de cuál es cada cosa.
+  bool get varios => colegios.length > 1;
+
+  Color colorDe(int? id) =>
+      id == null ? KipuColores.morado : colorColegio(colegios, id);
+
+  String? nombreDe(int? id) =>
+      colegios.where((c) => c.id == id).firstOrNull?.nombre;
+
+  /// ¿Se ve algo de [id] con el filtro actual? (null = de todos los colegios)
+  bool muestra(int? id) => colegio == null || id == null || id == colegio;
+
+  @override
+  bool updateShouldNotify(FiltroDiario old) =>
+      old.colegio != colegio || old.colegios != colegios;
+}
+
+/// Fila de colegios: «Todos» y uno por colegio con su color.
+class _FiltroColegio extends StatelessWidget {
+  final List<Colegio> colegios;
+  final int? valor;
+  final ValueChanged<int?> onCambio;
+  const _FiltroColegio({
+    required this.colegios,
+    required this.valor,
+    required this.onCambio,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    Widget chip(int? id, String texto, Color color) {
+      final activo = id == valor;
+      return Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: Material(
+          color: activo ? color : Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(30),
+            onTap: () => onCambio(id),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (id != null) ...[
+                    Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: activo ? Colors.white : color,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 220),
+                    child: Text(
+                      texto,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                        color: activo ? Colors.white : KipuColores.tinta,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 40,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          chip(null, 'Todos los colegios', KipuColores.tinta),
+          for (final c in colegios)
+            chip(c.id, c.nombre, colorColegio(colegios, c.id)),
+        ],
       ),
     );
   }
@@ -318,13 +471,14 @@ class _CalendarioState extends State<_Calendario> {
             ],
           ),
           const SizedBox(height: 6),
-          StreamBuilder<Set<String>>(
-            stream: db.verFechasConEventos(
+          StreamBuilder<Map<String, Set<int?>>>(
+            stream: db.verMarcas(
               claveFecha(_mes),
               claveFecha(DateTime(_mes.year, _mes.month, dias)),
             ),
             builder: (context, snap) {
-              final con = snap.data ?? const <String>{};
+              final filtro = FiltroDiario.de(context);
+              final con = snap.data ?? const <String, Set<int?>>{};
               return Column(
                 children: [
                   for (var f = 0; f < filas; f++)
@@ -341,7 +495,11 @@ class _CalendarioState extends State<_Calendario> {
                                 final d = DateTime(_mes.year, _mes.month, n);
                                 final elegido = d == widget.dia;
                                 final esHoy = d == hoy;
-                                final marca = con.contains(claveFecha(d));
+                                // Un punto por colegio (máx. 3), en su color.
+                                final marcas = [
+                                  for (final id in con[claveFecha(d)] ?? const <int?>{})
+                                    if (filtro?.muestra(id) ?? true) id,
+                                ].take(3).toList();
                                 return Padding(
                                   padding: const EdgeInsets.all(2),
                                   child: Material(
@@ -379,16 +537,30 @@ class _CalendarioState extends State<_Calendario> {
                                               ),
                                             ),
                                             const SizedBox(height: 3),
-                                            Container(
-                                              width: 5,
+                                            SizedBox(
                                               height: 5,
-                                              decoration: BoxDecoration(
-                                                shape: BoxShape.circle,
-                                                color: marca
-                                                    ? (elegido
-                                                          ? Colors.white
-                                                          : base)
-                                                    : Colors.transparent,
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  for (final id in marcas)
+                                                    Container(
+                                                      width: 5,
+                                                      height: 5,
+                                                      margin:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 1,
+                                                          ),
+                                                      decoration: BoxDecoration(
+                                                        shape: BoxShape.circle,
+                                                        color: elegido
+                                                            ? Colors.white
+                                                            : (filtro?.colorDe(
+                                                                    id,
+                                                                  ) ??
+                                                                  base),
+                                                      ),
+                                                    ),
+                                                ],
                                               ),
                                             ),
                                           ],
@@ -419,23 +591,51 @@ class _DetalleDia extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final k = claveFecha(dia);
-    return StreamBuilder<List<Evento>>(
+    final filtro = FiltroDiario.de(context);
+    bool ve(int? colegio) => filtro?.muestra(colegio) ?? true;
+    return StreamBuilder<List<CursoConColegio>>(
+      stream: db.verCursos(),
+      builder: (context, cu) {
+        final colegioDe = {
+          for (final c in cu.data ?? const <CursoConColegio>[])
+            c.curso.id: c.colegio.id,
+        };
+        int? colegioEvento(Evento e) =>
+            e.colegioId ?? (e.cursoId == null ? null : colegioDe[e.cursoId]);
+        return StreamBuilder<List<Evento>>(
       stream: db.verEventos(k),
       builder: (context, ev) {
-        final eventos = ev.data ?? const <Evento>[];
-        final feriado = eventos.any((e) => e.tipo == 'feriado');
+        final todos = ev.data ?? const <Evento>[];
+        final eventos = [
+          for (final e in todos)
+            if (ve(colegioEvento(e))) e,
+        ];
+        // Feriado: sin clases en su colegio (o en todos si no tiene).
+        final feriados = {
+          for (final e in todos)
+            if (e.tipo == 'feriado') colegioEvento(e),
+        };
+        bool sinClases(int colegio) =>
+            feriados.contains(null) || feriados.contains(colegio);
+        final feriado = feriados.isNotEmpty &&
+            (feriados.contains(null) ||
+                (filtro?.colegio != null &&
+                    feriados.contains(filtro!.colegio)));
         return StreamBuilder<List<(Horario, CursoConColegio)>>(
           stream: db.verClasesDelDia(dia.weekday),
           builder: (context, cl) {
-            final clases = feriado
-                ? const <(Horario, CursoConColegio)>[]
-                : (cl.data ?? const []);
+            final clases = [
+              for (final (h, c) in cl.data ?? const <(Horario, CursoConColegio)>[])
+                if (ve(c.colegio.id) && !sinClases(c.colegio.id)) (h, c),
+            ];
             return StreamBuilder<List<Pendiente>>(
               stream: db.verPendientes(),
               builder: (context, pe) {
                 final pendientes = [
                   for (final p in pe.data ?? const <Pendiente>[])
-                    if (p.vence == k) p,
+                    if (p.vence == k &&
+                        ve(p.cursoId == null ? null : colegioDe[p.cursoId]))
+                      p,
                 ];
                 final vacio =
                     eventos.isEmpty && clases.isEmpty && pendientes.isEmpty;
@@ -512,6 +712,8 @@ class _DetalleDia extends StatelessWidget {
         );
       },
     );
+      },
+    );
   }
 }
 
@@ -543,8 +745,11 @@ class _FilaEvento extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = Color(colorTipoEvento(e.tipo));
     final cumple = e.tipo == 'cumple';
+    final filtro = FiltroDiario.de(context);
     final extras = [
       nombreTipoEvento(e.tipo),
+      if (filtro != null && filtro.varios && filtro.colegio == null)
+        ?filtro.nombreDe(e.colegioId),
       if (e.etiqueta != null) e.etiqueta!,
       if (e.repetir != null)
         opcionesRepetir.firstWhere((x) => x.$1 == e.repetir).$2,
@@ -638,7 +843,8 @@ class _FilaClase extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = KipuColores.morado;
+    final color =
+        FiltroDiario.de(context)?.colorDe(c.colegio.id) ?? KipuColores.morado;
     return InkWell(
       borderRadius: BorderRadius.circular(12),
       onTap: () => anotarClase(context, curso: c, fecha: dia),
@@ -650,7 +856,7 @@ class _FilaClase extends StatelessWidget {
               width: 4,
               height: 36,
               decoration: BoxDecoration(
-                color: Color.lerp(color, Colors.white, .5),
+                color: color,
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
@@ -885,40 +1091,106 @@ class BotonFecha extends StatelessWidget {
   }
 }
 
-/// Lista desplegable de cursos (opcional).
+/// Lista desplegable de cursos (opcional), agrupada por colegio. Con
+/// [colegioId] solo muestra los cursos de ese colegio.
 class ElegirCurso extends StatelessWidget {
   final int? cursoId;
   final ValueChanged<int?> onCambio;
   final String vacio;
+  final int? colegioId;
+
+  /// Avisa el colegio del curso elegido (para completar otros campos).
+  final ValueChanged<int?>? onColegio;
   const ElegirCurso({
     super.key,
     required this.cursoId,
     required this.onCambio,
     this.vacio = 'Sin curso',
+    this.colegioId,
+    this.onColegio,
   });
 
   @override
   Widget build(BuildContext context) => StreamBuilder<List<CursoConColegio>>(
     stream: db.verCursos(),
     builder: (context, snap) {
-      final cursos = snap.data ?? const <CursoConColegio>[];
+      final todos = snap.data ?? const <CursoConColegio>[];
+      final cursos = [
+        for (final c in todos)
+          if (colegioId == null || c.colegio.id == colegioId) c,
+      ]..sort((a, b) => a.colegio.nombre.compareTo(b.colegio.nombre));
+      final varios = {for (final c in cursos) c.colegio.id}.length > 1;
       final valido = cursos.any((c) => c.curso.id == cursoId);
-      return DropdownButtonFormField<int?>(
-        initialValue: valido ? cursoId : null,
-        isExpanded: true,
-        decoration: const InputDecoration(isDense: true),
-        items: [
-          DropdownMenuItem(value: null, child: Text(vacio)),
-          for (final c in cursos)
+      final items = <DropdownMenuItem<int?>>[
+        DropdownMenuItem(value: null, child: Text(vacio)),
+      ];
+      int? ultimo;
+      for (final c in cursos) {
+        if (varios && c.colegio.id != ultimo) {
+          ultimo = c.colegio.id;
+          // Encabezado del colegio (no se puede elegir).
+          items.add(
             DropdownMenuItem(
-              value: c.curso.id,
+              value: -c.colegio.id,
+              enabled: false,
+              child: Text(
+                c.colegio.nombre.toUpperCase(),
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: .5,
+                  color: KipuColores.gris,
+                ),
+              ),
+            ),
+          );
+        }
+        items.add(
+          DropdownMenuItem(
+            value: c.curso.id,
+            child: Padding(
+              padding: EdgeInsets.only(left: varios ? 10 : 0),
               child: Text(
                 '${c.curso.nombre} · ${c.curso.grado} ${c.curso.seccion}',
                 overflow: TextOverflow.ellipsis,
               ),
             ),
+          ),
+        );
+      }
+      return DropdownButtonFormField<int?>(
+        key: ValueKey('curso-$colegioId-${valido ? cursoId : null}'),
+        initialValue: valido ? cursoId : null,
+        isExpanded: true,
+        decoration: const InputDecoration(isDense: true),
+        items: items,
+        selectedItemBuilder: (context) => [
+          for (final i in items)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                i.value == null
+                    ? vacio
+                    : (() {
+                        final c = cursos
+                            .where((x) => x.curso.id == i.value)
+                            .firstOrNull;
+                        return c == null
+                            ? ''
+                            : '${c.curso.nombre} · ${c.curso.grado} ${c.curso.seccion}'
+                                  '${varios ? ' · ${c.colegio.nombre}' : ''}';
+                      })(),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
         ],
-        onChanged: onCambio,
+        onChanged: (v) {
+          onCambio(v);
+          onColegio?.call(
+            todos.where((c) => c.curso.id == v).firstOrNull?.colegio.id,
+          );
+        },
       );
     },
   );
@@ -930,15 +1202,21 @@ Future<void> editarEvento(
   BuildContext context, {
   Evento? evento,
   DateTime? fecha,
+  int? colegioId,
 }) => hojaDiario(
   context,
-  _EditorEvento(evento: evento, fecha: fecha ?? DateTime.now()),
+  _EditorEvento(
+    evento: evento,
+    fecha: fecha ?? DateTime.now(),
+    colegioId: colegioId,
+  ),
 );
 
 class _EditorEvento extends StatefulWidget {
   final Evento? evento;
   final DateTime fecha;
-  const _EditorEvento({this.evento, required this.fecha});
+  final int? colegioId;
+  const _EditorEvento({this.evento, required this.fecha, this.colegioId});
 
   @override
   State<_EditorEvento> createState() => _EditorEventoState();
@@ -954,6 +1232,7 @@ class _EditorEventoState extends State<_EditorEvento> {
   late int? _recordar = widget.evento == null ? 10 : widget.evento!.recordar;
   late String? _repetir = _e?.repetir;
   late int? _curso = _e?.cursoId;
+  late int? _colegio = _e == null ? widget.colegioId : _e!.colegioId;
   String? _error;
 
   @override
@@ -979,6 +1258,7 @@ class _EditorEventoState extends State<_EditorEvento> {
         recordar: Value(_recordar),
         repetir: Value(_repetir),
         cursoId: Value(_curso),
+        colegioId: Value(_colegio),
         detalle: Value(
           _detalle.text.trim().isEmpty ? null : _detalle.text.trim(),
         ),
@@ -1101,10 +1381,44 @@ class _EditorEventoState extends State<_EditorEvento> {
           valor: _repetir,
           onCambio: (v) => setState(() => _repetir = v),
         ),
+        StreamBuilder<List<Colegio>>(
+          stream: db.verColegios(),
+          builder: (context, snap) {
+            final colegios = snap.data ?? const <Colegio>[];
+            if (colegios.length < 2) return const SizedBox.shrink();
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                RotuloDiario(
+                  _tipo == 'feriado'
+                      ? 'Colegio · sin clases solo en el elegido'
+                      : 'Colegio',
+                ),
+                ChipsDiario<int?>(
+                  opciones: [
+                    (null, 'Todos'),
+                    for (final c in colegios) (c.id, c.nombre),
+                  ],
+                  valor: _colegio,
+                  colorDe: (id) =>
+                      id == null ? null : colorColegio(colegios, id),
+                  onCambio: (v) => setState(() {
+                    _colegio = v;
+                    _curso = null;
+                  }),
+                ),
+              ],
+            );
+          },
+        ),
         const RotuloDiario('Curso (opcional)'),
         ElegirCurso(
           cursoId: _curso,
+          colegioId: _colegio,
           onCambio: (v) => setState(() => _curso = v),
+          onColegio: (c) {
+            if (c != null) setState(() => _colegio = c);
+          },
         ),
         const SizedBox(height: 10),
         TextField(
@@ -1195,10 +1509,23 @@ class _PendientesState extends State<_Pendientes> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<Pendiente>>(
+    final filtro = FiltroDiario.de(context);
+    return StreamBuilder<List<CursoConColegio>>(
+      stream: db.verCursos(),
+      builder: (context, cu) {
+        final colegioDe = {
+          for (final c in cu.data ?? const <CursoConColegio>[])
+            c.curso.id: c.colegio.id,
+        };
+        return StreamBuilder<List<Pendiente>>(
       stream: db.verPendientes(),
       builder: (context, snap) {
-        final todos = snap.data ?? const <Pendiente>[];
+        final todos = [
+          for (final p in snap.data ?? const <Pendiente>[])
+            if (filtro?.muestra(p.cursoId == null ? null : colegioDe[p.cursoId]) ??
+                true)
+              p,
+        ];
         final porHacer = [for (final p in todos) if (!p.hecho) p];
         final hechos = [for (final p in todos) if (p.hecho) p];
         return ListView(
@@ -1276,6 +1603,8 @@ class _PendientesState extends State<_Pendientes> {
         );
       },
     );
+      },
+    );
   }
 }
 
@@ -1346,12 +1675,19 @@ class _FilaPendiente extends StatelessWidget {
   }
 }
 
-Future<void> editarPendiente(BuildContext context, {Pendiente? pendiente}) =>
-    hojaDiario(context, _EditorPendiente(pendiente: pendiente));
+Future<void> editarPendiente(
+  BuildContext context, {
+  Pendiente? pendiente,
+  int? colegioId,
+}) => hojaDiario(
+  context,
+  _EditorPendiente(pendiente: pendiente, colegioId: colegioId),
+);
 
 class _EditorPendiente extends StatefulWidget {
   final Pendiente? pendiente;
-  const _EditorPendiente({this.pendiente});
+  final int? colegioId;
+  const _EditorPendiente({this.pendiente, this.colegioId});
 
   @override
   State<_EditorPendiente> createState() => _EditorPendienteState();
@@ -1410,7 +1746,11 @@ class _EditorPendienteState extends State<_EditorPendiente> {
         onCambio: (f) => setState(() => _vence = f),
       ),
       const RotuloDiario('Curso (opcional)'),
-      ElegirCurso(cursoId: _curso, onCambio: (v) => setState(() => _curso = v)),
+      ElegirCurso(
+        cursoId: _curso,
+        colegioId: _p == null ? widget.colegioId : null,
+        onCambio: (v) => setState(() => _curso = v),
+      ),
       const SizedBox(height: 18),
       Row(
         children: [

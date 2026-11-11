@@ -125,6 +125,50 @@ extension DiarioDb on KipuDb {
   /// Todos los eventos (para calcular los avisos).
   Stream<List<Evento>> verTodosEventos() => select(eventos).watch();
 
+  /// Días del rango con algo en la agenda: {fecha: colegios}. null en el
+  /// conjunto = evento para todos los colegios.
+  Stream<Map<String, Set<int?>>> verMarcas(String desde, String hasta) =>
+      customSelect(
+        'SELECT 1',
+        readsFrom: {eventos, estudiantes, cursos},
+      ).watch().asyncMap((_) async {
+        final r = <String, Set<int?>>{};
+        final evs = await (select(eventos)
+              ..where(
+                (e) =>
+                    e.fecha.isBetweenValues(desde, hasta) |
+                    (e.repetir.isNotNull() &
+                        e.fecha.isSmallerOrEqualValue(hasta)),
+              ))
+            .get();
+        final cumples = await estudiantesConCumple();
+        final cursosColegio = {
+          for (final c in await select(cursos).get()) c.id: c.colegioId,
+        };
+        for (
+          var d = DateTime.parse(desde);
+          !d.isAfter(DateTime.parse(hasta));
+          d = DateTime(d.year, d.month, d.day + 1)
+        ) {
+          final k =
+              '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+          for (final e in evs) {
+            if (ocurreEl(e.fecha, e.repetir, k)) {
+              (r[k] ??= {}).add(
+                e.colegioId ?? (e.cursoId == null ? null : cursosColegio[e.cursoId]),
+              );
+            }
+          }
+          for (final (e, c) in cumples) {
+            if (e.nacimiento!.length >= 10 &&
+                e.nacimiento!.substring(5) == k.substring(5)) {
+              (r[k] ??= {}).add(c.colegioId);
+            }
+          }
+        }
+        return r;
+      });
+
   // Pendientes
 
   Stream<List<Pendiente>> verPendientes() =>
