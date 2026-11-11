@@ -30,6 +30,7 @@ enum KipuIcono {
   cerrar,
   check,
   abajo,
+  arriba,
   flecha,
   agregar,
   borrar,
@@ -189,6 +190,8 @@ const _svg = <KipuIcono, String>{
 <path d="m5 12.5 4.5 4.5L19 7.5" stroke="T"/>''',
   KipuIcono.abajo: '''
 <path d="m7 10 5 5 5-5" stroke="T"/>''',
+  KipuIcono.arriba: '''
+<path d="m7 14 5-5 5 5" stroke="T"/>''',
   KipuIcono.flecha: '''
 <path d="M5 12h14M13 6l6 6-6 6" stroke="T"/>''',
   KipuIcono.agregar: '''
