@@ -12,6 +12,7 @@ import 'asistencia.dart';
 import 'config_academica.dart';
 import 'configuracion.dart';
 import 'cursos.dart';
+import 'diario.dart';
 import 'evaluacion.dart' show PantallaEvaluacion;
 import 'horario.dart';
 import 'horario_datos.dart';
@@ -62,10 +63,7 @@ final _secciones = <_Seccion>[
   _Seccion(
     'Mi diario',
     KipuIcono.diario,
-    () => const Proximamente(
-      'Mi diario',
-      'Anecdotario y observaciones por estudiante.',
-    ),
+    () => const PantallaDiario(),
   ),
   _Seccion(
     'Planificación',

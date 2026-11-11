@@ -1,14 +1,35 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'data/colores_notas.dart';
 import 'data/database.dart';
+import 'data/recordatorios.dart';
 import 'screens/bienvenida.dart';
 import 'screens/shell.dart';
 import 'theme.dart';
 
 final db = KipuDb();
+
+/// Para mostrar los avisos de Mi diario sobre cualquier pantalla.
+final mensajero = GlobalKey<ScaffoldMessengerState>();
+
+void _mostrarAviso() {
+  final a = recordatorios.enApp.value;
+  if (a == null) return;
+  mensajero.currentState
+    ?..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 12),
+        behavior: SnackBarBehavior.floating,
+        content: Text('${a.titulo}\n${a.cuerpo}'),
+        action: SnackBarAction(label: 'OK', onPressed: () {}),
+      ),
+    );
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,6 +38,9 @@ Future<void> main() async {
   coloresNotas.value = ColoresNotas.deTexto(
     await db.leerAjuste(claveColoresNotas),
   );
+  // Los avisos no deben impedir que abra la app.
+  recordatorios.enApp.addListener(_mostrarAviso);
+  unawaited(recordatorios.iniciar(db).catchError((_) {}));
   runApp(const KipuApp());
 }
 
@@ -30,6 +54,7 @@ class KipuApp extends StatelessWidget {
       builder: (context, estilo, _) => MaterialApp(
         key: ValueKey(estilo.id), // reconstruye todo al cambiar de color
         title: 'Kipu Docente',
+        scaffoldMessengerKey: mensajero,
         debugShowCheckedModeBanner: false,
         theme: kipuTema(),
         locale: const Locale('es', 'PE'),
