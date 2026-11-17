@@ -50,8 +50,12 @@ class _PantallaCopiasState extends State<PantallaCopias> {
   }
 
   Future<void> _leerLocales() async {
-    final l = await listarLocal();
-    if (mounted) setState(() => _locales = l);
+    try {
+      final l = await listarLocal();
+      if (mounted) setState(() => _locales = l);
+    } catch (_) {
+      // Sin carpeta disponible: se muestra vacío.
+    }
   }
 
   void _aviso(String t, {bool error = false}) {
