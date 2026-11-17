@@ -5,6 +5,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'data/colores_notas.dart';
+import 'data/copias.dart';
 import 'data/cuenta.dart';
 import 'data/database.dart';
 import 'data/recordatorios.dart';
@@ -43,6 +44,8 @@ Future<void> main() async {
   // Los avisos no deben impedir que abra la app.
   recordatorios.enApp.addListener(_mostrarAviso);
   unawaited(recordatorios.iniciar(db).catchError((_) {}));
+  // Copias de seguridad automáticas (y Google Drive si está conectado).
+  unawaited(copias.iniciar(db).catchError((_) {}));
   runApp(const KipuApp());
 }
 

@@ -1,0 +1,33 @@
+name: Verificar Android
+
+# El APK tarda: solo se prueba si cambian cosas de Android o los paquetes.
+# El resto del código lo revisa «Verificar» (más rápido).
+on:
+  pull_request:
+    paths:
+      - 'android/**'
+      - 'pubspec.yaml'
+      - '.github/workflows/verificar-android.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: verificar-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: dart run build_runner build --delete-conflicting-outputs
+      - name: Compila el APK
+        run: flutter build apk --release --target-platform android-arm64
