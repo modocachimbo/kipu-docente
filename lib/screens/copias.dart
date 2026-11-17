@@ -998,8 +998,14 @@ class _AjustesCopias extends StatelessWidget {
             const SizedBox(height: 8),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Mantener todas las copias en Google Drive'),
-              subtitle: const Text('No se borra ninguna; ocupa más espacio en tu Drive.'),
+              title: const Text(
+                'Mantener todas las copias en Google Drive',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+              ),
+              subtitle: const Text(
+                'No se borra ninguna; ocupa más espacio en tu Drive.',
+                style: TextStyle(fontSize: 12.5, color: KipuColores.gris),
+              ),
               value: a.todasEnDrive,
               onChanged: (v) => copias.cambiarAjustes(a.copiar(todasEnDrive: v)),
             ),
