@@ -55,7 +55,23 @@ jobs:
           cache: true
       - run: flutter pub get
       - run: dart run build_runner build --delete-conflicting-outputs
+      # Llave fija del APK (secretos del repositorio). Si no están, usa la de prueba.
+      - name: Llave del APK
+        env:
+          LLAVE: ${{ secrets.KIPU_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$LLAVE" ]; then
+            echo "$LLAVE" | base64 -d > "$RUNNER_TEMP/kipu.jks"
+            echo "KIPU_KEYSTORE_PATH=$RUNNER_TEMP/kipu.jks" >> "$GITHUB_ENV"
+            echo "Firmando con la llave de Kipu"
+          else
+            echo "::warning::Sin llave KIPU_KEYSTORE_BASE64: se firma con la llave de prueba"
+          fi
       - run: flutter build apk --release --split-per-abi
+        env:
+          KIPU_KEYSTORE_PASSWORD: ${{ secrets.KIPU_KEYSTORE_PASSWORD }}
+          KIPU_KEY_ALIAS: ${{ secrets.KIPU_KEY_ALIAS }}
+          KIPU_KEY_PASSWORD: ${{ secrets.KIPU_KEY_PASSWORD }}
       - name: Publicar APK en la versión "ultima"
         env:
           GH_TOKEN: ${{ github.token }}

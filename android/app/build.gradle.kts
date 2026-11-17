@@ -32,11 +32,24 @@ android {
         versionName = flutter.versionName
     }
 
+    // Llave fija del APK: la ponen los secretos de GitHub (KIPU_KEYSTORE_*).
+    // Sin ellos (por ejemplo en una PC) se firma con la llave de pruebas.
+    val llave = System.getenv("KIPU_KEYSTORE_PATH")
+    signingConfigs {
+        if (llave != null && file(llave).exists()) {
+            create("kipu") {
+                storeFile = file(llave)
+                storePassword = System.getenv("KIPU_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KIPU_KEY_ALIAS")
+                keyPassword = System.getenv("KIPU_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("kipu")
+                ?: signingConfigs.getByName("debug")
         }
     }
 }

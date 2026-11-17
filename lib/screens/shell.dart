@@ -11,6 +11,7 @@ import '../widgets/ventana.dart';
 import 'asistencia.dart';
 import 'config_academica.dart';
 import 'configuracion.dart';
+import 'copias.dart';
 import 'cursos.dart';
 import 'diario.dart';
 import 'evaluacion.dart' show PantallaEvaluacion;
@@ -18,7 +19,6 @@ import 'horario.dart';
 import 'horario_datos.dart';
 import 'inicio.dart';
 import 'planificacion.dart';
-import 'proximamente.dart';
 import 'reportes.dart';
 
 class _Seccion {
@@ -90,10 +90,7 @@ final _secciones = <_Seccion>[
   _Seccion(
     'Sincronizar',
     KipuIcono.copia,
-    () => const Proximamente(
-      'Sincronizar',
-      'Guarda y recupera tus datos desde tu Google Drive.',
-    ),
+    () => const PantallaCopias(),
   ),
 ];
 

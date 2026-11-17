@@ -1,0 +1,41 @@
+name: Capturas
+
+# Genera capturas de pantalla (tool/capturas) y las deja en la rama «capturas».
+on:
+  push:
+    branches: ['claude/**']
+    paths:
+      - 'tool/capturas/**'
+      - '.github/workflows/capturas.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: capturas-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  capturas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: dart run build_runner build --delete-conflicting-outputs
+      - run: flutter test tool/capturas --update-goldens
+      - name: Subir a la rama capturas
+        run: |
+          mkdir -p /tmp/c && cp tool/capturas/*.png /tmp/c/
+          git config user.name "Kipu capturas"
+          git config user.email "capturas@users.noreply.github.com"
+          git checkout --orphan capturas
+          git rm -rfq .
+          cp /tmp/c/*.png .
+          git add *.png
+          git commit -qm "Capturas de ${GITHUB_SHA::7}"
+          git push -f origin capturas
