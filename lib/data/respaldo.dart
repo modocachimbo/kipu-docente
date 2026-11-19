@@ -16,11 +16,14 @@ const formatoCopia = 'kipu-copia';
 const extensionCopia = 'kipu';
 
 /// Ajustes que son de este equipo y no viajan en la copia (ni se pisan al
-/// restaurar): la sesión, la cuenta, el plan y el estado de las copias.
+/// restaurar): la sesión, la cuenta, el plan, el estado de las copias y el
+/// PIN y tamaño de letra de este equipo.
 bool ajusteLocal(String clave) =>
     clave == 'sesion' ||
     clave == 'cuenta' ||
     clave == 'plan' ||
+    clave == 'pin' ||
+    clave == 'tamano_letra' ||
     clave.startsWith('respaldo_');
 
 /// Datos de una copia, sin abrirla entera.

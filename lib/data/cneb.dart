@@ -783,3 +783,29 @@ final List<Instrumento> coleccionCneb = () {
 Set<(String, String)> get competenciasConInstrumentos => {
   for (final d in _defs) (d.comp, d.nivel),
 };
+
+/// Un criterio (capacidad) de una competencia en un nivel: qué se evalúa,
+/// qué hace el estudiante cuando lo logra y qué suma en el logro destacado.
+class CriterioCneb {
+  final String criterio;
+  final String logro;
+  final String destacado;
+  const CriterioCneb(this.criterio, this.logro, this.destacado);
+}
+
+/// Criterios de [competencia] en [nivel] y la evidencia sugerida, o null si
+/// la colección no trae contenido para ese nivel.
+(String evidencia, List<CriterioCneb> criterios)? criteriosCneb(
+  String competencia,
+  String nivel,
+) {
+  for (final d in _defs) {
+    if (d.comp == competencia && d.nivel == nivel) {
+      return (
+        d.evidencia,
+        [for (final c in d.caps) CriterioCneb(c.criterio, c.hace, c.mas)],
+      );
+    }
+  }
+  return null;
+}

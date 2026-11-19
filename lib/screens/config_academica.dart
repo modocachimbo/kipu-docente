@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../data/academico.dart';
+import '../data/columnas.dart';
 import '../data/paises.dart';
 import '../main.dart';
 import '../theme.dart';
@@ -9,6 +10,7 @@ import '../widgets/calendario_rango.dart';
 import '../widgets/kipu_icono.dart';
 import '../widgets/selector_color.dart';
 import '../widgets/ventana.dart';
+import 'competencias.dart';
 import 'evaluacion.dart' show PantallaEvaluacion;
 
 /// Configuración académica: año escolar, periodos y escalas de calificación,
@@ -158,13 +160,33 @@ class _Contenido extends StatelessWidget {
         icono: KipuIcono.diana,
         titulo: 'Competencias y criterios',
         resumen: 'Del ${pais.curriculo} por área',
-        estado: const _Estado('Próximamente', _TipoEstado.pronto),
+        estado: const _Estado('Listo', _TipoEstado.listo),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PantallaCompetencias(curriculo: pais.curriculo),
+          ),
+        ),
       ),
-      const _Tarjeta(
-        icono: KipuIcono.promedio,
-        titulo: 'Promedio y redondeo',
-        resumen: 'Pesos, nota aprobatoria y redondeo',
-        estado: _Estado('Próximamente', _TipoEstado.pronto),
+      StreamBuilder<String?>(
+        stream: db.verAjuste(claveColumnaDefecto),
+        builder: (context, snap) {
+          final d = columnaPorDefecto(snap.data);
+          final aprueba = porDefecto?.aprueba;
+          return _Tarjeta(
+            icono: KipuIcono.promedio,
+            titulo: 'Promedio y redondeo',
+            resumen: [
+              d.decimales == 0
+                  ? 'Sin decimales'
+                  : '${d.decimales} decimal${d.decimales > 1 ? 'es' : ''}',
+              'redondeo ${d.redondeo.nombre.toLowerCase()}',
+              if (aprueba != null) 'aprueba con ${_numero(aprueba)}',
+            ].join(' · '),
+            estado: const _Estado('Listo', _TipoEstado.listo),
+            onTap: () => editarPromedio(context, c),
+          );
+        },
       ),
     ];
     return LayoutBuilder(
@@ -292,7 +314,7 @@ class _Aviso extends StatelessWidget {
   }
 }
 
-enum _TipoEstado { listo, falta, pronto }
+enum _TipoEstado { listo, falta }
 
 class _Estado {
   final String texto;
@@ -320,7 +342,6 @@ class _Tarjeta extends StatelessWidget {
     final (fondo, texto) = switch (estado.tipo) {
       _TipoEstado.listo => (const Color(0xFFDCF5EC), const Color(0xFF0E7A5F)),
       _TipoEstado.falta => (const Color(0xFFFFF1DB), const Color(0xFFB86E00)),
-      _TipoEstado.pronto => (const Color(0xFFF0EEF6), KipuColores.gris),
     };
     return Opacity(
       opacity: onTap == null ? .7 : 1,
@@ -1137,4 +1158,119 @@ class _BotonesVentana extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Decimales, redondeo y «mostrar letra» que traen las columnas nuevas del
+/// registro, y la nota aprobatoria de cada escala numérica (solo lectura:
+/// se cambia en la escala).
+Future<void> editarPromedio(BuildContext context, ConfigAcademica c) async {
+  var cfg = columnaPorDefecto(await db.leerAjuste(claveColumnaDefecto));
+  if (!context.mounted) return;
+  final numericas = [for (final e in c.escalas) if (e.numerica) e];
+  Widget etiqueta(String t) => Padding(
+    padding: const EdgeInsets.fromLTRB(2, 14, 0, 8),
+    child: Text(
+      t,
+      style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+    ),
+  );
+  await showDialog<void>(
+    context: context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setState) => Ventana(
+        icono: KipuIcono.promedio,
+        titulo: 'Promedio y redondeo',
+        subtitulo: 'Para las columnas nuevas del registro',
+        contenido: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Así saldrán las notas numéricas y los promedios de las '
+              'columnas que crees desde ahora. Cada columna lo puede cambiar '
+              'en «Más opciones».',
+              style: TextStyle(fontSize: 13, color: KipuColores.gris),
+            ),
+            etiqueta('Decimales'),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final d in const [0, 1, 2])
+                  ChoiceChip(
+                    label: Text(
+                      d == 0
+                          ? 'Sin decimales'
+                          : '$d decimal${d > 1 ? 'es' : ''}',
+                    ),
+                    selected: cfg.decimales == d,
+                    onSelected: (_) =>
+                        setState(() => cfg = cfg.copiar(decimales: d)),
+                  ),
+              ],
+            ),
+            etiqueta('Redondeo'),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final r in Redondeo.values)
+                  ChoiceChip(
+                    label: Text(r.nombre),
+                    selected: cfg.redondeo == r,
+                    onSelected: (_) =>
+                        setState(() => cfg = cfg.copiar(redondeo: r)),
+                  ),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 6, left: 2),
+              child: Text(
+                'Ejemplo: ${ejemploRedondeo(cfg.decimales, cfg.redondeo)}',
+                style: const TextStyle(fontSize: 12.5, color: KipuColores.gris),
+              ),
+            ),
+            const SizedBox(height: 6),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: cfg.mostrarLetra,
+              onChanged: (v) => setState(() => cfg = cfg.copiar(mostrarLetra: v)),
+              title: const Text(
+                'Mostrar también la letra',
+                style: TextStyle(fontSize: 14.5),
+              ),
+              subtitle: const Text(
+                'En notas numéricas: «16 · A»',
+                style: TextStyle(fontSize: 12.5, color: KipuColores.gris),
+              ),
+            ),
+            if (numericas.isNotEmpty) ...[
+              etiqueta('Nota aprobatoria'),
+              for (final e in numericas)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    '${e.nombre}: '
+                    '${e.aprueba == null ? 'sin nota aprobatoria' : 'aprueba con ${_numero(e.aprueba!)}'}',
+                    style: const TextStyle(fontSize: 13.5),
+                  ),
+                ),
+              const Text(
+                'Para otra nota aprobatoria crea una escala nueva en '
+                '«Escalas de calificación».',
+                style: TextStyle(fontSize: 12.5, color: KipuColores.gris),
+              ),
+            ],
+            const SizedBox(height: 18),
+            _BotonesVentana(
+              texto: 'Guardar',
+              onGuardar: () async {
+                await db.guardarAjuste(claveColumnaDefecto, cfg.aTexto());
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }

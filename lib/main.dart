@@ -8,9 +8,11 @@ import 'data/colores_notas.dart';
 import 'data/copias.dart';
 import 'data/cuenta.dart';
 import 'data/database.dart';
+import 'data/preferencias.dart';
 import 'data/recordatorios.dart';
 import 'screens/bienvenida.dart';
 import 'screens/entrada.dart';
+import 'screens/mas_ajustes.dart' show PantallaBloqueo;
 import 'screens/shell.dart';
 import 'theme.dart';
 
@@ -38,6 +40,9 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('es_PE');
   estiloActual.value = estiloPorId(await db.leerAjuste('estilo'));
+  escalaLetra.value = escalaDeTexto(await db.leerAjuste(claveLetra));
+  appBloqueada.value =
+      await db.hayPin() && await db.leerAjuste(claveSesion) == '1';
   coloresNotas.value = ColoresNotas.deTexto(
     await db.leerAjuste(claveColoresNotas),
   );
@@ -69,7 +74,76 @@ class KipuApp extends StatelessWidget {
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
         ],
+        builder: (context, child) => _Envoltura(child: child!),
         home: const _Puerta(),
+      ),
+    );
+  }
+}
+
+/// Tamaño de letra elegido y bloqueo con PIN (Configuración › Más ajustes).
+class _Envoltura extends StatefulWidget {
+  final Widget child;
+  const _Envoltura({required this.child});
+
+  @override
+  State<_Envoltura> createState() => _EnvolturaState();
+}
+
+class _EnvolturaState extends State<_Envoltura> with WidgetsBindingObserver {
+  DateTime? _salio;
+  final _sesion = db.verSesion();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Si Kipu estuvo en segundo plano más de un minuto, vuelve a pedir el PIN.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState estado) {
+    if (estado == AppLifecycleState.paused) {
+      _salio ??= DateTime.now();
+    } else if (estado == AppLifecycleState.resumed) {
+      final salio = _salio;
+      _salio = null;
+      if (salio != null &&
+          DateTime.now().difference(salio) > const Duration(minutes: 1)) {
+        db.hayPin().then((hay) {
+          if (hay) appBloqueada.value = true;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<double>(
+      valueListenable: escalaLetra,
+      builder: (context, escala, _) => MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(escala)),
+        child: ValueListenableBuilder<bool>(
+          valueListenable: appBloqueada,
+          builder: (context, bloqueada, _) => StreamBuilder<bool>(
+            stream: _sesion,
+            builder: (context, sesion) => Stack(
+              children: [
+                widget.child,
+                if (bloqueada && sesion.data == true)
+                  const Positioned.fill(child: PantallaBloqueo()),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

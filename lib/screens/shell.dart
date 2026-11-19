@@ -438,27 +438,108 @@ class _MenuLateralState extends State<_MenuLateral> {
               ],
             ),
           ),
-          _item('Ayuda', KipuIcono.ayuda, false, () {
-            showDialog(
-              context: context,
-              builder: (ctx) => AlertDialog(
-                title: const Text('Ayuda'),
-                content: const Text(
-                  'Kipu guarda todo en este dispositivo y funciona sin internet. '
-                  'Empieza en "Mis cursos" creando tu colegio, o carga datos de '
-                  'ejemplo desde "Configuración > General" para explorar.',
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: const Text('Entendido'),
-                  ),
-                ],
-              ),
-            );
-          }),
+          _item('Ayuda', KipuIcono.ayuda, false, () => mostrarAyuda(context)),
         ],
       ),
     );
   }
+}
+
+/// Guía corta de cada sección, desde «Ayuda» del menú.
+Future<void> mostrarAyuda(BuildContext context) {
+  const temas = [
+    (
+      KipuIcono.cursos,
+      'Empieza en Mis cursos',
+      'Crea tu colegio, sus cursos y secciones, y agrega a tus estudiantes '
+          '(a mano o pegando la lista).',
+    ),
+    (
+      KipuIcono.estrella,
+      'Configura tu año',
+      'En Configuración › Académica pon las fechas del año y de los periodos, '
+          'y elige tu escala de notas.',
+    ),
+    (
+      KipuIcono.asistencia,
+      'Asistencia',
+      'Toca a cada estudiante para marcar presente, tarde o falta. Desde ahí '
+          'descargas el PDF o Excel del mes o del periodo.',
+    ),
+    (
+      KipuIcono.notas,
+      'Registro y evaluación',
+      'Abre un curso para poner notas. Con el botón + agregas columnas a mano, '
+          'con instrumento, de asistencia, participación o promedios.',
+    ),
+    (
+      KipuIcono.horario,
+      'Horario y planificación',
+      'Arma tu horario por colegio y planifica unidades y sesiones; el '
+          'Dashboard te muestra tu próxima clase.',
+    ),
+    (
+      KipuIcono.reportes,
+      'Reportes',
+      'Resumen por curso y periodo, quién necesita apoyo y descargas para '
+          'entregar al colegio.',
+    ),
+    (
+      KipuIcono.copia,
+      'Tus datos',
+      'Kipu guarda todo en este equipo y funciona sin internet. Haz copias en '
+          'Sincronizar para no perder nada.',
+    ),
+  ];
+  return showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Ayuda'),
+      content: SizedBox(
+        width: 460,
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            for (final (icono, titulo, texto) in temas)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 14),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    KipuIcon(icono, size: 24, color: KipuColores.morado),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            titulo,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            texto,
+                            style: const TextStyle(
+                              fontSize: 13.5,
+                              height: 1.35,
+                              color: KipuColores.gris,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('Entendido'),
+        ),
+      ],
+    ),
+  );
 }

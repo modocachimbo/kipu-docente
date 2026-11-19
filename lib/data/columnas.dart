@@ -142,6 +142,21 @@ class ConfigColumna {
   String aTexto() => jsonEncode(aJson());
 }
 
+/// Ajuste (en Ajustes) con los decimales, el redondeo y «mostrar letra» que
+/// traen las columnas nuevas. Se elige en Configuración académica › Promedio
+/// y redondeo; cada columna lo puede cambiar después.
+const claveColumnaDefecto = 'columna_defecto';
+
+/// Solo lo que se hereda de [claveColumnaDefecto].
+ConfigColumna columnaPorDefecto(String? v) {
+  final c = ConfigColumna.deTexto(v);
+  return ConfigColumna(
+    decimales: c.decimales,
+    redondeo: c.redondeo,
+    mostrarLetra: c.mostrarLetra,
+  );
+}
+
 /// Redondea con los decimales y el modo de la columna.
 double redondear(double n, int decimales, Redondeo modo) {
   final f = math.pow(10, decimales).toDouble();
