@@ -4,6 +4,7 @@ import '../data/cuenta.dart';
 import '../data/demo.dart';
 import '../data/diario_db.dart';
 import '../data/legal.dart';
+import '../data/preferencias.dart';
 import '../main.dart';
 import '../theme.dart';
 import '../widgets/kipu_icono.dart';
@@ -11,6 +12,7 @@ import 'bienvenida.dart' show EditarPerfil;
 import 'cuenta.dart';
 import 'cursos.dart' show confirmar;
 import 'diario.dart' show ajustesAvisos;
+import 'mas_ajustes.dart';
 
 /// Configuración › General: cómo se ve y se comporta Kipu. Los datos del
 /// docente y su plan están en Mi perfil (la foto del Dashboard).
@@ -112,14 +114,21 @@ class Configuracion extends StatelessWidget {
                         );
                       },
                     ),
-                    _Tarjeta(
-                      icono: KipuIcono.ajustes,
-                      titulo: 'Más ajustes',
-                      texto:
-                          'Modo oscuro, tamaño de letra, PIN, registro de notas '
-                          'y asistente IA',
-                      etiqueta: 'Próximamente',
-                      gris: true,
+                    StreamBuilder<bool>(
+                      stream: db.verHayPin(),
+                      builder: (context, pin) => ValueListenableBuilder<double>(
+                        valueListenable: escalaLetra,
+                        builder: (context, escala, _) => _Tarjeta(
+                          icono: KipuIcono.ajustes,
+                          titulo: 'Más ajustes',
+                          texto: 'Tamaño de letra y bloqueo con PIN',
+                          etiqueta: [
+                            'Letra ${tamanosLetra.firstWhere((t) => (t.$2 - escala).abs() < .01, orElse: () => tamanosLetra[1]).$1.toLowerCase()}',
+                            pin.data == true ? 'con PIN' : 'sin PIN',
+                          ].join(' · '),
+                          onTap: () => ir(const MasAjustes()),
+                        ),
+                      ),
                     ),
                   ]),
                   grupo('TUS DATOS', [

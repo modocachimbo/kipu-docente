@@ -4211,8 +4211,11 @@ class _FormColumnaState extends State<_FormColumna> {
       _cfg.recupera != null ||
       _cfg.bloqueada ||
       _cfg.ocultaEnDescarga ||
-      _cfg.decimales != 0 ||
-      _cfg.redondeo != Redondeo.normal;
+      _cfg.decimales != _defecto.decimales ||
+      _cfg.redondeo != _defecto.redondeo;
+
+  /// Decimales y redondeo por defecto (de la configuración académica).
+  ConfigColumna _defecto = const ConfigColumna();
 
   String _codigoSugerido() => codigoLibre(
     prefijoCodigo(_modo, instrumento: _ins?.tipo),
@@ -4257,6 +4260,22 @@ class _FormColumnaState extends State<_FormColumna> {
       _cargarInstrumento(col.id);
       db.leerConfigColumna(col.id).then((c) {
         if (mounted) setState(() => _cfg = c);
+      });
+    } else {
+      // Las nuevas traen los decimales y el redondeo de Configuración
+      // académica › Promedio y redondeo.
+      db.leerAjuste(claveColumnaDefecto).then((v) {
+        final d = columnaPorDefecto(v);
+        if (mounted) {
+          setState(() {
+            _defecto = d;
+            _cfg = _cfg.copiar(
+              decimales: d.decimales,
+              redondeo: d.redondeo,
+              mostrarLetra: d.mostrarLetra,
+            );
+          });
+        }
       });
     }
   }
